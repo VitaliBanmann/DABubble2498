@@ -1,9 +1,12 @@
-import { Injectable } from '@angular/core';
+import { Inject, Injectable, PLATFORM_ID, Optional } from '@angular/core';
+import { isPlatformBrowser } from '@angular/common';
+import { Auth } from '@angular/fire/auth';
 import { 
-  getAuth, 
-  Auth, 
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
+  signInWithPopup,
+  signInAnonymously,
+  GoogleAuthProvider,
   signOut,
   onAuthStateChanged,
   User
@@ -14,21 +17,33 @@ import { BehaviorSubject, Observable } from 'rxjs';
   providedIn: 'root'
 })
 export class AuthService {
-  private auth: Auth = getAuth();
   private currentUserSubject: BehaviorSubject<User | null> = new BehaviorSubject<User | null>(null);
   public currentUser$: Observable<User | null> = this.currentUserSubject.asObservable();
 
-  constructor() {
-    this.initAuthState();
+  constructor(
+    @Inject(PLATFORM_ID) private readonly platformId: object,
+    @Optional() private readonly auth: Auth | null
+  ) {
+    if (isPlatformBrowser(this.platformId) && this.auth) {
+      this.initAuthState();
+    }
   }
 
   private initAuthState(): void {
+    if (!this.auth) {
+      return;
+    }
+
     onAuthStateChanged(this.auth, (user) => {
       this.currentUserSubject.next(user);
     });
   }
 
   registerWithEmailAndPassword(email: string, password: string): Promise<void> {
+    if (!this.auth) {
+      return Promise.reject(new Error('Auth is not available on the server.'));
+    }
+
     return createUserWithEmailAndPassword(this.auth, email, password)
       .then(() => {
         console.log('User registered successfully');
@@ -40,6 +55,10 @@ export class AuthService {
   }
 
   loginWithEmailAndPassword(email: string, password: string): Promise<void> {
+    if (!this.auth) {
+      return Promise.reject(new Error('Auth is not available on the server.'));
+    }
+
     return signInWithEmailAndPassword(this.auth, email, password)
       .then(() => {
         console.log('User logged in successfully');
@@ -50,7 +69,46 @@ export class AuthService {
       });
   }
 
+  loginWithGoogle(): Promise<void> {
+    if (!this.auth) {
+      return Promise.reject(new Error('Auth is not available on the server.'));
+    }
+
+    const provider = new GoogleAuthProvider();
+    provider.setCustomParameters({ prompt: 'select_account' });
+    provider.addScope('email');
+    provider.addScope('profile');
+
+    return signInWithPopup(this.auth, provider)
+      .then(() => {
+        console.log('User logged in with Google successfully');
+      })
+      .catch((error) => {
+        console.error('Google popup login error:', error);
+        throw error;
+      });
+  }
+
+  loginAsGuest(): Promise<void> {
+    if (!this.auth) {
+      return Promise.reject(new Error('Auth is not available on the server.'));
+    }
+
+    return signInAnonymously(this.auth)
+      .then(() => {
+        console.log('User logged in as guest successfully');
+      })
+      .catch((error) => {
+        console.error('Guest login error:', error);
+        throw error;
+      });
+  }
+
   logout(): Promise<void> {
+    if (!this.auth) {
+      return Promise.reject(new Error('Auth is not available on the server.'));
+    }
+
     return signOut(this.auth)
       .then(() => {
         console.log('User logged out successfully');
