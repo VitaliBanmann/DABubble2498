@@ -1,0 +1,125 @@
+<div class="legal-page">
+  <div class="max-width-container">
+    <header class="page-header">
+      <a routerLink="/" class="back-link">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+        </svg>
+        Zurück
+      </a>
+      <h1>Datenschutzerklärung</h1>
+    </header>
+
+    <section class="legal-content">
+      <h2>1. Datenschutz auf einen Blick</h2>
+      
+      <h3>Allgemeine Hinweise</h3>
+      <p>
+        Die folgenden Hinweise geben einen einfachen Überblick darüber, was mit Ihren 
+        personenbezogenen Daten passiert, wenn Sie diese Website besuchen. Personenbezogene 
+        Daten sind alle Daten, mit denen Sie persönlich identifiziert werden können.
+      </p>
+
+      <h3>Datenerfassung auf dieser Website</h3>
+      <p>
+        <strong>Wer ist verantwortlich für die Datenerfassung auf dieser Website?</strong><br>
+        Die Datenverarbeitung auf dieser Website erfolgt durch den Websitebetreiber. 
+        Dessen Kontaktdaten können Sie dem Impressum dieser Website entnehmen.
+      </p>
+
+      <div class="team-section">
+        <h3>Verantwortliche Personen</h3>
+        @for (member of teamMembers; track $index) {
+          <div class="team-member">
+            <strong>Verantwortlich {{ $index + 1 }}:</strong><br>
+            <span class="placeholder">Name: [{{ member.name || 'Vorname Nachname' }}]</span><br>
+            <span class="placeholder">E-Mail: [{{ member.email || 'email@beispiel.de' }}]</span>
+          </div>
+        }
+      </div>
+
+      <h2>2. Hosting und Content Delivery Networks (CDN)</h2>
+      
+      <h3>Firebase (Google)</h3>
+      <p>
+        Wir hosten unsere Website bei Firebase, einem Service der Google Ireland Limited 
+        („Google"), Gordon House, Barrow Street, Dublin 4, Irland.
+      </p>
+      <p>
+        Details entnehmen Sie der Datenschutzerklärung von Firebase: 
+        <a href="https://firebase.google.com/support/privacy" target="_blank" rel="noopener">
+          https://firebase.google.com/support/privacy
+        </a>
+      </p>
+
+      <h2>3. Allgemeine Hinweise und Pflichtinformationen</h2>
+      
+      <h3>Datenschutz</h3>
+      <p>
+        Die Betreiber dieser Seiten nehmen den Schutz Ihrer persönlichen Daten sehr ernst. 
+        Wir behandeln Ihre personenbezogenen Daten vertraulich und entsprechend der 
+        gesetzlichen Datenschutzvorschriften sowie dieser Datenschutzerklärung.
+      </p>
+
+      <h3>SSL- bzw. TLS-Verschlüsselung</h3>
+      <p>
+        Diese Seite nutzt aus Sicherheitsgründen und zum Schutz der Übertragung vertraulicher 
+        Inhalte eine SSL-bzw. TLS-Verschlüsselung. Eine verschlüsselte Verbindung erkennen Sie 
+        daran, dass die Adresszeile des Browsers von „http://" auf „https://" wechselt.
+      </p>
+
+      <h2>4. Datenerfassung auf dieser Website</h2>
+      
+      <h3>Registrierung auf dieser Website</h3>
+      <p>
+        Sie können sich auf dieser Website registrieren, um zusätzliche Funktionen zu nutzen. 
+        Die dazu eingegebenen Daten verwenden wir nur zum Zwecke der Nutzung des jeweiligen 
+        Angebotes oder Dienstes, für den Sie sich registriert haben.
+      </p>
+
+      <h3>Welche Daten speichern wir?</h3>
+      <ul>
+        <li>E-Mail-Adresse (für Login und Kommunikation)</li>
+        <li>Passwort (verschlüsselt gespeichert)</li>
+        <li>Profilbild (optional)</li>
+        <li>Chat-Nachrichten und Kanaldaten</li>
+      </ul>
+
+      <h2>5. Ihre Rechte</h2>
+      
+      <h3>Auskunftsrecht</h3>
+      <p>
+        Sie haben das Recht, jederzeit Auskunft über Ihre bei uns gespeicherten 
+        personenbezogenen Daten zu erhalten.
+      </p>
+
+      <h3>Recht auf Löschung</h3>
+      <p>
+        Sie haben das Recht, die Löschung Ihrer bei uns gespeicherten personenbezogenen 
+        Daten zu verlangen, soweit nicht die weitere Verarbeitung erforderlich ist.
+      </p>
+
+      <h3>Widerspruchsrecht</h3>
+      <p>
+        Sie haben das Recht, aus Gründen, die sich aus Ihrer besonderen Situation ergeben, 
+        jederzeit gegen die Verarbeitung Sie betreffender personenbezogener Daten Widerspruch 
+        einzulegen.
+      </p>
+
+      <h2>6. Analyse-Tools und Tools von Drittanbietern</h2>
+      
+      <h3>Firebase Analytics</h3>
+      <p>
+        Diese Website nutzt Firebase Analytics zur Analyse des Nutzerverhaltens. Firebase 
+        Analytics verwendet „Cookies", die eine Analyse der Benutzung der Website durch Sie 
+        ermöglichen.
+      </p>
+
+      <p class="contact-info">
+        <strong>Fragen zum Datenschutz?</strong><br>
+        Bei Fragen zum Datenschutz wenden Sie sich bitte an: 
+        <span class="placeholder">[datenschutz&#64;da-bubble.de]</span>
+      </p>
+    </section>
+  </div>
+</div>

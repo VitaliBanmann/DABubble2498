@@ -1,0 +1,62 @@
+<div class="legal-page">
+  <div class="max-width-container">
+    <header class="page-header">
+      <a routerLink="/" class="back-link">
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
+          <path d="M15.41 7.41L14 6l-6 6 6 6 1.41-1.41L10.83 12z"/>
+        </svg>
+        Zurück
+      </a>
+      <h1>Impressum</h1>
+    </header>
+
+    <section class="legal-content">
+      <h2>Angaben gemäß § 5 TMG</h2>
+      
+      <div class="team-section">
+        <h3>Projektteam DA Bubble</h3>
+        @for (member of teamMembers; track $index) {
+          <div class="team-member">
+            <strong>Verantwortlich {{ $index + 1 }}:</strong><br>
+            <span class="placeholder">Name: [{{ member.name || 'Vorname Nachname' }}]</span><br>
+            <span class="placeholder">E-Mail: [{{ member.email || 'email@beispiel.de' }}]</span>
+          </div>
+        }
+      </div>
+
+      <h2>Kontakt</h2>
+      <p>
+        E-Mail: <span class="placeholder">[kontakt&#64;da-bubble.de]</span><br>
+        Telefon: <span class="placeholder">[+49 (0) 123 456789]</span>
+      </p>
+
+      <h2>Haftungsausschluss</h2>
+      
+      <h3>Haftung für Inhalte</h3>
+      <p>
+        Die Inhalte unserer Seiten wurden mit größter Sorgfalt erstellt. 
+        Für die Richtigkeit, Vollständigkeit und Aktualität der Inhalte 
+        können wir jedoch keine Gewähr übernehmen. Als Diensteanbieter sind wir gemäß 
+        § 7 Abs.1 TMG für eigene Inhalte auf diesen Seiten nach den allgemeinen 
+        Gesetzen verantwortlich.
+      </p>
+
+      <h3>Haftung für Links</h3>
+      <p>
+        Unser Angebot enthält Links zu externen Webseiten Dritter, auf deren 
+        Inhalte wir keinen Einfluss haben. Deshalb können wir für diese fremden 
+        Inhalte auch keine Gewähr übernehmen. Für die Inhalte der verlinkten 
+        Seiten ist stets der jeweilige Anbieter oder Betreiber der Seiten verantwortlich.
+      </p>
+
+      <h3>Urheberrecht</h3>
+      <p>
+        Die durch die Seitenbetreiber erstellten Inhalte und Werke auf diesen 
+        Seiten unterliegen dem deutschen Urheberrecht. Die Vervielfältigung, 
+        Bearbeitung, Verbreitung und jede Art der Verwertung außerhalb der 
+        Grenzen des Urheberrechtes bedürfen der schriftlichen Zustimmung des 
+        jeweiligen Autors bzw. Erstellers.
+      </p>
+    </section>
+  </div>
+</div>
