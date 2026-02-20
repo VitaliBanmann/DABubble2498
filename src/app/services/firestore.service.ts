@@ -28,7 +28,7 @@ export class FirestoreService {
    */
   addDocument<T>(collectionName: string, data: T): Observable<string> {
     return from(
-      addDoc(collection(this.firestore, collectionName), data).then(
+      addDoc(collection(this.firestore, collectionName), data as any).then(
         (docRef) => docRef.id
       )
     );

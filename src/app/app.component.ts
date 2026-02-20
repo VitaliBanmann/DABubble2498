@@ -1,4 +1,4 @@
-import { Component } from '@angular/core';
+import { Component, NgZone, ChangeDetectorRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
@@ -22,7 +22,9 @@ export class AppComponent {
   constructor(
     private readonly formBuilder: FormBuilder,
     private readonly authService: AuthService,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly ngZone: NgZone,
+    private readonly cdr: ChangeDetectorRef
   ) {
     this.loginForm = this.formBuilder.group({
       email: ['', [Validators.required, Validators.email]],
@@ -30,10 +32,27 @@ export class AppComponent {
       rememberMe: [false]
     });
 
+    // Clear auth cache if on root path (fresh login)
+    if (window.location.pathname === '/' || window.location.pathname === '') {
+      console.log('[DEBUG] Clearing cache - on root path');
+      localStorage.clear();
+      sessionStorage.clear();
+    }
+    console.log('[DEBUG] AppComponent init - window.location:', {
+      pathname: window.location.pathname,
+      routerUrl: this.router.url
+    });
+
     // Hide splash screen after animation
+    console.log('[DEBUG] Starting 3800ms timeout...');
     setTimeout(() => {
+      console.log('[DEBUG] TIMEOUT FIRED!');
       this.showSplash = false;
-    }, 3500);
+      this.cdr.detectChanges();
+      console.log('[DEBUG] showSplash set to false, change detection triggered');
+      console.log('[DEBUG] Current values:', { showSplash: this.showSplash, showAuthScreen: this.showAuthScreen });
+    }, 3800);
+    console.log('[DEBUG] Timeout scheduled, current showSplash:', this.showSplash);
 
     this.updateAuthScreenVisibility(this.router.url);
 
@@ -43,20 +62,50 @@ export class AppComponent {
       }
     });
 
-    this.authService.currentUser$.subscribe((user) => {
-      if (!user) {
-        return;
-      }
+    // Delay to allow splash animation to finish
+    setTimeout(() => {
+      console.log('[DEBUG] Auth subscription starting...');
+      this.authService.currentUser$.subscribe((user) => {
+        console.log('[DEBUG] currentUser$ fired:', user?.email ?? 'null');
+        if (!user) {
+          console.log('[DEBUG] No user, staying on login screen');
+          return;
+        }
 
-      if (this.router.url === '/' || this.router.url === '') {
-        this.router.navigateByUrl('/home');
-      }
-    });
+        if (this.router.url === '/' || this.router.url === '') {
+          console.log('[DEBUG] User logged in, redirecting to /avatar-select');
+          this.router.navigateByUrl('/avatar-select');
+        }
+      });
+    }, 4000);
   }
 
   private updateAuthScreenVisibility(url: string): void {
-    const pathname = (url || '').split('?')[0];
-    this.showAuthScreen = pathname === '/' || pathname === '';
+    const pathname = this.normalizePathname(url);
+    const appRouteSegment = pathname.split('/').filter(Boolean).at(-1) ?? '';
+    const isAppContentRoute = ['home', 'impressum', 'datenschutz'].includes(appRouteSegment);
+    this.showAuthScreen = !isAppContentRoute;
+    
+    console.log('[DEBUG] updateAuthScreenVisibility:', {
+      url,
+      pathname,
+      appRouteSegment,
+      isAppContentRoute,
+      showAuthScreen: this.showAuthScreen
+    });
+  }
+
+  private normalizePathname(url: string): string {
+    const rawPath = (url || '').split('?')[0].trim();
+
+    if (!rawPath || rawPath === '/') {
+      return '/';
+    }
+
+    const withoutIndex = rawPath.replace(/\/index\.html$/i, '');
+    const withoutTrailingSlash = withoutIndex.replace(/\/+$/, '');
+
+    return withoutTrailingSlash || '/';
   }
 
   async onSubmit(mode: 'login' | 'register'): Promise<void> {

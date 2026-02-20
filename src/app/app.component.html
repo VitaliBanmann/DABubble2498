@@ -1,8 +1,11 @@
 <div class="splash-screen" *ngIf="showAuthScreen && showSplash">
-  <img src="assets/pictures/Logo.svg" alt="DA Bubble" class="splash-logo" />
+  <div class="splash-brand">
+    <img src="assets/pictures/Logo.svg" alt="DA Bubble" class="splash-logo" />
+    <span class="splash-wordmark">DA-Bubble</span>
+  </div>
 </div>
 
-<main class="auth-page" *ngIf="showAuthScreen" [class.hidden]="showSplash">
+<main class="auth-page" *ngIf="showAuthScreen" [class.visible]="!showSplash">
   <header class="page-header">
     <div class="brand">
       <img class="brand-logo" src="assets/pictures/Logo.svg" alt="DA Bubble Logo" />
