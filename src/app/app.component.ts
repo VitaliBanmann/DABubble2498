@@ -1,4 +1,4 @@
-import { Component, NgZone, ChangeDetectorRef } from '@angular/core';
+import { Component } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
@@ -13,104 +13,77 @@ import { AuthService } from './services/auth.service';
 })
 export class AppComponent {
   showSplash = true;
-  showAuthScreen = true;
+  showAuthScreen = true; // Default: ALWAYS show auth screen
+  isRegisterMode = false; // Toggle between login and register
+  showLoginPassword = false; // Toggle password visibility for login
+  showRegisterPassword = false; // Toggle password visibility for register
   loginForm;
+  registerForm;
   isSubmitting = false;
   errorMessage = '';
   successMessage = '';
+  currentDomain = typeof window !== 'undefined' ? window.location.origin : 'unknown';
 
   constructor(
     private readonly formBuilder: FormBuilder,
     private readonly authService: AuthService,
-    private readonly router: Router,
-    private readonly ngZone: NgZone,
-    private readonly cdr: ChangeDetectorRef
+    private readonly router: Router
   ) {
+    console.log('[INIT] AppComponent constructor - showAuthScreen:', this.showAuthScreen);
+    
     this.loginForm = this.formBuilder.group({
       email: ['', [Validators.required, Validators.email]],
       password: ['', [Validators.required, Validators.minLength(6)]],
       rememberMe: [false]
     });
 
-    // Clear auth cache if on root path (fresh login)
-    if (window.location.pathname === '/' || window.location.pathname === '') {
-      console.log('[DEBUG] Clearing cache - on root path');
-      localStorage.clear();
-      sessionStorage.clear();
-    }
-    console.log('[DEBUG] AppComponent init - window.location:', {
-      pathname: window.location.pathname,
-      routerUrl: this.router.url
+    this.registerForm = this.formBuilder.group({
+      fullName: ['', Validators.required],
+      email: ['', [Validators.required, Validators.email]],
+      password: ['', [Validators.required, Validators.minLength(6)]],
+      privacyAccepted: [false, Validators.requiredTrue]
     });
 
     // Hide splash screen after animation
-    console.log('[DEBUG] Starting 3800ms timeout...');
     setTimeout(() => {
-      console.log('[DEBUG] TIMEOUT FIRED!');
       this.showSplash = false;
-      this.cdr.detectChanges();
-      console.log('[DEBUG] showSplash set to false, change detection triggered');
-      console.log('[DEBUG] Current values:', { showSplash: this.showSplash, showAuthScreen: this.showAuthScreen });
+      console.log('[TIMEOUT 3800ms] showSplash set to false');
     }, 3800);
-    console.log('[DEBUG] Timeout scheduled, current showSplash:', this.showSplash);
 
-    this.updateAuthScreenVisibility(this.router.url);
-
-    this.router.events.subscribe((event) => {
-      if (event instanceof NavigationEnd) {
-        this.updateAuthScreenVisibility(event.urlAfterRedirects);
+    // Track auth state changes
+    this.authService.currentUser$.subscribe((user) => {
+      console.log('[AUTH STATE] User changed:', user?.email ?? 'null (not logged in)');
+      console.log('[AUTH STATE] Current showAuthScreen:', this.showAuthScreen);
+      console.log('[AUTH STATE] Current router.url:', this.router.url);
+      
+      // If user is logged in AND on home/protected route → hide auth screen
+      // Otherwise → always show auth screen
+      const isOnProtectedRoute = ['/home', '/impressum', '/datenschutz'].some(route =>
+        this.router.url.startsWith(route)
+      );
+      
+      if (user && isOnProtectedRoute) {
+        console.log('[AUTH STATE] User authenticated + on protected route → hiding auth screen');
+        this.showAuthScreen = false;
+      } else {
+        console.log('[AUTH STATE] User NOT authenticated or on auth route → showing auth screen');
+        this.showAuthScreen = true;
       }
     });
 
-    // Delay to allow splash animation to finish
-    setTimeout(() => {
-      console.log('[DEBUG] Auth subscription starting...');
-      this.authService.currentUser$.subscribe((user) => {
-        console.log('[DEBUG] currentUser$ fired:', user?.email ?? 'null');
-        if (!user) {
-          console.log('[DEBUG] No user, staying on login screen');
-          return;
-        }
-
-        if (this.router.url === '/' || this.router.url === '') {
-          console.log('[DEBUG] User logged in, redirecting to /avatar-select');
-          this.router.navigateByUrl('/avatar-select');
-        }
-      });
-    }, 4000);
-  }
-
-  private updateAuthScreenVisibility(url: string): void {
-    const pathname = this.normalizePathname(url);
-    const appRouteSegment = pathname.split('/').filter(Boolean).at(-1) ?? '';
-    const isAppContentRoute = ['home', 'impressum', 'datenschutz'].includes(appRouteSegment);
-    this.showAuthScreen = !isAppContentRoute;
-    
-    console.log('[DEBUG] updateAuthScreenVisibility:', {
-      url,
-      pathname,
-      appRouteSegment,
-      isAppContentRoute,
-      showAuthScreen: this.showAuthScreen
+    // Also update on route changes
+    this.router.events.subscribe((event) => {
+      if (event instanceof NavigationEnd) {
+        console.log('[ROUTE CHANGE]', event.urlAfterRedirects);
+      }
     });
   }
 
-  private normalizePathname(url: string): string {
-    const rawPath = (url || '').split('?')[0].trim();
-
-    if (!rawPath || rawPath === '/') {
-      return '/';
-    }
-
-    const withoutIndex = rawPath.replace(/\/index\.html$/i, '');
-    const withoutTrailingSlash = withoutIndex.replace(/\/+$/, '');
-
-    return withoutTrailingSlash || '/';
-  }
-
   async onSubmit(mode: 'login' | 'register'): Promise<void> {
-    if (this.loginForm.invalid) {
-      this.loginForm.markAllAsTouched();
+    const form = mode === 'login' ? this.loginForm : this.registerForm;
+    
+    if (form.invalid) {
+      form.markAllAsTouched();
       return;
     }
 
@@ -118,16 +91,19 @@ export class AppComponent {
     this.errorMessage = '';
     this.successMessage = '';
 
-    const email = this.loginForm.value.email ?? '';
-    const password = this.loginForm.value.password ?? '';
+    const email = (form.value.email ?? '').trim().toLowerCase();
+    const password = form.value.password ?? '';
 
     try {
       if (mode === 'login') {
         await this.authService.loginWithEmailAndPassword(email, password);
         this.successMessage = 'Erfolgreich angemeldet.';
+        this.isRegisterMode = false;
       } else {
+        // Register with sanitized data
         await this.authService.registerWithEmailAndPassword(email, password);
         this.successMessage = 'Konto wurde erstellt. Du bist jetzt angemeldet.';
+        this.isRegisterMode = false;
       }
     } catch (error) {
       this.errorMessage = mode === 'login'
@@ -144,6 +120,22 @@ export class AppComponent {
 
   get passwordControl() {
     return this.loginForm.controls.password;
+  }
+
+  get fullNameControl() {
+    return this.registerForm.controls.fullName;
+  }
+
+  get registerEmailControl() {
+    return this.registerForm.controls.email;
+  }
+
+  get registerPasswordControl() {
+    return this.registerForm.controls.password;
+  }
+
+  get privacyControl() {
+    return this.registerForm.controls.privacyAccepted;
   }
 
   async onGoogleLogin(): Promise<void> {

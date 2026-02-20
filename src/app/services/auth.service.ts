@@ -44,7 +44,19 @@ export class AuthService {
       return Promise.reject(new Error('Auth is not available on the server.'));
     }
 
-    return createUserWithEmailAndPassword(this.auth, email, password)
+    // Security: trim and normalize email
+    const normalizedEmail = (email ?? '').trim().toLowerCase();
+
+    // Validate before sending to Firebase
+    if (!normalizedEmail || normalizedEmail.length > 254) {
+      return Promise.reject(new Error('Invalid email address'));
+    }
+
+    if (!password || password.length < 6 || password.length > 128) {
+      return Promise.reject(new Error('Invalid password'));
+    }
+
+    return createUserWithEmailAndPassword(this.auth, normalizedEmail, password)
       .then(() => {
         console.log('User registered successfully');
       })
@@ -59,7 +71,10 @@ export class AuthService {
       return Promise.reject(new Error('Auth is not available on the server.'));
     }
 
-    return signInWithEmailAndPassword(this.auth, email, password)
+    // Security: trim and normalize email
+    const normalizedEmail = (email ?? '').trim().toLowerCase();
+
+    return signInWithEmailAndPassword(this.auth, normalizedEmail, password)
       .then(() => {
         console.log('User logged in successfully');
       })
@@ -74,17 +89,44 @@ export class AuthService {
       return Promise.reject(new Error('Auth is not available on the server.'));
     }
 
+    console.log('[GOOGLE AUTH] Starting Google OAuth flow...');
+    console.log('[GOOGLE AUTH] Current domain:', window.location.origin);
+    console.log('[GOOGLE AUTH] Auth domain from Firebase:', this.auth.config?.authDomain);
+
     const provider = new GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
     provider.addScope('email');
     provider.addScope('profile');
 
+    console.log('[GOOGLE AUTH] Provider created with scopes: email, profile');
+
     return signInWithPopup(this.auth, provider)
-      .then(() => {
-        console.log('User logged in with Google successfully');
+      .then((result) => {
+        console.log('[GOOGLE AUTH] ✅ User logged in with Google successfully');
+        console.log('[GOOGLE AUTH] User:', result.user.email);
       })
       .catch((error) => {
-        console.error('Google popup login error:', error);
+        console.error('[GOOGLE AUTH] ❌ Google popup login error:', error.code, error.message);
+        
+        // More specific error debugging
+        switch (error.code) {
+          case 'auth/popup-closed-by-user':
+            console.error('[GOOGLE AUTH] Popup was closed by user or blocked by browser');
+            break;
+          case 'auth/popup-blocked':
+            console.error('[GOOGLE AUTH] Popup was blocked - check browser popup settings');
+            break;
+          case 'auth/operation-not-allowed':
+            console.error('[GOOGLE AUTH] Operation not allowed - check Firebase settings');
+            break;
+          case 'auth/unauthorized-domain':
+            console.error('[GOOGLE AUTH] Current domain not authorized in Firebase');
+            console.error('[GOOGLE AUTH] Current domain:', window.location.origin);
+            break;
+          default:
+            console.error('[GOOGLE AUTH] Unknown error:', error);
+        }
+        
         throw error;
       });
   }
