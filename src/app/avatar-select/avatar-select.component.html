@@ -1,0 +1,50 @@
+<div class="avatar-page">
+  <div class="avatar-card">
+    <button class="back-button" type="button" aria-label="Zurück">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <path d="M19 12H5M12 19l-7-7 7-7"/>
+      </svg>
+    </button>
+
+    <h1 class="avatar-title">Wähle deinen Avatar</h1>
+
+    <div class="current-avatar">
+      <img [src]="currentAvatarPath" [alt]="userName" class="avatar-preview" />
+      <p class="user-name">{{ userName }}</p>
+      <p class="avatar-subtitle">Aus der Liste wählen</p>
+    </div>
+
+    <div class="avatar-list">
+      <button
+        *ngFor="let avatar of avatars"
+        type="button"
+        class="avatar-option"
+        [class.selected]="selectedAvatarId === avatar.id"
+        (click)="selectAvatar(avatar.id)"
+        [attr.title]="avatar.name"
+      >
+        <img [src]="'assets/pictures/' + avatar.path" [alt]="avatar.name" />
+      </button>
+
+      <button
+        type="button"
+        class="avatar-add"
+        (click)="triggerFileUpload()"
+        title="Eigenes Foto hochladen"
+      >
+        <svg viewBox="0 0 24 24" fill="currentColor">
+          <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/>
+        </svg>
+      </button>
+    </div>
+
+    <button
+      type="button"
+      class="continue-button"
+      (click)="onContinue()"
+      [disabled]="isLoading || !selectedAvatarId"
+    >
+      {{ isLoading ? 'Wird gespeichert...' : 'Weiter' }}
+    </button>
+  </div>
+</div>
