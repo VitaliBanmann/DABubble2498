@@ -1,26 +1,26 @@
 .sidebar {
-  height: 100%;
-  padding: 16px;
+    height: 100%;
+    padding: 16px;
 }
 
 .sidebar__section {
-  margin-top: 18px;
+    margin-top: 18px;
 }
 
 .sidebar__title {
-  font-size: 12px;
-  opacity: 0.6;
-  margin-bottom: 10px;
+    font-size: 12px;
+    opacity: 0.6;
+    margin-bottom: 10px;
 }
 
 a {
-  display: block;
-  padding: 10px 12px;
-  border-radius: 10px;
-  text-decoration: none;
-  color: #111;
+    display: block;
+    padding: 10px 12px;
+    border-radius: 10px;
+    text-decoration: none;
+    color: #111;
 }
 
 a.active {
-  background: #eef0ff;
+    background: #eef0ff;
 }

@@ -6,19 +6,24 @@ import { UiStateService } from '../../services/ui-state.service';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 
-
 @Component({
-  selector: 'app-shell',
-  standalone: true,
-  imports: [CommonModule, RouterOutlet, SidebarComponent, TopbarComponent, MatIconModule],
-  templateUrl: './shell.component.html',
-  styleUrl: './shell.component.scss',
+    selector: 'app-shell',
+    standalone: true,
+    imports: [
+        CommonModule,
+        RouterOutlet,
+        SidebarComponent,
+        TopbarComponent,
+        MatIconModule,
+    ],
+    templateUrl: './shell.component.html',
+    styleUrl: './shell.component.scss',
 })
 export class ShellComponent {
-  constructor(public readonly ui: UiStateService) {}
+    constructor(public readonly ui: UiStateService) {}
 
-  readonly classes = computed(() => ({
-    'sidebar-open': this.ui.isSidebarOpen(),
-    'thread-open': this.ui.isThreadOpen(),
-  }));
+    readonly classes = computed(() => ({
+        'sidebar-open': this.ui.isSidebarOpen(),
+        'thread-open': this.ui.isThreadOpen(),
+    }));
 }

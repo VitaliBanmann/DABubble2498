@@ -9,25 +9,27 @@ import { environment } from './environments/environment';
 
 // Global error handler for debugging
 if (typeof window !== 'undefined') {
-  window.addEventListener('error', (event) => {
-    console.error('[GLOBAL ERROR HANDLER] Uncaught error:', event.error);
-    console.error('[GLOBAL ERROR HANDLER] Error message:', event.message);
-    console.error('[GLOBAL ERROR HANDLER] File:', event.filename);
-    console.error('[GLOBAL ERROR HANDLER] Line:', event.lineno);
-  });
+    window.addEventListener('error', (event) => {
+        console.error('[GLOBAL ERROR HANDLER] Uncaught error:', event.error);
+        console.error('[GLOBAL ERROR HANDLER] Error message:', event.message);
+        console.error('[GLOBAL ERROR HANDLER] File:', event.filename);
+        console.error('[GLOBAL ERROR HANDLER] Line:', event.lineno);
+    });
 
-  window.addEventListener('unhandledrejection', (event) => {
-    console.error('[GLOBAL REJECTION HANDLER] Unhandled promise rejection:', event.reason);
-  });
+    window.addEventListener('unhandledrejection', (event) => {
+        console.error(
+            '[GLOBAL REJECTION HANDLER] Unhandled promise rejection:',
+            event.reason,
+        );
+    });
 }
 
 bootstrapApplication(AppComponent, {
-  providers: [
-    ...appConfig.providers,
-    provideFirebaseApp(() => initializeApp(environment.firebase)),
-    provideAuth(() => getAuth()),
-    provideFirestore(() => getFirestore()),
-    provideAnalytics(() => getAnalytics())
-  ]
-})
-  .catch((err) => console.error(err));
+    providers: [
+        ...appConfig.providers,
+        provideFirebaseApp(() => initializeApp(environment.firebase)),
+        provideAuth(() => getAuth()),
+        provideFirestore(() => getFirestore()),
+        provideAnalytics(() => getAnalytics()),
+    ],
+}).catch((err) => console.error(err));

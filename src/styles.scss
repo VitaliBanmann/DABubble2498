@@ -1,109 +1,112 @@
 /* You can add global styles to this file, and also import other style files */
 
 * {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
 }
 
 body {
-  margin: 0;
-  font-family: 'Inter', 'Segoe UI', sans-serif;
+    margin: 0;
+    font-family: "Inter", "Segoe UI", sans-serif;
 }
 
 .splash-screen {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100vh;
-  background: linear-gradient(135deg, #797ef3 0%, #5b5de6 100%);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 9999;
-  animation: fadeOutSplash 0.5s ease 3.3s forwards;
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background: linear-gradient(135deg, #797ef3 0%, #5b5de6 100%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    animation: fadeOutSplash 0.5s ease 3.3s forwards;
 }
 
 .splash-brand {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  animation: brandToCorner 1.1s ease-in-out 2.2s forwards;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: brandToCorner 1.1s ease-in-out 2.2s forwards;
 }
 
 .splash-logo {
-  width: 200px;
-  height: auto;
-  animation: logoIntro 1s ease-out forwards, logoShiftLeft 0.7s ease 1s forwards;
+    width: 200px;
+    height: auto;
+    animation:
+        logoIntro 1s ease-out forwards,
+        logoShiftLeft 0.7s ease 1s forwards;
 }
 
 .splash-wordmark {
-  color: #ffffff;
-  font-size: 52px;
-  font-weight: 700;
-  white-space: nowrap;
-  line-height: 1;
-  margin-left: 0;
-  max-width: 0;
-  opacity: 0;
-  overflow: hidden;
-  transform: translateX(-22px);
-  animation: wordmarkReveal 0.7s ease 1s forwards;
+    color: #ffffff;
+    font-size: 52px;
+    font-weight: 700;
+    white-space: nowrap;
+    line-height: 1;
+    margin-left: 0;
+    max-width: 0;
+    opacity: 0;
+    overflow: hidden;
+    transform: translateX(-22px);
+    animation: wordmarkReveal 0.7s ease 1s forwards;
 }
 
 @keyframes logoIntro {
-  0% {
-    transform: scale(0.3);
-    opacity: 0;
-  }
-  60% {
-    transform: scale(1.05);
-    opacity: 1;
-  }
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
+    0% {
+        transform: scale(0.3);
+        opacity: 0;
+    }
+    60% {
+        transform: scale(1.05);
+        opacity: 1;
+    }
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
 }
 
 @keyframes logoShiftLeft {
-  from {
-    transform: translateX(0) scale(1);
-  }
-  100% {
-    transform: translateX(-78px) scale(1);
-    opacity: 1;
-  }
+    from {
+        transform: translateX(0) scale(1);
+    }
+    100% {
+        transform: translateX(-78px) scale(1);
+        opacity: 1;
+    }
 }
 
 @keyframes wordmarkReveal {
-  to {
-    max-width: 300px;
-    opacity: 1;
-    margin-left: 14px;
-    transform: translateX(0);
-  }
+    to {
+        max-width: 300px;
+        opacity: 1;
+        margin-left: 14px;
+        transform: translateX(0);
+    }
 }
 
 @keyframes brandToCorner {
-  from {
-    transform: translate(0, 0) scale(1);
-  }
-  to {
-    transform: translate(calc(-50vw + 150px), calc(-50vh + 72px)) scale(0.23);
-  }
+    from {
+        transform: translate(0, 0) scale(1);
+    }
+    to {
+        transform: translate(calc(-50vw + 150px), calc(-50vh + 72px))
+            scale(0.23);
+    }
 }
 
 @keyframes fadeOutSplash {
-  to {
-    opacity: 0;
-    visibility: hidden;
-  }
+    to {
+        opacity: 0;
+        visibility: hidden;
+    }
 }
 
 .max-width-container {
-  max-width: 1440px;
-  margin: 0 auto;
-  width: 100%;
+    max-width: 1440px;
+    margin: 0 auto;
+    width: 100%;
 }

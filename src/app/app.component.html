@@ -1,109 +1,168 @@
-<div class="splash-screen" *ngIf="showAuthScreen && showSplash">
-  <img src="assets/pictures/Logo.svg" alt="DA Bubble" class="splash-logo" />
-</div>
-
-<main class="auth-page" *ngIf="showAuthScreen" [class.hidden]="showSplash">
-  <header class="page-header">
-    <div class="brand">
-      <img class="brand-logo" src="assets/pictures/Logo.svg" alt="DA Bubble Logo" />
-      <span class="brand-name">DABubble</span>
-    </div>
-    <div class="signup">
-      <span>Neu bei DABubble?</span>
-      <button type="button" class="link" [disabled]="isSubmitting" (click)="onSubmit('register')">
-        Konto erstellen
-      </button>
-    </div>
-  </header>
-
-  <section class="auth-card" aria-label="Anmeldung">
-    <h1>Anmeldung</h1>
-    <p class="subtitle">
-      Wir empfehlen dir, die E-Mail-Adresse zu nutzen, die du bei der Arbeit verwendest.
-    </p>
-
-    <form [formGroup]="loginForm" (ngSubmit)="onSubmit('login')" novalidate>
-      <label class="field" for="email">
-        <span class="icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-            <path
-              d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm0 2v.2l8 4.8 8-4.8V7H4zm0 10h16V9.4l-7.5 4.5a1 1 0 0 1-1 0L4 9.4V17z"
-            />
-          </svg>
-        </span>
-        <input
-          id="email"
-          type="email"
-          formControlName="email"
-          placeholder="beispielname@email.com"
-          autocomplete="email"
+@if (showAuthScreen && showSplash) {
+    <div class="splash-screen">
+        <img
+            src="assets/pictures/Logo.svg"
+            alt="DA Bubble"
+            class="splash-logo"
         />
-      </label>
-      @if (emailControl.touched && emailControl.invalid) {
-        <p class="field-error">Bitte gib eine gültige E-Mail-Adresse ein.</p>
-      }
+    </div>
+}
 
-      <label class="field" for="password">
-        <span class="icon" aria-hidden="true">
-          <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-            <path
-              d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 1 1 4 0v2h-4V7zm7 12H7v-8h10v8z"
-            />
-          </svg>
-        </span>
-        <input
-          id="password"
-          type="password"
-          formControlName="password"
-          placeholder="Passwort"
-          autocomplete="current-password"
-        />
-      </label>
-      @if (passwordControl.touched && passwordControl.invalid) {
-        <p class="field-error">Dein Passwort muss mindestens 6 Zeichen haben.</p>
-      }
+@if (showAuthScreen) {
+    <main class="auth-page" [class.hidden]="showSplash">
+        <header class="page-header">
+            <div class="brand">
+                <img
+                    class="brand-logo"
+                    src="assets/pictures/Logo.svg"
+                    alt="DA Bubble Logo"
+                />
+                <span class="brand-name">DABubble</span>
+            </div>
+            <div class="signup">
+                <span>Neu bei DABubble?</span>
+                <button
+                    type="button"
+                    class="link"
+                    [disabled]="isSubmitting"
+                    (click)="onSubmit('register')"
+                >
+                    Konto erstellen
+                </button>
+            </div>
+        </header>
 
-      <button type="button" class="link forgot" [disabled]="isSubmitting">
-        Passwort vergessen?
-      </button>
+        <section class="auth-card" aria-label="Anmeldung">
+            <h1>Anmeldung</h1>
+            <p class="subtitle">
+                Wir empfehlen dir, die E-Mail-Adresse zu nutzen, die du bei der
+                Arbeit verwendest.
+            </p>
 
-      @if (errorMessage) {
-        <p class="message error">{{ errorMessage }}</p>
-      }
+            <form
+                [formGroup]="loginForm"
+                (ngSubmit)="onSubmit('login')"
+                novalidate
+            >
+                <label class="field" for="email">
+                    <span class="icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+                            <path
+                                d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm0 2v.2l8 4.8 8-4.8V7H4zm0 10h16V9.4l-7.5 4.5a1 1 0 0 1-1 0L4 9.4V17z"
+                            />
+                        </svg>
+                    </span>
+                    <input
+                        id="email"
+                        type="email"
+                        formControlName="email"
+                        placeholder="beispielname@email.com"
+                        autocomplete="email"
+                    />
+                </label>
+                @if (emailControl.touched && emailControl.invalid) {
+                    <p class="field-error">
+                        Bitte gib eine gültige E-Mail-Adresse ein.
+                    </p>
+                }
 
-      @if (successMessage) {
-        <p class="message success">{{ successMessage }}</p>
-      }
+                <label class="field" for="password">
+                    <span class="icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+                            <path
+                                d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 1 1 4 0v2h-4V7zm7 12H7v-8h10v8z"
+                            />
+                        </svg>
+                    </span>
+                    <input
+                        id="password"
+                        type="password"
+                        formControlName="password"
+                        placeholder="Passwort"
+                        autocomplete="current-password"
+                    />
+                </label>
+                @if (passwordControl.touched && passwordControl.invalid) {
+                    <p class="field-error">
+                        Dein Passwort muss mindestens 6 Zeichen haben.
+                    </p>
+                }
 
-      <div class="divider">
-        <span></span>
-        <span class="divider-text">ODER</span>
-        <span></span>
-      </div>
+                <button
+                    type="button"
+                    class="link forgot"
+                    [disabled]="isSubmitting"
+                >
+                    Passwort vergessen?
+                </button>
 
-      <button type="button" class="google" [disabled]="isSubmitting" (click)="onGoogleLogin()">
-        <span class="google-icon" aria-hidden="true">
-          <svg viewBox="0 0 48 48" role="img" aria-hidden="true">
-            <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.5 1.9 30.1 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6C12.4 13.3 17.7 9.5 24 9.5z"/>
-            <path fill="#4285F4" d="M46.6 24.5c0-1.6-.1-2.8-.4-4.1H24v7.8h12.8c-.5 3-2.3 5.6-5 7.4l7.7 6c4.6-4.2 7.1-10.4 7.1-17.1z"/>
-            <path fill="#FBBC05" d="M10.4 28.6a14.6 14.6 0 0 1 0-9.1l-7.8-6A24 24 0 0 0 0 24c0 3.8.9 7.3 2.6 10.5l7.8-5.9z"/>
-            <path fill="#34A853" d="M24 48c6.1 0 11.2-2 15-5.4l-7.7-6c-2.1 1.4-4.8 2.3-7.3 2.3-6.3 0-11.6-3.8-13.6-9.1l-7.8 5.9C6.5 42.6 14.6 48 24 48z"/>
-          </svg>
-        </span>
-        Anmelden mit Google
-      </button>
+                @if (errorMessage) {
+                    <p class="message error">{{ errorMessage }}</p>
+                }
 
-      <div class="actions">
-        <button type="submit" class="primary" [disabled]="isSubmitting">Anmelden</button>
-        <button type="button" class="secondary" [disabled]="isSubmitting" (click)="onGuestLogin()">Gäste-Login</button>
-      </div>
-    </form>
-  </section>
+                @if (successMessage) {
+                    <p class="message success">{{ successMessage }}</p>
+                }
 
-  <footer class="page-footer">
-    <a routerLink="/impressum" class="link">Impressum</a>
-    <a routerLink="/datenschutz" class="link">Datenschutz</a>
-  </footer>
-</main>
+                <div class="divider">
+                    <span></span>
+                    <span class="divider-text">ODER</span>
+                    <span></span>
+                </div>
 
+                <button
+                    type="button"
+                    class="google"
+                    [disabled]="isSubmitting"
+                    (click)="onGoogleLogin()"
+                >
+                    <span class="google-icon" aria-hidden="true">
+                        <svg viewBox="0 0 48 48" role="img" aria-hidden="true">
+                            <path
+                                fill="#EA4335"
+                                d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.5 1.9 30.1 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6C12.4 13.3 17.7 9.5 24 9.5z"
+                            />
+                            <path
+                                fill="#4285F4"
+                                d="M46.6 24.5c0-1.6-.1-2.8-.4-4.1H24v7.8h12.8c-.5 3-2.3 5.6-5 7.4l7.7 6c4.6-4.2 7.1-10.4 7.1-17.1z"
+                            />
+                            <path
+                                fill="#FBBC05"
+                                d="M10.4 28.6a14.6 14.6 0 0 1 0-9.1l-7.8-6A24 24 0 0 0 0 24c0 3.8.9 7.3 2.6 10.5l7.8-5.9z"
+                            />
+                            <path
+                                fill="#34A853"
+                                d="M24 48c6.1 0 11.2-2 15-5.4l-7.7-6c-2.1 1.4-4.8 2.3-7.3 2.3-6.3 0-11.6-3.8-13.6-9.1l-7.8 5.9C6.5 42.6 14.6 48 24 48z"
+                            />
+                        </svg>
+                    </span>
+                    Anmelden mit Google
+                </button>
+
+                <div class="actions">
+                    <button
+                        type="submit"
+                        class="primary"
+                        [disabled]="isSubmitting"
+                    >
+                        Anmelden
+                    </button>
+                    <button
+                        type="button"
+                        class="secondary"
+                        [disabled]="isSubmitting"
+                        (click)="onGuestLogin()"
+                    >
+                        Gäste-Login
+                    </button>
+                </div>
+            </form>
+        </section>
+
+        <footer class="page-footer">
+            <a routerLink="/impressum" class="link">Impressum</a>
+            <a routerLink="/datenschutz" class="link">Datenschutz</a>
+        </footer>
+    </main>
+}
 <router-outlet></router-outlet>

@@ -1,134 +1,132 @@
 .shell {
-  height: 100vh;
-  background: #f6f7fb;
-  display: grid;
-  grid-template-rows: 64px 1fr; // Header static
+    height: 100vh;
+    background: #f6f7fb;
+    display: grid;
+    grid-template-rows: 64px 1fr; // Header static
 }
 
 .shell__body {
-  position: relative;
-  display: grid;
-  height: 100%;
-  min-height: 0;
-  // default: chat only
-  grid-template-columns: 1fr;
+    position: relative;
+    display: grid;
+    height: 100%;
+    min-height: 0;
+    // default: chat only
+    grid-template-columns: 1fr;
 }
 
 .shell__body.sidebar-open {
-  grid-template-columns: 280px 1fr;
+    grid-template-columns: 280px 1fr;
 }
 
 .shell__body.sidebar-open.thread-open {
-  grid-template-columns: 280px 1fr 360px;
+    grid-template-columns: 280px 1fr 360px;
 }
 
 .shell__sidebar {
-  background: #fff;
-  border-right: 1px solid rgba(0, 0, 0, 0.06);
-  min-width: 0;
+    background: #fff;
+    border-right: 1px solid rgba(0, 0, 0, 0.06);
+    min-width: 0;
 }
 
 .shell__content {
-  min-width: 0;
-  overflow: hidden;
-  background: #fff;
-  border-radius: 18px;
-  margin: 16px;
+    min-width: 0;
+    overflow: hidden;
+    background: #fff;
+    border-radius: 18px;
+    margin: 16px;
 }
 
 .shell__body.sidebar-open .shell__content {
-  margin-left: 0; // aligns like your Figma spacing
+    margin-left: 0; // aligns like your Figma spacing
 }
 
 .shell__thread {
-  background: #fff;
-  border-left: 1px solid rgba(0, 0, 0, 0.06);
-  display: grid;
-  grid-template-rows: 56px 1fr;
-  min-width: 0;
+    background: #fff;
+    border-left: 1px solid rgba(0, 0, 0, 0.06);
+    display: grid;
+    grid-template-rows: 56px 1fr;
+    min-width: 0;
 }
 
 .thread__header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 12px 0 16px;
-  border-bottom: 1px solid rgba(0, 0, 0, 0.06);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 12px 0 16px;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
 }
 
 .thread__title {
-  font-weight: 600;
+    font-weight: 600;
 }
 
 .thread__close {
-  width: 40px;
-  height: 40px;
-  border: 0;
-  border-radius: 10px;
-  background: #f1f3ff;
-  cursor: pointer;
+    width: 40px;
+    height: 40px;
+    border: 0;
+    border-radius: 10px;
+    background: #f1f3ff;
+    cursor: pointer;
 }
 
 .thread__body {
-  overflow: auto;
-  min-width: 0;
+    overflow: auto;
+    min-width: 0;
 }
 
 .thread-placeholder {
-  padding: 16px;
-  opacity: 0.6;
+    padding: 16px;
+    opacity: 0.6;
 }
 
 /* Workspace toggle (vertical) */
 .workspace-toggle {
-  position: absolute;
-  left: 10px;
-  top: 50%;
-  transform: translateY(-50%);
-  z-index: 30;
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 30;
 
-  border: 0;
-  border-radius: 16px;
-  background: #ffffff;
-  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
+    border: 0;
+    border-radius: 16px;
+    background: #ffffff;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.12);
 
-  padding: 10px 10px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  flex-direction: column-reverse;
-  gap: 6px;
+    padding: 10px 10px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    flex-direction: column-reverse;
+    gap: 6px;
 }
 
 .workspace-toggle__text {
-  writing-mode: vertical-rl;
-  text-orientation: mixed;
-  transform: rotate(180deg);
-  font-size: 12px;
-  font-weight: 600;
-  letter-spacing: 0.2px;
-  opacity: 0.9;
+    writing-mode: vertical-rl;
+    text-orientation: mixed;
+    transform: rotate(180deg);
+    font-size: 12px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+    opacity: 0.9;
 }
 
 .workspace-toggle:hover {
-  transform: translateY(-50%) translateX(1px);
+    transform: translateY(-50%) translateX(1px);
 }
 
 .workspace-toggle__icon {
-  font-size: 20px;
-  width: 20px;
-  height: 20px;
-  opacity: 0.85;
+    font-size: 20px;
+    width: 20px;
+    height: 20px;
+    opacity: 0.85;
 }
-
-
 
 /* Responsive: on smaller screens hide thread column (MVP) */
 @media (max-width: 1100px) {
-  .shell__body.sidebar-open.thread-open {
-    grid-template-columns: 280px 1fr;
-  }
-  .shell__thread {
-    display: none;
-  }
+    .shell__body.sidebar-open.thread-open {
+        grid-template-columns: 280px 1fr;
+    }
+    .shell__thread {
+        display: none;
+    }
 }

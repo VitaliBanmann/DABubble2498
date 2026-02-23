@@ -4,11 +4,11 @@ import { getAnalytics } from 'firebase/analytics';
 import { environment } from '../../environments/environment';
 
 @Injectable({
-  providedIn: 'root'
+    providedIn: 'root',
 })
 export class FirebaseService {
-  constructor() {
-    const app = initializeApp(environment.firebase);
-    getAnalytics(app);
-  }
+    constructor() {
+        const app = initializeApp(environment.firebase);
+        getAnalytics(app);
+    }
 }

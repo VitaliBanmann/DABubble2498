@@ -1,54 +1,61 @@
 <div class="shell">
-  <!-- Header stays static -->
-  <app-topbar />
+    <!-- Header stays static -->
+    <app-topbar />
 
-  <div class="shell__body" [ngClass]="classes()">
-    <!-- Sidebar (only when open) -->
-    <aside class="shell__sidebar" *ngIf="ui.isSidebarOpen()">
-      <app-sidebar />
-    </aside>
+    <div class="shell__body" [ngClass]="classes()">
+        <!-- Sidebar (only when open) -->
+        <aside class="shell__sidebar" *ngIf="ui.isSidebarOpen()">
+            <app-sidebar />
+        </aside>
 
-    <!-- Main content always -->
-    <main class="shell__content">
-      <router-outlet />
-    </main>
+        <!-- Main content always -->
+        <main class="shell__content">
+            <router-outlet />
+        </main>
 
-    <!-- Thread (context-based) -->
-    <aside class="shell__thread" *ngIf="ui.isThreadOpen()">
-      <header class="thread__header">
-        <div class="thread__title">Thread</div>
+        <!-- Thread (context-based) -->
+        <aside class="shell__thread" *ngIf="ui.isThreadOpen()">
+            <header class="thread__header">
+                <div class="thread__title">Thread</div>
+                <button
+                    type="button"
+                    class="thread__close"
+                    (click)="ui.closeThread()"
+                    aria-label="Thread schließen"
+                >
+                    ✕
+                </button>
+            </header>
+
+            <div class="thread__body">
+                <div class="thread-placeholder">Thread content placeholder</div>
+            </div>
+        </aside>
+
+        <!-- Workspace menu toggle button (vertical) -->
         <button
-          type="button"
-          class="thread__close"
-          (click)="ui.closeThread()"
-          aria-label="Thread schließen"
+            type="button"
+            class="workspace-toggle"
+            (click)="ui.toggleSidebar()"
+            [attr.aria-expanded]="ui.isSidebarOpen()"
         >
-          ✕
+            <span class="workspace-toggle__text">
+                {{
+                    ui.isSidebarOpen()
+                        ? "Workspace-Menü schließen"
+                        : "Workspace-Menü öffnen"
+                }}
+            </span>
+
+            <mat-icon
+                class="workspace-toggle__icon"
+                aria-hidden="true"
+                fontSet="material-symbols-outlined"
+            >
+                {{
+                    ui.isSidebarOpen() ? "left_panel_close" : "left_panel_open"
+                }}
+            </mat-icon>
         </button>
-      </header>
-
-      <div class="thread__body">
-        <div class="thread-placeholder">Thread content placeholder</div>
-      </div>
-    </aside>
-
-    <!-- Workspace menu toggle button (vertical) -->
-    <button
-  type="button"
-  class="workspace-toggle"
-  (click)="ui.toggleSidebar()"
-  [attr.aria-expanded]="ui.isSidebarOpen()"
->
-  <span class="workspace-toggle__text">
-    {{ ui.isSidebarOpen()
-      ? 'Workspace-Menü schließen'
-      : 'Workspace-Menü öffnen' }}
-  </span>
-
-  <mat-icon class="workspace-toggle__icon" aria-hidden="true" fontSet="material-symbols-outlined">
-  {{ ui.isSidebarOpen() ? 'left_panel_close' : 'left_panel_open' }}
-</mat-icon>
-</button>
-
-  </div>
+    </div>
 </div>
