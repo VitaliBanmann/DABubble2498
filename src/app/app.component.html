@@ -1,300 +1,104 @@
 <div class="splash-screen" *ngIf="showAuthScreen && showSplash">
-  <div class="splash-brand">
-    <img src="assets/pictures/Logo.svg" alt="DA Bubble" class="splash-logo" />
-    <span class="splash-wordmark">DA-Bubble</span>
-  </div>
+  <img src="assets/pictures/Logo.svg" alt="DA Bubble" class="splash-logo" />
 </div>
 
-<main class="auth-page" *ngIf="showAuthScreen" [class.visible]="!showSplash">
+<main class="auth-page" *ngIf="showAuthScreen" [class.hidden]="showSplash">
   <header class="page-header">
     <div class="brand">
       <img class="brand-logo" src="assets/pictures/Logo.svg" alt="DA Bubble Logo" />
       <span class="brand-name">DABubble</span>
     </div>
-    @if (!isRegisterMode) {
-      <div class="signup">
-        <span>Neu bei DABubble?</span>
-        <button type="button" class="link" (click)="isRegisterMode = true">
-          Konto erstellen
-        </button>
-      </div>
-    }
+    <div class="signup">
+      <span>Neu bei DABubble?</span>
+      <button type="button" class="link" [disabled]="isSubmitting" (click)="onSubmit('register')">
+        Konto erstellen
+      </button>
+    </div>
   </header>
 
-  <!-- LOGIN FORM -->
-  @if (!isRegisterMode) {
-    <section class="auth-card" aria-label="Anmeldung">
-      <h1>Anmeldung</h1>
-      <p class="subtitle">
-        Wir empfehlen dir, die E-Mail-Adresse zu nutzen, die du bei der Arbeit verwendest.
-      </p>
+  <section class="auth-card" aria-label="Anmeldung">
+    <h1>Anmeldung</h1>
+    <p class="subtitle">
+      Wir empfehlen dir, die E-Mail-Adresse zu nutzen, die du bei der Arbeit verwendest.
+    </p>
 
-      <form [formGroup]="loginForm" (ngSubmit)="onSubmit('login')" novalidate>
-        <label class="field" for="email">
-          <span class="icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-              <path
-                d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm0 2v.2l8 4.8 8-4.8V7H4zm0 10h16V9.4l-7.5 4.5a1 1 0 0 1-1 0L4 9.4V17z"
-              />
-            </svg>
-          </span>
-          <input
-            id="email"
-            type="email"
-            formControlName="email"
-            placeholder="beispielname@email.com"
-            autocomplete="email"
-            maxlength="254"
-            spellcheck="false"
-          />
-        </label>
-        @if (emailControl.touched && emailControl.invalid) {
-          <p class="field-error">Bitte gib eine gültige E-Mail-Adresse ein.</p>
-        }
-
-        <label class="field" for="password">
-          <span class="icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-              <path
-                d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 1 1 4 0v2h-4V7zm7 12H7v-8h10v8z"
-              />
-            </svg>
-          </span>
-          <input
-            id="password"
-            [type]="showLoginPassword ? 'text' : 'password'"
-            formControlName="password"
-            placeholder="Passwort"
-            autocomplete="current-password"
-            maxlength="128"
-          />
-          <button
-            type="button"
-            class="visibility-toggle"
-            (click)="showLoginPassword = !showLoginPassword"
-            [attr.aria-label]="showLoginPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
-            tabindex="-1"
-          >
-            @if (showLoginPassword) {
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-              </svg>
-            } @else {
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.81-2.88 3.69-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46A11.804 11.804 0 001 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm5.31-7.78l3.15 3.15.02-.02c.05-.21.08-.43.08-.65 0-1.66-1.34-3-3-3-.22 0-.44.03-.65.08l-.02.02-3.15-3.15"/>
-              </svg>
-            }
-          </button>
-        </label>
-        @if (passwordControl.touched && passwordControl.invalid) {
-          <p class="field-error">Dein Passwort muss mindestens 6 Zeichen haben.</p>
-        }
-
-        <button type="button" class="link forgot" [disabled]="isSubmitting" (click)="onForgotPassword()">
-          Passwort vergessen?
-        </button>
-
-        @if (errorMessage) {
-          <p class="message error">{{ errorMessage }}</p>
-        }
-
-        @if (successMessage) {
-          <p class="message success">{{ successMessage }}</p>
-        }
-
-        <div class="divider">
-          <span></span>
-          <span class="divider-text">ODER</span>
-          <span></span>
-        </div>
-
-        <button type="button" class="google" [disabled]="isSubmitting" (click)="onGoogleLogin()">
-          <span class="google-icon" aria-hidden="true">
-            <svg viewBox="0 0 48 48" role="img" aria-hidden="true">
-              <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.5 1.9 30.1 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6C12.4 13.3 17.7 9.5 24 9.5z"/>
-              <path fill="#4285F4" d="M46.6 24.5c0-1.6-.1-2.8-.4-4.1H24v7.8h12.8c-.5 3-2.3 5.6-5 7.4l7.7 6c4.6-4.2 7.1-10.4 7.1-17.1z"/>
-              <path fill="#FBBC05" d="M10.4 28.6a14.6 14.6 0 0 1 0-9.1l-7.8-6A24 24 0 0 0 0 24c0 3.8.9 7.3 2.6 10.5l7.8-5.9z"/>
-              <path fill="#34A853" d="M24 48c6.1 0 11.2-2 15-5.4l-7.7-6c-2.1 1.4-4.8 2.3-7.3 2.3-6.3 0-11.6-3.8-13.6-9.1l-7.8 5.9C6.5 42.6 14.6 48 24 48z"/>
-            </svg>
-          </span>
-          Anmelden mit Google
-        </button>
-
-        <div class="actions">
-          <button type="submit" class="primary" [disabled]="isSubmitting">Anmelden</button>
-          <button type="button" class="secondary" [disabled]="isSubmitting" (click)="onGuestLogin()">Gäste-Login</button>
-        </div>
-      </form>
-    </section>
-  }
-
-  <!-- REGISTER FORM -->
-  @if (isRegisterMode) {
-    <section class="auth-card register" aria-label="Konto erstellen">
-      <div class="register-header">
-        <button type="button" class="back-button" (click)="isRegisterMode = false">
-          <svg viewBox="0 0 24 24" aria-hidden="true">
-            <path d="M19 12H5m7-7l-7 7 7 7"/>
+    <form [formGroup]="loginForm" (ngSubmit)="onSubmit('login')" novalidate>
+      <label class="field" for="email">
+        <span class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+            <path
+              d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm0 2v.2l8 4.8 8-4.8V7H4zm0 10h16V9.4l-7.5 4.5a1 1 0 0 1-1 0L4 9.4V17z"
+            />
           </svg>
-        </button>
-        <h1>Konto erstellen</h1>
+        </span>
+        <input
+          id="email"
+          type="email"
+          formControlName="email"
+          placeholder="beispielname@email.com"
+          autocomplete="email"
+        />
+      </label>
+      @if (emailControl.touched && emailControl.invalid) {
+        <p class="field-error">Bitte gib eine gültige E-Mail-Adresse ein.</p>
+      }
+
+      <label class="field" for="password">
+        <span class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+            <path
+              d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 1 1 4 0v2h-4V7zm7 12H7v-8h10v8z"
+            />
+          </svg>
+        </span>
+        <input
+          id="password"
+          type="password"
+          formControlName="password"
+          placeholder="Passwort"
+          autocomplete="current-password"
+        />
+      </label>
+      @if (passwordControl.touched && passwordControl.invalid) {
+        <p class="field-error">Dein Passwort muss mindestens 6 Zeichen haben.</p>
+      }
+
+      <button type="button" class="link forgot" [disabled]="isSubmitting">
+        Passwort vergessen?
+      </button>
+
+      @if (errorMessage) {
+        <p class="message error">{{ errorMessage }}</p>
+      }
+
+      @if (successMessage) {
+        <p class="message success">{{ successMessage }}</p>
+      }
+
+      <div class="divider">
+        <span></span>
+        <span class="divider-text">ODER</span>
+        <span></span>
       </div>
 
-      <p class="subtitle">
-        Mit deinem Namen und einer E-Mail-Adresse hast du dein neues DABubble-Konto erstellt.
-      </p>
+      <button type="button" class="google" [disabled]="isSubmitting" (click)="onGoogleLogin()">
+        <span class="google-icon" aria-hidden="true">
+          <svg viewBox="0 0 48 48" role="img" aria-hidden="true">
+            <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.5 1.9 30.1 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6C12.4 13.3 17.7 9.5 24 9.5z"/>
+            <path fill="#4285F4" d="M46.6 24.5c0-1.6-.1-2.8-.4-4.1H24v7.8h12.8c-.5 3-2.3 5.6-5 7.4l7.7 6c4.6-4.2 7.1-10.4 7.1-17.1z"/>
+            <path fill="#FBBC05" d="M10.4 28.6a14.6 14.6 0 0 1 0-9.1l-7.8-6A24 24 0 0 0 0 24c0 3.8.9 7.3 2.6 10.5l7.8-5.9z"/>
+            <path fill="#34A853" d="M24 48c6.1 0 11.2-2 15-5.4l-7.7-6c-2.1 1.4-4.8 2.3-7.3 2.3-6.3 0-11.6-3.8-13.6-9.1l-7.8 5.9C6.5 42.6 14.6 48 24 48z"/>
+          </svg>
+        </span>
+        Anmelden mit Google
+      </button>
 
-      <form [formGroup]="registerForm" (ngSubmit)="onSubmit('register')" novalidate>
-        <label class="field" for="fullName">
-          <span class="icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/>
-            </svg>
-          </span>
-          <input
-            id="fullName"
-            type="text"
-            formControlName="fullName"
-            placeholder="Name und Nachname"
-            maxlength="100"
-            autocomplete="name"
-            (blur)="fullNameControl.markAsTouched()"
-          />
-          <span class="field-status" *ngIf="fullNameControl.touched">
-            <span *ngIf="fullNameControl.valid" class="status-icon valid">✔</span>
-            <span *ngIf="fullNameControl.invalid" class="status-icon invalid">✕</span>
-          </span>
-        </label>
-        @if (fullNameControl.touched && fullNameControl.invalid) {
-          <p class="field-error">Name ist erforderlich.</p>
-        }
-
-        <label class="field" for="registerEmail">
-          <span class="icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm0 2v.2l8 4.8 8-4.8V7H4zm0 10h16V9.4l-7.5 4.5a1 1 0 0 1-1 0L4 9.4V17z"/>
-            </svg>
-          </span>
-          <input
-            id="registerEmail"
-            type="email"
-            formControlName="email"
-            placeholder="beispielname@email.com"
-            autocomplete="email"
-            maxlength="254"
-            spellcheck="false"
-            (blur)="registerEmailControl.markAsTouched()"
-          />
-          <span class="field-status" *ngIf="registerEmailControl.touched">
-            <span *ngIf="registerEmailControl.valid" class="status-icon valid">✔</span>
-            <span *ngIf="registerEmailControl.invalid" class="status-icon invalid">✕</span>
-          </span>
-        </label>
-        @if (registerEmailControl.touched && registerEmailControl.invalid) {
-          <p class="field-error">
-            @if (registerEmailControl.hasError('required')) {
-              E-Mail ist erforderlich.
-            } @else if (registerEmailControl.hasError('email')) {
-              Bitte gib eine gültige E-Mail-Adresse ein.
-            }
-          </p>
-        }
-
-        <label class="field" for="registerPassword">
-          <span class="icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24">
-              <path d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 1 1 4 0v2h-4V7zm7 12H7v-8h10v8z"/>
-            </svg>
-          </span>
-          <input
-            id="registerPassword"
-            [type]="showRegisterPassword ? 'text' : 'password'"
-            formControlName="password"
-            placeholder="Passwort"
-            autocomplete="new-password"
-            maxlength="128"
-            (blur)="registerPasswordControl.markAsTouched()"
-          />
-          <button
-            type="button"
-            class="visibility-toggle"
-            (click)="showRegisterPassword = !showRegisterPassword"
-            [attr.aria-label]="showRegisterPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
-            tabindex="-1"
-          >
-            @if (showRegisterPassword) {
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
-              </svg>
-            } @else {
-              <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.81-2.88 3.69-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46A11.804 11.804 0 001 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm5.31-7.78l3.15 3.15.02-.02c.05-.21.08-.43.08-.65 0-1.66-1.34-3-3-3-.22 0-.44.03-.65.08l-.02.02-3.15-3.15"/>
-              </svg>
-            }
-          </button>
-          <span class="field-status" *ngIf="registerPasswordControl.touched">
-            <span *ngIf="registerPasswordControl.valid" class="status-icon valid">✔</span>
-            <span *ngIf="registerPasswordControl.invalid" class="status-icon invalid">✕</span>
-          </span>
-        </label>
-        @if (registerPasswordControl.touched && registerPasswordControl.invalid) {
-          <p class="field-error">
-            @if (registerPasswordControl.hasError('required')) {
-              Passwort ist erforderlich.
-            } @else if (registerPasswordControl.hasError('minlength')) {
-              Dein Passwort muss mindestens 6 Zeichen haben.
-            }
-          </p>
-        }
-
-        <label class="checkbox-field">
-          <input
-            type="checkbox"
-            formControlName="privacyAccepted"
-            (blur)="privacyControl.markAsTouched()"
-          />
-          <span class="checkbox-text">
-            Ich habe die
-            <a routerLink="/datenschutz" target="_blank">Datenschutzerklärung</a>
-            zur Kenntnis genommen.
-          </span>
-        </label>
-        @if (privacyControl.touched && privacyControl.invalid) {
-          <p class="field-error">Du musst den Datenschutzbedingungen zustimmen.</p>
-        }
-
-        <!-- FORM STATUS DEBUG -->
-        <div class="validation-status">
-          <span *ngIf="registerForm.invalid" class="status-text invalid">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M8 8l8 8M16 8l-8 8" stroke="currentColor" stroke-width="2" fill="none"/>
-            </svg>
-            Bitte fülle alle Felder korrekt aus
-          </span>
-          <span *ngIf="registerForm.valid" class="status-text valid">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="10"/>
-              <path d="M7 11l3 3 7-7"/>
-            </svg>
-            Alles korrekt ausgefüllt
-          </span>
-        </div>
-
-        @if (errorMessage) {
-          <p class="message error">{{ errorMessage }}</p>
-        }
-
-        @if (successMessage) {
-          <p class="message success">{{ successMessage }}</p>
-        }
-
-        <button type="submit" class="primary" [disabled]="registerForm.invalid || isSubmitting">
-          Weiter
-        </button>
-      </form>
-    </section>
-  }
+      <div class="actions">
+        <button type="submit" class="primary" [disabled]="isSubmitting">Anmelden</button>
+        <button type="button" class="secondary" [disabled]="isSubmitting" (click)="onGuestLogin()">Gäste-Login</button>
+      </div>
+    </form>
+  </section>
 
   <footer class="page-footer">
     <a routerLink="/impressum" class="link">Impressum</a>

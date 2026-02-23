@@ -72,21 +72,7 @@ export class UserService {
   updateCurrentUserProfile(updates: Partial<User>): void {
     const currentUser = this.authService.getCurrentUser();
     if (currentUser) {
-      const profileUpdates: Partial<User> = { ...updates };
-
-      if (currentUser.email && !profileUpdates.email) {
-        profileUpdates.email = currentUser.email;
-      }
-
-      if (currentUser.displayName && !profileUpdates.displayName) {
-        profileUpdates.displayName = currentUser.displayName;
-      }
-
-      this.firestoreService.setDocument(
-        this.usersCollection,
-        currentUser.uid,
-        { ...profileUpdates, updatedAt: new Date() }
-      ).subscribe({
+      this.updateUser(currentUser.uid, updates).subscribe({
         next: () => console.log('Profile updated successfully'),
         error: (error) => console.error('Error updating profile:', error)
       });
