@@ -13,6 +13,7 @@ import { Channel } from '../../services/channel.service';
 export class ChatHeaderComponent {
   @Input() currentChannel: Channel | null = null;
   @Input() currentUserName: string = '';
+  @Input() currentUserAvatar: string = 'assets/pictures/profil_m1.svg';
   @Output() searchChanged = new EventEmitter<string>();
 
   searchQuery = '';

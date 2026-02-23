@@ -142,6 +142,17 @@
   }
 }
 
+.hidden-upload-input {
+  display: none;
+}
+
+.upload-error {
+  margin: 0 0 16px;
+  text-align: center;
+  color: #dc2626;
+  font-size: 13px;
+}
+
 .continue-button {
   width: 100%;
   padding: 14px;

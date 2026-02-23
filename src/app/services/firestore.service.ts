@@ -1,7 +1,6 @@
 import { Injectable } from '@angular/core';
 import {
   Firestore,
-  getFirestore,
   collection,
   addDoc,
   getDocs,
@@ -13,23 +12,14 @@ import {
   query,
   where,
   QueryConstraint
-} from 'firebase/firestore';
+} from '@angular/fire/firestore';
 import { Observable, from } from 'rxjs';
 
 @Injectable({
   providedIn: 'root'
 })
 export class FirestoreService {
-  private _firestore: Firestore | null = null;
-
-  constructor() { }
-
-  private get firestore(): Firestore {
-    if (!this._firestore) {
-      this._firestore = getFirestore();
-    }
-    return this._firestore;
-  }
+  constructor(private readonly firestore: Firestore) { }
 
   /**
    * Füge ein neues Dokument zu einer Collection hinzu

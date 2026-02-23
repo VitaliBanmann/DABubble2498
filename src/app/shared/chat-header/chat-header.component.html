@@ -34,7 +34,7 @@
   <div class="header-right">
     <div class="user-info">
       <span class="user-name">{{ currentUserName }}</span>
-      <img class="user-avatar" alt="Avatar" />
+      <img class="user-avatar" [src]="currentUserAvatar" [alt]="currentUserName + ' Avatar'" />
     </div>
   </div>
 </header>

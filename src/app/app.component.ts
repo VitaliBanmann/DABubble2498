@@ -154,12 +154,19 @@ export class AppComponent {
         // Wait for onAuthStateChanged listener to process the new session
         await this.delay(500);
       } else {
+        const fullName = (this.registerForm.value.fullName ?? '').trim();
+
         // Register with sanitized data
         await this.withTimeout(
           this.authService.registerWithEmailAndPassword(email, password),
           15000,
           'Registrierung dauert zu lange. Bitte erneut versuchen.'
         );
+
+        if (fullName) {
+          this.userService.updateCurrentUserProfile({ displayName: fullName });
+        }
+
         this.successMessage = 'Konto wurde erstellt. Du bist jetzt angemeldet.';
         this.isRegisterMode = false;
         // Wait for onAuthStateChanged listener to process the new session
@@ -240,6 +247,7 @@ export class AppComponent {
         15000,
         'Gast-Anmeldung dauert zu lange. Bitte erneut versuchen.'
       );
+      this.userService.updateCurrentUserProfile({ displayName: 'Gast' });
       this.successMessage = 'Erfolgreich als Gast angemeldet.';
       // Wait for onAuthStateChanged listener to process the new session
       await this.delay(500);
