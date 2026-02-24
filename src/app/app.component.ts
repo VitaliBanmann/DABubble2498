@@ -20,6 +20,7 @@ export class AppComponent {
     showSplash = true;
     showAuthScreen = true;
     showPassword = false;
+    showForgotPasswordOverlay = false;
 
     loginForm = this.formBuilder.group({
         email: ['', [Validators.required, Validators.email]],
@@ -27,9 +28,15 @@ export class AppComponent {
         rememberMe: [false],
     });
 
+    forgotPasswordForm = this.formBuilder.group({
+        email: ['', [Validators.required, Validators.email]],
+    });
+
     isSubmitting = false;
     errorMessage = '';
     successMessage = '';
+    forgotPasswordMessage = '';
+    forgotPasswordError = '';
 
     constructor(
         private readonly formBuilder: FormBuilder,
@@ -99,14 +106,13 @@ export class AppComponent {
                     email,
                     password,
                 );
-                this.successMessage = 'Erfolgreich angemeldet.';
+                this.successMessage = 'Angemeldet.';
             } else {
                 await this.authService.registerWithEmailAndPassword(
                     email,
                     password,
                 );
-                this.successMessage =
-                    'Konto wurde erstellt. Du bist jetzt angemeldet.';
+                this.successMessage = 'Konto erfolgreich erstellt.';
             }
 
             // Direkt navigieren (zusätzlich zum Auth-State Listener)
@@ -175,6 +181,55 @@ export class AppComponent {
         } finally {
             this.isSubmitting = false;
         }
+    }
+
+    openForgotPasswordOverlay(): void {
+        this.showForgotPasswordOverlay = true;
+        this.forgotPasswordMessage = '';
+        this.forgotPasswordError = '';
+        // E-Mail aus Login-Form übernehmen falls vorhanden
+        const loginEmail = this.loginForm.value.email?.trim() || '';
+        this.forgotPasswordForm.patchValue({ email: loginEmail });
+    }
+
+    closeForgotPasswordOverlay(): void {
+        this.showForgotPasswordOverlay = false;
+        this.forgotPasswordForm.reset();
+        this.forgotPasswordMessage = '';
+        this.forgotPasswordError = '';
+    }
+
+    async sendPasswordResetEmail(): Promise<void> {
+        if (this.forgotPasswordForm.invalid) {
+            this.forgotPasswordForm.markAllAsTouched();
+            return;
+        }
+
+        this.isSubmitting = true;
+        this.forgotPasswordMessage = '';
+        this.forgotPasswordError = '';
+
+        const email = (this.forgotPasswordForm.value.email ?? '').trim();
+
+        try {
+            await this.authService.sendPasswordResetEmail(email);
+            this.forgotPasswordMessage = 'E-Mail gesendet. Bitte überprüfe dein Postfach.';
+            // Overlay nach 3 Sekunden schließen
+            setTimeout(() => {
+                this.closeForgotPasswordOverlay();
+            }, 3000);
+        } catch (error) {
+            this.forgotPasswordError = this.getAuthErrorMessage(
+                error,
+                'Fehler beim Senden der E-Mail. Bitte versuche es erneut.',
+            );
+        } finally {
+            this.isSubmitting = false;
+        }
+    }
+
+    get forgotPasswordEmailControl() {
+        return this.forgotPasswordForm.controls.email;
     }
 
     private getAuthErrorMessage(error: unknown, fallback: string): string {

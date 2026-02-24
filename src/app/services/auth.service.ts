@@ -14,6 +14,8 @@ import {
     signInAnonymously,
     GoogleAuthProvider,
     signOut,
+    sendPasswordResetEmail,
+    confirmPasswordReset,
     onAuthStateChanged,
     User,
 } from 'firebase/auth';
@@ -138,6 +140,40 @@ export class AuthService implements OnDestroy {
             })
             .catch((error) => {
                 console.error('Logout error:', error);
+                throw error;
+            });
+    }
+
+    sendPasswordResetEmail(email: string): Promise<void> {
+        if (!this.auth) {
+            return Promise.reject(
+                new Error('Auth is not available on the server.'),
+            );
+        }
+
+        return sendPasswordResetEmail(this.auth, email)
+            .then(() => {
+                console.log('Password reset email sent successfully');
+            })
+            .catch((error) => {
+                console.error('Password reset email error:', error);
+                throw error;
+            });
+    }
+
+    confirmPasswordReset(code: string, newPassword: string): Promise<void> {
+        if (!this.auth) {
+            return Promise.reject(
+                new Error('Auth is not available on the server.'),
+            );
+        }
+
+        return confirmPasswordReset(this.auth, code, newPassword)
+            .then(() => {
+                console.log('Password reset successful');
+            })
+            .catch((error) => {
+                console.error('Password reset error:', error);
                 throw error;
             });
     }

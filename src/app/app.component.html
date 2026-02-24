@@ -107,6 +107,7 @@
                     type="button"
                     class="link forgot"
                     [disabled]="isSubmitting"
+                    (click)="openForgotPasswordOverlay()"
                 >
                     Passwort vergessen?
                 </button>
@@ -180,4 +181,73 @@
         </footer>
     </main>
 }
+
+@if (showForgotPasswordOverlay) {
+    <div class="overlay" (click)="closeForgotPasswordOverlay()">
+        <div class="overlay-card" (click)="$event.stopPropagation()">
+            <button
+                type="button"
+                class="close-btn"
+                aria-label="Schließen"
+                (click)="closeForgotPasswordOverlay()"
+            >
+                ×
+            </button>
+
+            <h2>Passwort zurücksetzen</h2>
+            <p class="overlay-subtitle">
+                In dem im registrierten Konto hinterlegten Mailkonto kannst du
+                dein Passwort ändern. Bitte überprüfe deinen Posteingang.
+            </p>
+
+            <form
+                [formGroup]="forgotPasswordForm"
+                (ngSubmit)="sendPasswordResetEmail()"
+                novalidate
+            >
+                <label class="field" for="reset-email">
+                    <span class="icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+                            <path
+                                d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm0 2v.2l8 4.8 8-4.8V7H4zm0 10h16V9.4l-7.5 4.5a1 1 0 0 1-1 0L4 9.4V17z"
+                            />
+                        </svg>
+                    </span>
+                    <input
+                        id="reset-email"
+                        type="email"
+                        formControlName="email"
+                        placeholder="beispielname@email.com"
+                        autocomplete="email"
+                    />
+                </label>
+                @if (
+                    forgotPasswordEmailControl.touched &&
+                    forgotPasswordEmailControl.invalid
+                ) {
+                    <p class="field-error">
+                        Bitte gib eine gültige E-Mail-Adresse ein.
+                    </p>
+                }
+
+                @if (forgotPasswordError) {
+                    <p class="message error">{{ forgotPasswordError }}</p>
+                }
+
+                @if (forgotPasswordMessage) {
+                    <p class="message success">{{ forgotPasswordMessage }}</p>
+                }
+
+                <button
+                    type="submit"
+                    class="primary"
+                    [disabled]="isSubmitting || forgotPasswordForm.invalid"
+                >
+                    Reset password
+                </button>
+            </form>
+        </div>
+    </div>
+}
+
 <router-outlet></router-outlet>
