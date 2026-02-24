@@ -76,11 +76,26 @@
                     </span>
                     <input
                         id="password"
-                        type="password"
+                        [type]="showPassword ? 'text' : 'password'"
                         formControlName="password"
                         placeholder="Passwort"
                         autocomplete="current-password"
                     />
+                    <button
+                        type="button"
+                        class="password-toggle"
+                        [attr.aria-label]="
+                            showPassword
+                                ? 'Passwort verbergen'
+                                : 'Passwort anzeigen'
+                        "
+                        [disabled]="isSubmitting"
+                        (click)="togglePasswordVisibility()"
+                    >
+                        <span class="material-symbols-outlined" aria-hidden="true">
+                            {{ showPassword ? 'visibility_off' : 'visibility' }}
+                        </span>
+                    </button>
                 </label>
                 @if (passwordControl.touched && passwordControl.invalid) {
                     <p class="field-error">

@@ -1,9 +1,9 @@
 import { Injectable } from '@angular/core';
 import { FirestoreService } from './firestore.service';
 import { AuthService } from './auth.service';
-import { Observable } from 'rxjs';
+import { Observable, take } from 'rxjs';
 
-export interface User {
+export interface User extends Record<string, unknown> {
     id?: string;
     email: string;
     displayName: string;
@@ -77,12 +77,52 @@ export class UserService {
      */
     updateCurrentUserProfile(updates: Partial<User>): void {
         const currentUser = this.authService.getCurrentUser();
-        if (currentUser) {
-            this.updateUser(currentUser.uid, updates).subscribe({
-                next: () => console.log('Profile updated successfully'),
-                error: (error) =>
-                    console.error('Error updating profile:', error),
-            });
+        if (!currentUser) {
+            return;
         }
+
+        this.getUser(currentUser.uid)
+            .pipe(take(1))
+            .subscribe({
+                next: (existingProfile) => {
+                    if (existingProfile) {
+                        this.updateUser(currentUser.uid, updates).subscribe({
+                            next: () =>
+                                console.log('Profile updated successfully'),
+                            error: (error) =>
+                                console.error('Error updating profile:', error),
+                        });
+                    } else {
+                        const newUser: User = {
+                            email: currentUser.email || '',
+                            displayName:
+                                updates.displayName ||
+                                currentUser.displayName ||
+                                'Gast',
+                            avatar: updates.avatar,
+                        };
+
+                        this.firestoreService
+                            .setDocument(this.usersCollection, currentUser.uid, {
+                                ...newUser,
+                                createdAt: new Date(),
+                                updatedAt: new Date(),
+                            })
+                            .subscribe({
+                                next: () =>
+                                    console.log(
+                                        'Profile created successfully',
+                                    ),
+                                error: (error) =>
+                                    console.error(
+                                        'Error creating profile:',
+                                        error,
+                                    ),
+                            });
+                    }
+                },
+                error: (error) =>
+                    console.error('Error checking profile:', error),
+            });
     }
 }

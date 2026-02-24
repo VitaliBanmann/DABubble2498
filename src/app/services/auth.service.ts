@@ -1,4 +1,10 @@
-import { Inject, Injectable, PLATFORM_ID, Optional } from '@angular/core';
+import {
+    Inject,
+    Injectable,
+    OnDestroy,
+    PLATFORM_ID,
+    Optional,
+} from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Auth } from '@angular/fire/auth';
 import {
@@ -16,7 +22,8 @@ import { BehaviorSubject, Observable } from 'rxjs';
 @Injectable({
     providedIn: 'root',
 })
-export class AuthService {
+export class AuthService implements OnDestroy {
+    private unsubscribeAuthState?: () => void;
     private currentUserSubject: BehaviorSubject<User | null> =
         new BehaviorSubject<User | null>(null);
     public currentUser$: Observable<User | null> =
@@ -35,6 +42,11 @@ export class AuthService {
         if (!this.auth) {
             return;
         }
+
+        this.unsubscribeAuthState?.();
+        this.unsubscribeAuthState = onAuthStateChanged(this.auth, (user) => {
+            this.currentUserSubject.next(user);
+        });
     }
 
     registerWithEmailAndPassword(
@@ -132,5 +144,9 @@ export class AuthService {
 
     getCurrentUser(): User | null {
         return this.currentUserSubject.value;
+    }
+
+    ngOnDestroy(): void {
+        this.unsubscribeAuthState?.();
     }
 }

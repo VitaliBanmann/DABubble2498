@@ -19,6 +19,7 @@ import { AuthService } from './services/auth.service';
 export class AppComponent {
     showSplash = true;
     showAuthScreen = true;
+    showPassword = false;
 
     loginForm = this.formBuilder.group({
         email: ['', [Validators.required, Validators.email]],
@@ -134,6 +135,10 @@ export class AppComponent {
         return this.loginForm.controls.password;
     }
 
+    togglePasswordVisibility(): void {
+        this.showPassword = !this.showPassword;
+    }
+
     async onGoogleLogin(): Promise<void> {
         this.isSubmitting = true;
         this.errorMessage = '';
@@ -142,7 +147,7 @@ export class AppComponent {
         try {
             await this.authService.loginWithGoogle();
             this.successMessage = 'Erfolgreich mit Google angemeldet.';
-            void this.router.navigateByUrl('/app');
+            void this.router.navigateByUrl('/avatar-select');
         } catch (error) {
             this.errorMessage = this.getAuthErrorMessage(
                 error,

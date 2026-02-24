@@ -6,6 +6,7 @@ import {
     getDocs,
     getDoc,
     doc,
+    setDoc,
     updateDoc,
     deleteDoc,
     query,
@@ -33,6 +34,17 @@ export class FirestoreService {
             addDoc(collection(this.firestore, collectionName), payload).then(
                 (ref) => ref.id,
             ),
+        );
+    }
+
+    setDocument<T extends Record<string, unknown>>(
+        collectionName: string,
+        docId: string,
+        data: T,
+    ): Observable<void> {
+        const payload = data as unknown as DocumentData;
+        return from(
+            setDoc(doc(this.firestore, collectionName, docId), payload),
         );
     }
 

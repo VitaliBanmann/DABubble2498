@@ -188,6 +188,24 @@ form {
     }
 }
 
+.password-toggle {
+    border: 0;
+    background: transparent;
+    color: #7d7f96;
+    width: 24px;
+    height: 24px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+
+    .material-symbols-outlined {
+        font-size: 20px;
+        line-height: 1;
+    }
+}
+
 .field-error {
     margin: -6px 0 0;
     font-size: 13px;

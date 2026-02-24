@@ -12,6 +12,13 @@ export const routes: Routes = [
     // Legal bleibt
     { path: 'impressum', component: ImpressumComponent },
     { path: 'datenschutz', component: DatenschutzComponent },
+    {
+        path: 'avatar-select',
+        loadComponent: () =>
+            import('./avatar-select/avatar-select.component').then(
+                (m) => m.AvatarSelectComponent,
+            ),
+    },
 
     // Slack UI Bereich unter /app
     {

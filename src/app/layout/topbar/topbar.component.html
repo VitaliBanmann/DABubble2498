@@ -13,14 +13,43 @@
     </div>
 
     <div class="topbar__user">
-        <span class="topbar__username">Frederik Beck</span>
-        <div class="topbar__avatar"></div>
+        <span class="topbar__username">{{ displayName }}</span>
+        <img
+            class="topbar__avatar"
+            [src]="avatarUrl"
+            [alt]="displayName"
+        />
         <button
             type="button"
             class="topbar__chevron"
             aria-label="User Menü öffnen"
+            (click)="toggleUserMenu()"
         >
             ▾
         </button>
+
+        @if (showUserMenu) {
+            <div class="user-menu">
+                <div class="user-menu__backdrop" (click)="closeUserMenu()"></div>
+                <div class="user-menu__content">
+                    <button
+                        type="button"
+                        class="user-menu__item"
+                        (click)="navigateToProfile()"
+                    >
+                        <span class="material-symbols-outlined">person</span>
+                        <span>Profil</span>
+                    </button>
+                    <button
+                        type="button"
+                        class="user-menu__item"
+                        (click)="logout()"
+                    >
+                        <span class="material-symbols-outlined">logout</span>
+                        <span>Abmelden</span>
+                    </button>
+                </div>
+            </div>
+        }
     </div>
 </header>

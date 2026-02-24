@@ -1,4 +1,4 @@
-import { Component, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import { take } from 'rxjs';
@@ -36,7 +36,8 @@ export class AvatarSelectComponent implements OnInit {
   constructor(
     private readonly userService: UserService,
     private readonly authService: AuthService,
-    private readonly router: Router
+    private readonly router: Router,
+    private readonly cdr: ChangeDetectorRef
   ) {}
 
   ngOnInit(): void {
@@ -103,8 +104,7 @@ export class AvatarSelectComponent implements OnInit {
         const processedImage = await this.resizeImageToDataUrl(file, 512, 0.82);
         this.uploadedAvatarDataUrl = processedImage;
         this.selectedAvatarId = 'custom';
-        console.log('File uploaded:', file.name);
-        console.log('File size:', file.size);
+        this.cdr.detectChanges();
       } catch (error) {
         console.error('Image upload failed:', error);
         this.uploadError = 'Das Bild konnte nicht verarbeitet werden. Bitte versuche eine andere Datei.';
