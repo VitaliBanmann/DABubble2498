@@ -9,6 +9,7 @@ import {
     setDoc,
     updateDoc,
     deleteDoc,
+    onSnapshot,
     query,
     QueryConstraint,
     DocumentData,
@@ -72,6 +73,30 @@ export class FirestoreService {
                 return { id: snap.id, ...data };
             }),
         );
+    }
+
+    getDocumentRealtime<T extends Record<string, unknown>>(
+        collectionName: string,
+        docId: string,
+    ): Observable<(T & WithId) | null> {
+        return new Observable((observer) => {
+            const docRef = doc(this.firestore, collectionName, docId);
+            const unsubscribe = onSnapshot(
+                docRef,
+                (snap) => {
+                    if (!snap.exists()) {
+                        observer.next(null);
+                        return;
+                    }
+                    const data = snap.data() as unknown as T;
+                    observer.next({ id: snap.id, ...data });
+                },
+                (error) => {
+                    observer.error(error);
+                },
+            );
+            return () => unsubscribe();
+        });
     }
 
     updateDocument<T extends Record<string, unknown>>(

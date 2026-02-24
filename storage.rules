@@ -1,0 +1,31 @@
+rules_version = '2';
+
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isAnonymous() {
+      return isSignedIn()
+        && request.auth.token.firebase.sign_in_provider == "anonymous";
+    }
+
+    function isRegularUser() {
+      return isSignedIn() && !isAnonymous();
+    }
+
+    // User avatar uploads
+    match /avatars/{userId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isRegularUser() && request.auth.uid == userId;
+    }
+
+    // General file storage
+    match /{allPaths=**} {
+      allow read: if isSignedIn();
+      allow write: if isRegularUser();
+    }
+  }
+}

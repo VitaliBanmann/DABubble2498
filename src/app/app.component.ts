@@ -8,6 +8,8 @@ import {
     RouterOutlet,
 } from '@angular/router';
 import { AuthService } from './services/auth.service';
+import { UserService } from './services/user.service';
+import { take } from 'rxjs';
 
 @Component({
     selector: 'app-root',
@@ -41,6 +43,7 @@ export class AppComponent {
     constructor(
         private readonly formBuilder: FormBuilder,
         private readonly authService: AuthService,
+        private readonly userService: UserService,
         private readonly router: Router,
         private readonly cdr: ChangeDetectorRef,
         private readonly ngZone: NgZone,
@@ -69,10 +72,25 @@ export class AppComponent {
                 return;
             }
 
-            // Wenn User eingeloggt und noch auf "/" ist -> ab in die App Shell
+            // Wenn User eingeloggt und noch auf "/" ist -> intelligente Navigation
             const pathname = (this.router.url || '').split('?')[0];
             if (pathname === '/' || pathname === '') {
-                void this.router.navigateByUrl('/app');
+                // Prüfe ob User bereits ein Profil mit Avatar hat
+                this.userService
+                    .getUser(user.uid)
+                    .pipe(take(1))
+                    .subscribe({
+                        next: (profile) => {
+                            if (profile && profile.avatar) {
+                                void this.router.navigateByUrl('/home');
+                            } else {
+                                void this.router.navigateByUrl('/avatar-select');
+                            }
+                        },
+                        error: () => {
+                            void this.router.navigateByUrl('/avatar-select');
+                        },
+                    });
             }
         });
     }
@@ -107,16 +125,40 @@ export class AppComponent {
                     password,
                 );
                 this.successMessage = 'Angemeldet.';
+
+                // Prüfe ob User bereits ein Profil hat
+                const currentUser = this.authService.getCurrentUser();
+                if (currentUser) {
+                    this.userService
+                        .getUser(currentUser.uid)
+                        .pipe(take(1))
+                        .subscribe({
+                            next: (profile) => {
+                                // Falls Profil existiert und Avatar vorhanden → direkt zu Home
+                                if (profile && profile.avatar) {
+                                    void this.router.navigateByUrl('/home');
+                                } else {
+                                    // Sonst → Avatar auswählen
+                                    void this.router.navigateByUrl('/avatar-select');
+                                }
+                            },
+                            error: () => {
+                                // Bei Fehler → Avatar auswählen lassen
+                                void this.router.navigateByUrl('/avatar-select');
+                            },
+                        });
+                } else {
+                    void this.router.navigateByUrl('/avatar-select');
+                }
             } else {
                 await this.authService.registerWithEmailAndPassword(
                     email,
                     password,
                 );
                 this.successMessage = 'Konto erfolgreich erstellt.';
+                // Bei Registrierung → immer Avatar auswählen
+                void this.router.navigateByUrl('/avatar-select');
             }
-
-            // Direkt navigieren (zusätzlich zum Auth-State Listener)
-            void this.router.navigateByUrl('/app');
         } catch (error) {
             this.errorMessage =
                 mode === 'login'
@@ -153,7 +195,33 @@ export class AppComponent {
         try {
             await this.authService.loginWithGoogle();
             this.successMessage = 'Erfolgreich mit Google angemeldet.';
-            void this.router.navigateByUrl('/avatar-select');
+            
+            // Prüfe ob User bereits ein Profil hat
+            const currentUser = this.authService.getCurrentUser();
+            if (!currentUser) {
+                void this.router.navigateByUrl('/avatar-select');
+                return;
+            }
+
+            // Lade Profil aus Firestore
+            this.userService
+                .getUser(currentUser.uid)
+                .pipe(take(1))
+                .subscribe({
+                    next: (profile) => {
+                        // Falls Profil existiert und Avatar vorhanden → direkt zu Home
+                        if (profile && profile.avatar) {
+                            void this.router.navigateByUrl('/home');
+                        } else {
+                            // Sonst → Avatar auswählen
+                            void this.router.navigateByUrl('/avatar-select');
+                        }
+                    },
+                    error: () => {
+                        // Bei Fehler → Avatar auswählen lassen
+                        void this.router.navigateByUrl('/avatar-select');
+                    },
+                });
         } catch (error) {
             this.errorMessage = this.getAuthErrorMessage(
                 error,

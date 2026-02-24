@@ -45,6 +45,16 @@ export class UserService {
     }
 
     /**
+     * Rufe einen Benutzer nach ID ab mit Real-time Updates
+     */
+    getUserRealtime(userId: string): Observable<User | null> {
+        return this.firestoreService.getDocumentRealtime<User>(
+            this.usersCollection,
+            userId,
+        );
+    }
+
+    /**
      * Aktualisiere einen Benutzer
      */
     updateUser(userId: string, updates: Partial<User>): Observable<void> {

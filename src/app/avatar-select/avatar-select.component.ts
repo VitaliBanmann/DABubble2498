@@ -189,14 +189,19 @@ export class AvatarSelectComponent implements OnInit {
 
     this.isLoading = true;
 
-    this.userService.updateCurrentUserProfile({
-      avatar: avatarToSave,
-      displayName: this.resolveDisplayNameForSave()
-    });
+    // Warte auf erfolgreiche Speicherung
+    const currentUser = this.authService.getCurrentUser();
+    if (currentUser) {
+      this.userService.updateCurrentUserProfile({
+        avatar: avatarToSave,
+        displayName: this.resolveDisplayNameForSave()
+      });
 
-    setTimeout(() => {
-      this.isLoading = false;
-      void this.router.navigateByUrl('/home');
-    }, 500);
+      // Warte kurz damit Firestore das Profil speichern kann
+      await new Promise(resolve => setTimeout(resolve, 800));
+    }
+
+    this.isLoading = false;
+    void this.router.navigateByUrl('/home');
   }
 }
