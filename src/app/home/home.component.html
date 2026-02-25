@@ -1,6 +1,102 @@
 <main class="home-page">
-    <button type="button" (click)="openThread()">Thread öffnen (Test)</button>
-    <button type="button" (click)="closeThread()">
-        Thread schließen (Test)
-    </button>
+    <header class="home-header">
+        <div>
+            <h1># {{ currentChannelName }}</h1>
+            <p>Channel-ID: {{ currentChannelId }}</p>
+        </div>
+
+        <button type="button" class="thread-btn" (click)="openThread()">
+            Thread öffnen
+        </button>
+    </header>
+
+    <section class="message-list" aria-label="Nachrichtenliste">
+        @if (!messages.length) {
+            <p class="empty-state">Noch keine Nachrichten in diesem Channel.</p>
+        }
+
+        @for (message of messages; track message.id ?? $index) {
+            <article class="message" [class.own]="isOwnMessage(message)">
+                <div class="message__meta">
+                    <span>{{ message.senderId }}</span>
+                    <span>{{ formatTimestamp(message.timestamp) }}</span>
+                </div>
+                <p>{{ message.text }}</p>
+
+                @if (message.reactions?.length) {
+                    <div class="message__reactions">
+                        @for (
+                            reaction of getVisibleReactions(message);
+                            track reaction.emoji
+                        ) {
+                            <button
+                                type="button"
+                                class="reaction"
+                                [class.active]="hasCurrentUserReacted(reaction)"
+                                (click)="toggleReaction(message, reaction.emoji)"
+                            >
+                                <span>{{ reaction.emoji }}</span>
+                                <span>{{ reaction.userIds.length }}</span>
+                            </button>
+                        }
+
+                        @if (getHiddenReactionCount(message) > 0) {
+                            <button
+                                type="button"
+                                class="reaction more"
+                                (click)="toggleReactionList(message)"
+                            >
+                                +{{ getHiddenReactionCount(message) }} weitere
+                            </button>
+                        } @else if ((message.reactions?.length ?? 0) > 20) {
+                            <button
+                                type="button"
+                                class="reaction more"
+                                (click)="toggleReactionList(message)"
+                            >
+                                weniger anzeigen
+                            </button>
+                        }
+                    </div>
+                }
+
+                <div class="message__reaction-actions">
+                    @for (emoji of reactionPalette; track emoji) {
+                        <button
+                            type="button"
+                            class="reaction-add"
+                            [disabled]="!canWrite"
+                            (click)="toggleReaction(message, emoji)"
+                        >
+                            {{ emoji }}
+                        </button>
+                    }
+                </div>
+            </article>
+        }
+    </section>
+
+    <form class="composer" (ngSubmit)="sendMessage()">
+        <input
+            type="text"
+            [formControl]="messageControl"
+            placeholder="Nachricht schreiben..."
+            [disabled]="isSending || !canWrite"
+        />
+
+        <button
+            type="submit"
+            [disabled]="isSending || !messageControl.value.trim() || !canWrite"
+        >
+            {{ isSending ? 'Sende...' : 'Senden' }}
+        </button>
+    </form>
+
+    @if (!canWrite) {
+        <p class="hint">Als Gast kannst du Nachrichten lesen, aber nicht senden.</p>
+    }
+
+    @if (errorMessage) {
+        <p class="error">{{ errorMessage }}</p>
+    }
 </main>

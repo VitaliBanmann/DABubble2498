@@ -5,12 +5,130 @@
     </div>
 
     <div class="sidebar__section">
-        <div class="sidebar__title">Channels</div>
-        <a routerLink="/app" routerLinkActive="active"># Entwicklerteam</a>
+        <div class="sidebar__header">
+            <div class="sidebar__title">Channels</div>
+            <button
+                type="button"
+                class="sidebar__add"
+                [disabled]="!canCreateChannel"
+                (click)="openCreateChannelDialog()"
+                aria-label="Channel erstellen"
+            >
+                +
+            </button>
+        </div>
+        @for (channel of channels; track channel.id) {
+            <button
+                type="button"
+                class="channel-link"
+                [class.active]="activeChannelId === channel.id"
+                (click)="openChannel(channel.id)"
+            >
+                # {{ channel.label }}
+            </button>
+        }
     </div>
 
-    <div class="sidebar__section">
-        <div class="sidebar__title">Direktnachrichten</div>
-        <a routerLink="/app" routerLinkActive="active">Noah Braun</a>
-    </div>
+    @if (showCreateChannelDialog) {
+        <div class="overlay" (click)="closeCreateChannelDialog()">
+            <section class="create-card" (click)="$event.stopPropagation()">
+                <header class="create-card__header">
+                    <h3>Channel erstellen</h3>
+                    <button
+                        type="button"
+                        class="close-btn"
+                        (click)="closeCreateChannelDialog()"
+                        aria-label="Dialog schließen"
+                    >
+                        ✕
+                    </button>
+                </header>
+
+                <label>
+                    <span>Channel-Name*</span>
+                    <input
+                        type="text"
+                        [formControl]="channelNameControl"
+                        placeholder="z. B. Kooperationprojekte"
+                    />
+                </label>
+
+                <label>
+                    <span>Beschreibung (optional)</span>
+                    <textarea
+                        [formControl]="channelDescriptionControl"
+                        rows="3"
+                        placeholder="Dein Text hier"
+                    ></textarea>
+                </label>
+
+                <div class="member-box">
+                    <div class="member-box__title">Mitglieder</div>
+                    <ul>
+                        @for (member of availableMembers; track member.id) {
+                            <li>
+                                <button
+                                    type="button"
+                                    class="member-view"
+                                    (click)="openMemberProfile(member)"
+                                >
+                                    {{ member.displayName }}
+                                </button>
+                                <label class="member-toggle">
+                                    <input
+                                        type="checkbox"
+                                        [checked]="selectedMemberIds.has(member.id ?? '')"
+                                        (change)="toggleMemberSelection(member.id ?? '')"
+                                        [disabled]="!member.id"
+                                    />
+                                    <span>hinzufügen</span>
+                                </label>
+                            </li>
+                        }
+                    </ul>
+                </div>
+
+                @if (saveError) {
+                    <p class="save-error">{{ saveError }}</p>
+                }
+
+                <button
+                    type="button"
+                    class="create-btn"
+                    [disabled]="isCreateDisabled"
+                    (click)="createChannel()"
+                >
+                    {{ isSaving ? 'Erstelle...' : 'Erstellen' }}
+                </button>
+            </section>
+        </div>
+    }
+
+    @if (selectedMemberProfile) {
+        <div class="overlay" (click)="closeMemberProfile()">
+            <section class="profile-card" (click)="$event.stopPropagation()">
+                <header>
+                    <h4>{{ selectedMemberProfile.displayName }}</h4>
+                    <button
+                        type="button"
+                        class="close-btn"
+                        (click)="closeMemberProfile()"
+                        aria-label="Profil schließen"
+                    >
+                        ✕
+                    </button>
+                </header>
+
+                <div class="profile-content">
+                    <div class="profile-avatar">
+                        {{ selectedMemberProfile.displayName.charAt(0) }}
+                    </div>
+                    <div>
+                        <p>{{ selectedMemberProfile.email }}</p>
+                        <p>Rolle: Mitglied</p>
+                    </div>
+                </div>
+            </section>
+        </div>
+    }
 </nav>

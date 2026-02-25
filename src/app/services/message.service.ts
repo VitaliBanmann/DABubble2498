@@ -4,7 +4,12 @@ import { AuthService } from './auth.service';
 import { Observable } from 'rxjs';
 import { query, where, orderBy, Timestamp } from 'firebase/firestore';
 
-export interface Message {
+export interface MessageReaction extends Record<string, unknown> {
+    emoji: string;
+    userIds: string[];
+}
+
+export interface Message extends Record<string, unknown> {
     id?: string;
     text: string;
     senderId: string;
@@ -14,6 +19,7 @@ export interface Message {
     read?: boolean;
     edited?: boolean;
     editedAt?: Date;
+    reactions?: MessageReaction[];
 }
 
 @Injectable({
@@ -34,6 +40,10 @@ export class MessageService {
         const currentUser = this.authService.getCurrentUser();
         if (!currentUser) {
             throw new Error('User not authenticated');
+        }
+
+        if (currentUser.isAnonymous) {
+            throw new Error('Anonymous users cannot send messages');
         }
 
         return this.firestoreService.addDocument(this.messagesCollection, {
@@ -107,5 +117,68 @@ export class MessageService {
             messageId,
             { read: true },
         );
+    }
+
+    getAllMessages(): Observable<Message[]> {
+        return this.firestoreService.getDocuments<Message>(this.messagesCollection);
+    }
+
+    toggleReaction(messageId: string, emoji: string): Observable<void> {
+        const currentUser = this.authService.getCurrentUser();
+        if (!currentUser) {
+            throw new Error('User not authenticated');
+        }
+
+        return new Observable((observer) => {
+            this.firestoreService
+                .getDocument<Message>(this.messagesCollection, messageId)
+                .subscribe({
+                    next: (message) => {
+                        if (!message) {
+                            observer.error(new Error('Message not found'));
+                            return;
+                        }
+
+                        const existing = (message.reactions ?? []).map((reaction) => ({
+                            ...reaction,
+                            userIds: [...reaction.userIds],
+                        }));
+                        const reactionIndex = existing.findIndex(
+                            (reaction) => reaction.emoji === emoji,
+                        );
+
+                        if (reactionIndex >= 0) {
+                            const target = existing[reactionIndex];
+                            const hasReacted = target.userIds.includes(currentUser.uid);
+
+                            if (hasReacted) {
+                                target.userIds = target.userIds.filter(
+                                    (userId) => userId !== currentUser.uid,
+                                );
+                                if (!target.userIds.length) {
+                                    existing.splice(reactionIndex, 1);
+                                }
+                            } else {
+                                target.userIds.push(currentUser.uid);
+                            }
+                        } else {
+                            existing.push({ emoji, userIds: [currentUser.uid] });
+                        }
+
+                        this.firestoreService
+                            .updateDocument(this.messagesCollection, messageId, {
+                                reactions: existing,
+                            })
+                            .subscribe({
+                                next: () => {
+                                    observer.next();
+                                    observer.complete();
+                                },
+                                error: (error) => observer.error(error),
+                            });
+                    },
+                    error: (error) => observer.error(error),
+                });
+        });
     }
 }

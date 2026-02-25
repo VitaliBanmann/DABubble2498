@@ -188,20 +188,22 @@ export class AvatarSelectComponent implements OnInit {
     }
 
     this.isLoading = true;
+    this.uploadError = '';
 
-    // Warte auf erfolgreiche Speicherung
-    const currentUser = this.authService.getCurrentUser();
-    if (currentUser) {
-      this.userService.updateCurrentUserProfile({
-        avatar: avatarToSave,
-        displayName: this.resolveDisplayNameForSave()
-      });
+    try {
+      const currentUser = this.authService.getCurrentUser();
+      if (currentUser) {
+        await this.userService.updateCurrentUserProfile({
+          avatar: avatarToSave,
+          displayName: this.resolveDisplayNameForSave(),
+        });
+      }
 
-      // Warte kurz damit Firestore das Profil speichern kann
-      await new Promise(resolve => setTimeout(resolve, 800));
+      void this.router.navigateByUrl('/home');
+    } catch {
+      this.uploadError = 'Profil konnte nicht gespeichert werden. Bitte erneut versuchen.';
+    } finally {
+      this.isLoading = false;
     }
-
-    this.isLoading = false;
-    void this.router.navigateByUrl('/home');
   }
 }

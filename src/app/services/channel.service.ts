@@ -1,9 +1,9 @@
 import { Injectable } from '@angular/core';
 import { FirestoreService } from './firestore.service';
-import { Observable } from 'rxjs';
+import { map, Observable } from 'rxjs';
 import { Timestamp } from 'firebase/firestore';
 
-export interface Channel {
+export interface Channel extends Record<string, unknown> {
     id?: string;
     name: string;
     description?: string;
@@ -31,6 +31,16 @@ export class ChannelService {
             createdAt: new Date(),
             updatedAt: new Date(),
         });
+    }
+
+    createChannelWithId(channelId: string, channel: Channel): Observable<string> {
+        return this.firestoreService
+            .setDocument(this.channelsCollection, channelId, {
+                ...channel,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            })
+            .pipe(map(() => channelId));
     }
 
     /**

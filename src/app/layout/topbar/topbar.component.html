@@ -9,16 +9,73 @@
     </div>
 
     <div class="topbar__search">
-        <input type="text" placeholder="Devspace durchsuchen" />
+        <input
+            type="text"
+            placeholder="Devspace durchsuchen"
+            [value]="searchTerm"
+            (input)="onSearchInput(($any($event.target)).value)"
+            (blur)="onSearchBlur()"
+            (focus)="onSearchInput(searchTerm)"
+        />
+
+        @if (showSearchResults) {
+            <div class="search-results" (mousedown)="$event.preventDefault()">
+                @if (channelResults.length) {
+                    <section>
+                        <h5>Channels</h5>
+                        @for (channel of channelResults; track channel.id) {
+                            <button
+                                type="button"
+                                (click)="navigateToChannel(channel.id)"
+                            >
+                                # {{ channel.name }}
+                            </button>
+                        }
+                    </section>
+                }
+
+                @if (userResults.length) {
+                    <section>
+                        <h5>Benutzer</h5>
+                        @for (user of userResults; track user.id) {
+                            <button type="button" (click)="closeSearchResults()">
+                                {{ user.name }} · {{ user.email }}
+                            </button>
+                        }
+                    </section>
+                }
+
+                @if (messageResults.length) {
+                    <section>
+                        <h5>Nachrichten</h5>
+                        @for (message of messageResults; track message.id) {
+                            <button
+                                type="button"
+                                (click)="navigateToMessage(message.channelId)"
+                            >
+                                {{ message.text }}
+                            </button>
+                        }
+                    </section>
+                }
+            </div>
+        }
     </div>
 
     <div class="topbar__user">
         <span class="topbar__username">{{ displayName }}</span>
-        <img
-            class="topbar__avatar"
-            [src]="avatarUrl"
-            [alt]="displayName"
-        />
+        @if (showAvatarImage && avatarUrl) {
+            <img
+                class="topbar__avatar"
+                [src]="avatarUrl"
+                [alt]="displayName"
+                (error)="onAvatarError()"
+            />
+        } @else {
+            <div class="topbar__avatar-fallback" [attr.aria-label]="displayName">
+                {{ initials }}
+            </div>
+        }
         <button
             type="button"
             class="topbar__chevron"
