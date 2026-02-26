@@ -7,6 +7,7 @@ import { AuthService } from '../../services/auth.service';
 import { UserService } from '../../services/user.service';
 import { ChannelService } from '../../services/channel.service';
 import { MessageService } from '../../services/message.service';
+import { ShowProfileComponent } from '../show-profile/show-profile.component';
 
 interface SearchChannelResult {
     id: string;
@@ -28,7 +29,7 @@ interface SearchMessageResult {
 @Component({
     selector: 'app-topbar',
     standalone: true,
-    imports: [CommonModule],
+    imports: [CommonModule, ShowProfileComponent],
     templateUrl: './topbar.component.html',
     styleUrl: './topbar.component.scss',
 })
@@ -37,6 +38,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
     avatarUrl: string | null = null;
     showAvatarImage = false;
     showUserMenu = false;
+    showProfile = false;
     searchTerm = '';
     showSearchResults = false;
     channelResults: SearchChannelResult[] = [];
@@ -224,7 +226,11 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
     navigateToProfile(): void {
         this.closeUserMenu();
-        void this.router.navigateByUrl('/avatar-select');
+        this.showProfile = true;
+    }
+
+    closeProfile(): void {
+        this.showProfile = false;
     }
 
     async logout(): Promise<void> {

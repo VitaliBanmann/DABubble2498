@@ -1,4 +1,10 @@
-/* You can add global styles to this file, and also import other style files */
+@font-face {
+    font-family: 'Nunito';
+    src: url('assets/fonts/Nunito/Nunito-VariableFont_wght.ttf') format('truetype');
+    font-weight: 200 1000;
+    font-style: normal;
+    font-display: swap;
+}
 
 * {
     box-sizing: border-box;
@@ -8,7 +14,7 @@
 
 body {
     margin: 0;
-    font-family: "Inter", "Segoe UI", sans-serif;
+    font-family: 'Nunito', 'Inter', 'Segoe UI', sans-serif;
 }
 
 .splash-screen {

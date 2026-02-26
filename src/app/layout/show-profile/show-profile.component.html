@@ -1,0 +1,44 @@
+<section class="show-profile" aria-label="Profil">
+    <header class="show-profile__header">
+        <h2 class="show-profile__title">Profil</h2>
+        <button type="button" class="show-profile__close" aria-label="Profil schließen" (click)="onClose()">
+            <img src="assets/pictures/close.svg" alt="" />
+        </button>
+    </header>
+
+    <div class="show-profile__avatar">
+        @if (avatarUrl) {
+        <img [src]="avatarUrl" [alt]="displayName" />
+        } @else {
+        <div class="show-profile__avatar-fallback" aria-hidden="true">
+            {{ initials }}
+        </div>
+        }
+    </div>
+
+    <div class="show-profile__changes_container">
+        <div class="show-profile__name-row">
+            <h3 class="show-profile__name">{{ displayName }}</h3>
+            <button type="button" class="show-profile__edit">Bearbeiten</button>
+        </div>
+
+        <div class="show-profile__status">
+            <img class="show-profile__status-icon" src="assets/pictures/Online.svg" alt="" />
+            <span>Aktive</span>
+        </div>
+    </div>
+
+    <div class="show-profile__mail">
+        <div class="show-profile__mail-label">
+            <img src="assets/pictures/mail.svg" alt="" />
+            <span>E-Mail-Adresse</span>
+        </div>
+        @if (email) {
+        <a class="show-profile__mail-value" [href]="'mailto:' + email">
+            {{ email }}
+        </a>
+        } @else {
+        <span class="show-profile__mail-value">—</span>
+        }
+    </div>
+</section>
