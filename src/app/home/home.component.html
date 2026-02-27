@@ -1,13 +1,21 @@
 <main class="home-page">
     <header class="home-header">
         <div>
-            <h1># {{ currentChannelName }}</h1>
-            <p>Channel-ID: {{ currentChannelId }}</p>
+            <h1>{{ isDirectMessage ? '@ ' + currentConversationTitle : '# ' + currentConversationTitle }}</h1>
+            <p>
+                {{
+                    isDirectMessage
+                        ? 'Direktnachricht'
+                        : 'Channel'
+                }}
+            </p>
         </div>
 
-        <button type="button" class="thread-btn" (click)="openThread()">
-            Thread öffnen
-        </button>
+        @if (!isDirectMessage) {
+            <button type="button" class="thread-btn" (click)="openThread()">
+                Thread öffnen
+            </button>
+        }
     </header>
 
     <section class="message-list" aria-label="Nachrichtenliste">
@@ -18,7 +26,7 @@
         @for (message of messages; track message.id ?? $index) {
             <article class="message" [class.own]="isOwnMessage(message)">
                 <div class="message__meta">
-                    <span>{{ message.senderId }}</span>
+                    <span>{{ getSenderLabel(message) }}</span>
                     <span>{{ formatTimestamp(message.timestamp) }}</span>
                 </div>
                 <p>{{ message.text }}</p>
@@ -59,19 +67,6 @@
                         }
                     </div>
                 }
-
-                <div class="message__reaction-actions">
-                    @for (emoji of reactionPalette; track emoji) {
-                        <button
-                            type="button"
-                            class="reaction-add"
-                            [disabled]="!canWrite"
-                            (click)="toggleReaction(message, emoji)"
-                        >
-                            {{ emoji }}
-                        </button>
-                    }
-                </div>
             </article>
         }
     </section>
@@ -80,7 +75,7 @@
         <input
             type="text"
             [formControl]="messageControl"
-            placeholder="Nachricht schreiben..."
+            [placeholder]="isDirectMessage ? 'Nachricht an ' + currentConversationTitle : 'Nachricht schreiben...'"
             [disabled]="isSending || !canWrite"
         />
 

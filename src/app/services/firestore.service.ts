@@ -13,6 +13,7 @@ import {
     query,
     QueryConstraint,
     DocumentData,
+    Query,
 } from '@angular/fire/firestore';
 import { Observable, from } from 'rxjs';
 
@@ -130,5 +131,32 @@ export class FirestoreService {
                 }),
             ),
         );
+    }
+
+    queryDocumentsRealtime<T extends Record<string, unknown>>(
+        collectionName: string,
+        constraints: QueryConstraint[],
+    ): Observable<(T & WithId)[]> {
+        return new Observable((observer) => {
+            const baseCollection = collection(this.firestore, collectionName);
+            const queryRef = query(baseCollection, ...constraints) as Query<DocumentData>;
+
+            const unsubscribe = onSnapshot(
+                queryRef,
+                (snap) => {
+                    observer.next(
+                        snap.docs.map((docSnapshot) => {
+                            const data = docSnapshot.data() as unknown as T;
+                            return { id: docSnapshot.id, ...data };
+                        }),
+                    );
+                },
+                (error) => {
+                    observer.error(error);
+                },
+            );
+
+            return () => unsubscribe();
+        });
     }
 }

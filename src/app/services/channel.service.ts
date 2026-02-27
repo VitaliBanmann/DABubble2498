@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { FirestoreService } from './firestore.service';
-import { map, Observable } from 'rxjs';
-import { Timestamp } from 'firebase/firestore';
+import { AuthService } from './auth.service';
+import { map, Observable, of } from 'rxjs';
+import { Timestamp, where } from 'firebase/firestore';
 
 export interface Channel extends Record<string, unknown> {
     id?: string;
@@ -20,7 +21,10 @@ export interface Channel extends Record<string, unknown> {
 export class ChannelService {
     private channelsCollection = 'channels';
 
-    constructor(private firestoreService: FirestoreService) {}
+    constructor(
+        private firestoreService: FirestoreService,
+        private authService: AuthService,
+    ) {}
 
     /**
      * Erstelle einen neuen Kanal
@@ -57,8 +61,14 @@ export class ChannelService {
      * Rufe alle Kanäle ab
      */
     getAllChannels(): Observable<Channel[]> {
-        return this.firestoreService.getDocuments<Channel>(
+        const currentUser = this.authService.getCurrentUser();
+        if (!currentUser) {
+            return of([]);
+        }
+
+        return this.firestoreService.queryDocuments<Channel>(
             this.channelsCollection,
+            [where('members', 'array-contains', currentUser.uid)],
         );
     }
 

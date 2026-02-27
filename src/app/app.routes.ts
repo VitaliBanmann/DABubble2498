@@ -28,10 +28,17 @@ export const routes: Routes = [
             {
                 path: '',
                 pathMatch: 'full',
-                redirectTo: 'channel/entwicklerteam',
+                redirectTo: 'channel/allgemein',
             },
             {
                 path: 'channel/:channelId',
+                loadComponent: () =>
+                    import('./home/home.component').then(
+                        (m) => m.HomeComponent,
+                    ),
+            },
+            {
+                path: 'dm/:userId',
                 loadComponent: () =>
                     import('./home/home.component').then(
                         (m) => m.HomeComponent,

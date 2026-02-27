@@ -264,15 +264,15 @@ export class TopbarComponent implements OnInit, OnDestroy {
     private loadSearchData(): void {
         this.subscription.add(
             combineLatest([
-                this.channelService.getAllChannels(),
-                this.userService.getAllUsers(),
-                this.messageService.getAllMessages(),
+                this.channelService.getAllChannels().pipe(catchError(() => of([]))),
+                this.userService.getAllUsers().pipe(catchError(() => of([]))),
+                this.messageService.getAllMessages().pipe(catchError(() => of([]))),
             ])
                 .pipe(take(1))
                 .subscribe({
                     next: ([channels, users, messages]) => {
                         const defaultChannels: SearchChannelResult[] = [
-                            { id: 'taegliches', name: 'Allgemein' },
+                            { id: 'allgemein', name: 'Allgemein' },
                             { id: 'entwicklerteam', name: 'Entwicklerteam' },
                         ];
 

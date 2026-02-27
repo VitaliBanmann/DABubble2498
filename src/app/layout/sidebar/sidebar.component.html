@@ -29,6 +29,25 @@
         }
     </div>
 
+    <div class="sidebar__section">
+        <div class="sidebar__header">
+            <div class="sidebar__title">Direktnachrichten</div>
+        </div>
+
+        @for (member of directMessages; track member.id) {
+            <button
+                type="button"
+                class="direct-link"
+                [class.active]="activeDirectMessageId === member.id"
+                (click)="openDirectMessage(member.id)"
+            >
+                <span class="direct-link__avatar">{{ getInitials(member.label.replace(' (Du)', '')) }}</span>
+                <span class="direct-link__label">{{ member.label }}</span>
+                <span class="direct-link__status" [class.online]="member.isOnline"></span>
+            </button>
+        }
+    </div>
+
     @if (showCreateChannelDialog) {
         <div class="overlay" (click)="closeCreateChannelDialog()">
             <section class="create-card" (click)="$event.stopPropagation()">
@@ -72,7 +91,8 @@
                                     class="member-view"
                                     (click)="openMemberProfile(member)"
                                 >
-                                    {{ member.displayName }}
+                                    <span>{{ member.displayName }}{{ member.id === currentUserId ? ' (Du)' : '' }}</span>
+                                    <span class="member-status" [class.online]="member.presenceStatus === 'online'"></span>
                                 </button>
                                 <label class="member-toggle">
                                     <input
@@ -121,7 +141,7 @@
 
                 <div class="profile-content">
                     <div class="profile-avatar">
-                        {{ selectedMemberProfile.displayName.charAt(0) }}
+                        {{ getInitials(selectedMemberProfile.displayName) }}
                     </div>
                     <div>
                         <p>{{ selectedMemberProfile.email }}</p>

@@ -13,6 +13,13 @@ interface SidebarChannel {
     description?: string;
 }
 
+interface SidebarDirectMessage {
+    id: string;
+    label: string;
+    isOnline: boolean;
+    isSelf: boolean;
+}
+
 @Component({
     selector: 'app-sidebar',
     standalone: true,
@@ -23,9 +30,13 @@ interface SidebarChannel {
 export class SidebarComponent implements OnInit, OnDestroy {
     readonly channels: SidebarChannel[] = [];
     readonly defaultChannels: SidebarChannel[] = [
-        { id: 'taegliches', label: 'Allgemein' },
+        { id: 'allgemein', label: 'Allgemein' },
         { id: 'entwicklerteam', label: 'Entwicklerteam' },
     ];
+    private readonly canonicalChannelLabels: Record<string, string> = {
+        allgemein: 'Allgemein',
+        entwicklerteam: 'Entwicklerteam',
+    };
     readonly channelNameControl = new FormControl('', {
         nonNullable: true,
         validators: [Validators.required],
@@ -38,11 +49,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
     saveError = '';
     canCreateChannel = false;
     availableMembers: User[] = [];
+    directMessages: SidebarDirectMessage[] = [];
     selectedMemberIds = new Set<string>();
     selectedMemberProfile: User | null = null;
     activeChannelId = 'entwicklerteam';
+    activeDirectMessageId = '';
     private readonly subscription = new Subscription();
-    private currentUserId = '';
+    currentUserId = '';
 
     constructor(
         private readonly authService: AuthService,
@@ -58,6 +71,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
             this.authService.currentUser$.subscribe((user) => {
                 this.currentUserId = user?.uid ?? '';
                 this.canCreateChannel = !!user && !user.isAnonymous;
+                this.buildDirectMessages();
             }),
         );
 
@@ -125,7 +139,26 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
     openChannel(channelId: string): void {
         this.activeChannelId = channelId;
+        this.activeDirectMessageId = '';
         void this.router.navigateByUrl(`/app/channel/${channelId}`);
+    }
+
+    openDirectMessage(userId: string): void {
+        this.activeDirectMessageId = userId;
+        void this.router.navigateByUrl(`/app/dm/${userId}`);
+    }
+
+    getInitials(displayName: string): string {
+        const parts = (displayName || '').trim().split(/\s+/).filter(Boolean);
+        if (!parts.length) {
+            return '?';
+        }
+
+        if (parts.length === 1) {
+            return parts[0].charAt(0).toUpperCase();
+        }
+
+        return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase();
     }
 
     createChannel(): void {
@@ -194,7 +227,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
                         );
                         const mapped: SidebarChannel = {
                             id: channel.id,
-                            label: channel.name,
+                            label:
+                                this.canonicalChannelLabels[channel.id] ??
+                                channel.name,
                             description: channel.description,
                         };
 
@@ -218,10 +253,81 @@ export class SidebarComponent implements OnInit, OnDestroy {
             .pipe(take(1))
             .subscribe({
                 next: (members) => {
-                    this.availableMembers = members.sort((left, right) =>
+                    this.availableMembers = this.getUniqueMembers(members).sort((left, right) =>
                         left.displayName.localeCompare(right.displayName, 'de'),
                     );
+                    this.buildDirectMessages();
                 },
+            });
+    }
+
+    private getUniqueMembers(members: User[]): User[] {
+        const map = new Map<string, User>();
+
+        for (const member of members) {
+            const key = (member.email || member.displayName || member.id || '')
+                .toString()
+                .trim()
+                .toLowerCase();
+
+            if (!key) {
+                continue;
+            }
+
+            const existing = map.get(key);
+            if (!existing) {
+                map.set(key, member);
+                continue;
+            }
+
+            const existingScore = this.scoreMemberRecord(existing);
+            const candidateScore = this.scoreMemberRecord(member);
+
+            if (candidateScore > existingScore) {
+                map.set(key, member);
+            }
+        }
+
+        return Array.from(map.values());
+    }
+
+    private scoreMemberRecord(member: User): number {
+        let score = 0;
+        if (member.id === this.currentUserId) {
+            score += 100;
+        }
+        if (member.presenceStatus) {
+            score += 10;
+        }
+        if (member.avatar) {
+            score += 2;
+        }
+        return score;
+    }
+
+    private buildDirectMessages(): void {
+        this.directMessages = this.availableMembers
+            .filter((member) => !!member.id)
+            .map((member) => {
+                const isSelf = member.id === this.currentUserId;
+                return {
+                    id: member.id ?? '',
+                    label: isSelf
+                        ? `${member.displayName} (Du)`
+                        : member.displayName,
+                    isOnline: member.presenceStatus === 'online',
+                    isSelf,
+                };
+            })
+            .sort((left, right) => {
+                if (left.isSelf) {
+                    return -1;
+                }
+                if (right.isSelf) {
+                    return 1;
+                }
+
+                return left.label.localeCompare(right.label, 'de');
             });
     }
 
@@ -258,9 +364,16 @@ export class SidebarComponent implements OnInit, OnDestroy {
     }
 
     private updateActiveChannelFromUrl(url: string): void {
-        const match = /\/app\/channel\/([^/?#]+)/.exec(url);
-        if (match?.[1]) {
-            this.activeChannelId = decodeURIComponent(match[1]);
+        const channelMatch = /\/app\/channel\/([^/?#]+)/.exec(url);
+        if (channelMatch?.[1]) {
+            this.activeChannelId = decodeURIComponent(channelMatch[1]);
+            this.activeDirectMessageId = '';
+            return;
+        }
+
+        const directMessageMatch = /\/app\/dm\/([^/?#]+)/.exec(url);
+        if (directMessageMatch?.[1]) {
+            this.activeDirectMessageId = decodeURIComponent(directMessageMatch[1]);
         }
     }
 }

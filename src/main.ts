@@ -7,16 +7,55 @@ import { getFirestore, provideFirestore } from '@angular/fire/firestore';
 import { getAnalytics, provideAnalytics } from '@angular/fire/analytics';
 import { environment } from './environments/environment';
 
-// Global error handler for debugging
+const CHUNK_RELOAD_GUARD_KEY = 'da-bubble-chunk-reload-attempted';
+
+function isChunkLoadError(reason: unknown): boolean {
+    const message =
+        typeof reason === 'string'
+            ? reason
+            : reason instanceof Error
+              ? reason.message
+              : '';
+
+    return /failed to fetch dynamically imported module|chunkloaderror|loading chunk|importing a module script failed|module script/i.test(
+        message,
+    );
+}
+
+function tryRecoverFromChunkError(reason: unknown): boolean {
+    if (typeof window === 'undefined' || !isChunkLoadError(reason)) {
+        return false;
+    }
+
+    const hasReloaded = sessionStorage.getItem(CHUNK_RELOAD_GUARD_KEY) === '1';
+
+    if (!hasReloaded) {
+        sessionStorage.setItem(CHUNK_RELOAD_GUARD_KEY, '1');
+        window.location.reload();
+        return true;
+    }
+
+    sessionStorage.removeItem(CHUNK_RELOAD_GUARD_KEY);
+    return false;
+}
+
 if (typeof window !== 'undefined') {
+    sessionStorage.removeItem(CHUNK_RELOAD_GUARD_KEY);
+
     window.addEventListener('error', (event) => {
-        console.error('[GLOBAL ERROR HANDLER] Uncaught error:', event.error);
-        console.error('[GLOBAL ERROR HANDLER] Error message:', event.message);
-        console.error('[GLOBAL ERROR HANDLER] File:', event.filename);
-        console.error('[GLOBAL ERROR HANDLER] Line:', event.lineno);
+        const recovered = tryRecoverFromChunkError(event.error ?? event.message);
+        if (!recovered) {
+            console.error('[GLOBAL ERROR HANDLER] Uncaught error:', event.error);
+        }
     });
 
     window.addEventListener('unhandledrejection', (event) => {
+        const recovered = tryRecoverFromChunkError(event.reason);
+        if (recovered) {
+            event.preventDefault();
+            return;
+        }
+
         console.error(
             '[GLOBAL REJECTION HANDLER] Unhandled promise rejection:',
             event.reason,

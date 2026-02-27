@@ -16,9 +16,125 @@ service cloud.firestore {
       return isSignedIn() && !isAnonymous();
     }
 
-    match /{document=**} {
+    function hasField(data, field) {
+      return data.keys().hasAny([field]);
+    }
+
+    function isPublicChannelId(channelId) {
+      return channelId in ['allgemein', 'entwicklerteam'];
+    }
+
+    function channelDoc(channelId) {
+      return get(/databases/$(database)/documents/channels/$(channelId));
+    }
+
+    function channelExists(channelId) {
+      return exists(/databases/$(database)/documents/channels/$(channelId));
+    }
+
+    function isChannelMember(channelId) {
+      return channelExists(channelId)
+        && request.auth.uid in channelDoc(channelId).data.members;
+    }
+
+    function canReadChannel(channelId) {
+      return isPublicChannelId(channelId) || isChannelMember(channelId);
+    }
+
+    function conversationIdFor(firstUid, secondUid) {
+      return firstUid < secondUid
+        ? firstUid + '__' + secondUid
+        : secondUid + '__' + firstUid;
+    }
+
+    function isDirectMessage(data) {
+      return hasField(data, 'receiverId')
+        && hasField(data, 'conversationId')
+        && !hasField(data, 'channelId');
+    }
+
+    function isChannelMessage(data) {
+      return hasField(data, 'channelId')
+        && !hasField(data, 'receiverId')
+        && !hasField(data, 'conversationId');
+    }
+
+    function canReadMessage(data) {
+      return isDirectMessage(data)
+        ? (request.auth.uid == data.senderId || request.auth.uid == data.receiverId)
+        : (isChannelMessage(data) && canReadChannel(data.channelId));
+    }
+
+    function canCreateDirectMessage(data) {
+      return isDirectMessage(data)
+        && data.senderId == request.auth.uid
+        && data.receiverId is string
+        && data.receiverId != request.auth.uid
+        && data.conversationId == conversationIdFor(data.senderId, data.receiverId)
+        && data.text is string
+        && data.text.size() > 0
+        && data.timestamp is timestamp;
+    }
+
+    function canCreateChannelMessage(data) {
+      return isChannelMessage(data)
+        && data.senderId == request.auth.uid
+        && data.channelId is string
+        && canReadChannel(data.channelId)
+        && data.text is string
+        && data.text.size() > 0
+        && data.timestamp is timestamp;
+    }
+
+    function messageCoreFieldsUnchanged() {
+      return request.resource.data.senderId == resource.data.senderId
+        && request.resource.data.channelId == resource.data.channelId
+        && request.resource.data.receiverId == resource.data.receiverId
+        && request.resource.data.conversationId == resource.data.conversationId
+        && request.resource.data.timestamp == resource.data.timestamp;
+    }
+
+    function canUpdateMessage() {
+      return canReadMessage(resource.data)
+        && messageCoreFieldsUnchanged()
+        && (
+          request.auth.uid == resource.data.senderId
+          || request.resource.data.diff(resource.data).changedKeys().hasOnly(['reactions', 'read'])
+        );
+    }
+
+    match /users/{userId} {
       allow read: if isSignedIn();
-      allow write: if isRegularUser();
+      allow create: if isRegularUser() && request.auth.uid == userId;
+      allow update: if isRegularUser() && request.auth.uid == userId;
+      allow delete: if false;
+    }
+
+    match /channels/{channelId} {
+      allow read: if isSignedIn() && canReadChannel(channelId);
+      allow create: if isRegularUser()
+        && request.resource.data.createdBy == request.auth.uid
+        && request.resource.data.members is list
+        && request.auth.uid in request.resource.data.members;
+      allow update: if isRegularUser()
+        && request.auth.uid == resource.data.createdBy;
+      allow delete: if isRegularUser()
+        && request.auth.uid == resource.data.createdBy;
+    }
+
+    match /messages/{messageId} {
+      allow read: if isSignedIn() && canReadMessage(resource.data);
+
+      allow create: if isRegularUser()
+        && (canCreateDirectMessage(request.resource.data)
+            || canCreateChannelMessage(request.resource.data));
+
+      allow update: if isRegularUser() && canUpdateMessage();
+      allow delete: if isRegularUser() && request.auth.uid == resource.data.senderId;
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

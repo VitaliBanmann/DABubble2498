@@ -53,6 +53,61 @@
     color: #444df2;
 }
 
+.direct-link {
+    width: 100%;
+    border: 0;
+    background: transparent;
+    border-radius: 12px;
+    padding: 8px 10px;
+    display: grid;
+    grid-template-columns: 28px 1fr 10px;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    text-align: left;
+}
+
+.direct-link:hover {
+    background: #f7f8ff;
+}
+
+.direct-link.active {
+    background: #eef0ff;
+}
+
+.direct-link__avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: #444df2;
+    color: #fff;
+    font-size: 12px;
+    font-weight: 700;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.direct-link__label {
+    color: #1f2232;
+    font-size: 14px;
+    line-height: 1.25;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.direct-link__status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #c4c9db;
+}
+
+.direct-link__status.online {
+    background: #59d84d;
+}
+
 .overlay {
     position: fixed;
     inset: 0;
@@ -151,6 +206,20 @@ textarea {
     border-radius: 999px;
     padding: 8px 10px;
     cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.member-status {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #c4c9db;
+}
+
+.member-status.online {
+    background: #59d84d;
 }
 
 .member-toggle {

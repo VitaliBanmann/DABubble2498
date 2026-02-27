@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { distinctUntilChanged, Subscription, switchMap } from 'rxjs';
+import { distinctUntilChanged, of, Subscription, switchMap, take } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { PresenceService } from '../services/presence.service';
 import {
@@ -11,6 +11,7 @@ import {
     MessageService,
 } from '../services/message.service';
 import { UiStateService } from '../services/ui-state.service';
+import { User, UserService } from '../services/user.service';
 
 @Component({
     selector: 'app-home',
@@ -22,25 +23,30 @@ import { UiStateService } from '../services/ui-state.service';
 export class HomeComponent implements OnInit, OnDestroy {
     readonly messageControl = new FormControl('', { nonNullable: true });
     readonly channelNames: Record<string, string> = {
-        taegliches: 'Allgemein',
+        allgemein: 'Allgemein',
         entwicklerteam: 'Entwicklerteam',
     };
 
-    currentChannelId = 'entwicklerteam';
+    currentChannelId = 'allgemein';
+    currentDirectUserId = '';
+    currentDirectUserName = '';
+    isDirectMessage = false;
     messages: Message[] = [];
-    readonly reactionPalette = ['👍', '✅', '🎉', '😄', '👀'];
     errorMessage = '';
+    private hasSentWelcomeMessage = false;
     isSending = false;
     canWrite = false;
     private expandedReactionMessages = new Set<string>();
     private seededChannels = new Set<string>();
     private currentUserId: string | null = null;
+    private usersById: Record<string, User> = {};
     private readonly subscription = new Subscription();
 
     constructor(
         private readonly authService: AuthService,
         private readonly presenceService: PresenceService,
         private readonly messageService: MessageService,
+        private readonly userService: UserService,
         private readonly route: ActivatedRoute,
         private readonly router: Router,
         private readonly ui: UiStateService,
@@ -58,11 +64,44 @@ export class HomeComponent implements OnInit, OnDestroy {
         );
 
         this.subscription.add(
+            this.userService.getAllUsers().subscribe({
+                next: (users) => {
+                    this.usersById = users.reduce<Record<string, User>>(
+                        (accumulator, user) => {
+                            if (user.id) {
+                                accumulator[user.id] = user;
+                            }
+                            return accumulator;
+                        },
+                        {},
+                    );
+
+                    this.resolveCurrentDirectUserName();
+                },
+            }),
+        );
+
+        this.subscription.add(
             this.route.paramMap
                 .pipe(
                     switchMap((params) => {
+                        const directUserId = params.get('userId') ?? '';
+
+                        if (directUserId) {
+                            this.isDirectMessage = true;
+                            this.currentDirectUserId = directUserId;
+                            this.resolveCurrentDirectUserName();
+                            return this.messageService.getDirectMessages(
+                                directUserId,
+                            );
+                        }
+
+                        this.isDirectMessage = false;
+                        this.currentDirectUserId = '';
+                        this.currentDirectUserName = '';
                         this.currentChannelId =
                             params.get('channelId') ?? 'entwicklerteam';
+
                         return this.messageService.getChannelMessages(
                             this.currentChannelId,
                         );
@@ -104,7 +143,7 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     sendMessage(): void {
         const text = this.messageControl.value.trim();
-        if (!text || !this.currentChannelId) {
+        if (!text) {
             return;
         }
 
@@ -117,28 +156,38 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.isSending = true;
         this.errorMessage = '';
 
-        this.messageService
-            .sendMessage({
-                text,
-                channelId: this.currentChannelId,
-                senderId: this.currentUserId ?? '',
-                timestamp: new Date(),
-            })
-            .subscribe({
-                next: () => {
-                    this.messageControl.setValue('');
-                    this.isSending = false;
-                },
-                error: () => {
-                    this.errorMessage =
-                        'Nachricht konnte nicht gesendet werden.';
-                    this.isSending = false;
-                },
-            });
+        const request$ = this.isDirectMessage
+            ? this.messageService.sendDirectMessage(this.currentDirectUserId, text)
+            : this.messageService.sendMessage({
+                  text,
+                  channelId: this.currentChannelId,
+                  senderId: this.currentUserId ?? '',
+                  timestamp: new Date(),
+              });
+
+        request$.subscribe({
+            next: () => {
+                this.messageControl.setValue('');
+                this.isSending = false;
+            },
+            error: () => {
+                this.errorMessage = 'Nachricht konnte nicht gesendet werden.';
+                this.isSending = false;
+            },
+        });
     }
 
     get currentChannelName(): string {
         return this.channelNames[this.currentChannelId] ?? this.currentChannelId;
+    }
+
+    get currentConversationTitle(): string {
+        if (this.isDirectMessage) {
+            const directUser = this.usersById[this.currentDirectUserId];
+            return directUser?.displayName || this.currentDirectUserName || this.currentDirectUserId;
+        }
+
+        return this.currentChannelName;
     }
 
     formatTimestamp(timestamp: Message['timestamp']): string {
@@ -165,6 +214,14 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     isOwnMessage(message: Message): boolean {
         return !!this.currentUserId && message.senderId === this.currentUserId;
+    }
+
+    getSenderLabel(message: Message): string {
+        if (this.isOwnMessage(message)) {
+            return 'Du';
+        }
+
+        return this.usersById[message.senderId]?.displayName ?? message.senderId;
     }
 
     getVisibleReactions(message: Message): MessageReaction[] {
@@ -219,26 +276,28 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     private seedHelloWorldIfNeeded(): void {
-        if (!this.currentChannelId || !this.canWrite || this.messages.length > 0) {
+        // Seeding disabled to prevent duplicates
+    }
+
+    private resolveCurrentDirectUserName(): void {
+        if (!this.currentDirectUserId) {
+            this.currentDirectUserName = '';
             return;
         }
 
-        if (this.seededChannels.has(this.currentChannelId)) {
+        const knownUser = this.usersById[this.currentDirectUserId];
+        if (knownUser?.displayName) {
+            this.currentDirectUserName = knownUser.displayName;
             return;
         }
 
-        this.seededChannels.add(this.currentChannelId);
-
-        this.messageService
-            .sendMessage({
-                text: 'Hallo Welt!',
-                channelId: this.currentChannelId,
-                senderId: this.currentUserId ?? '',
-                timestamp: new Date(),
-            })
+        this.userService
+            .getUser(this.currentDirectUserId)
+            .pipe(take(1))
             .subscribe({
-                error: () => {
-                    this.seededChannels.delete(this.currentChannelId);
+                next: (user) => {
+                    this.currentDirectUserName =
+                        user?.displayName ?? this.currentDirectUserId;
                 },
             });
     }

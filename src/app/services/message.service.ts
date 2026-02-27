@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { FirestoreService } from './firestore.service';
 import { AuthService } from './auth.service';
-import { Observable } from 'rxjs';
+import { Observable, of } from 'rxjs';
 import { query, where, orderBy, Timestamp } from 'firebase/firestore';
 
 export interface MessageReaction extends Record<string, unknown> {
@@ -15,6 +15,7 @@ export interface Message extends Record<string, unknown> {
     senderId: string;
     receiverId?: string;
     channelId?: string;
+    conversationId?: string;
     timestamp: Timestamp | Date;
     read?: boolean;
     edited?: boolean;
@@ -58,7 +59,7 @@ export class MessageService {
      * Rufe Nachrichten für einen Kanal ab
      */
     getChannelMessages(channelId: string): Observable<Message[]> {
-        return this.firestoreService.queryDocuments<Message>(
+        return this.firestoreService.queryDocumentsRealtime<Message>(
             this.messagesCollection,
             [where('channelId', '==', channelId), orderBy('timestamp', 'asc')],
         );
@@ -68,20 +69,52 @@ export class MessageService {
      * Rufe private Nachrichten zwischen zwei Benutzern ab
      */
     getPrivateMessages(otherUserId: string): Observable<Message[]> {
+        return this.getDirectMessages(otherUserId);
+    }
+
+    getDirectMessages(otherUserId: string): Observable<Message[]> {
+        const currentUser = this.authService.getCurrentUser();
+        if (!currentUser) {
+            return of([]);
+        }
+
+        const conversationId = this.createConversationId(
+            currentUser.uid,
+            otherUserId,
+        );
+
+        return this.firestoreService.queryDocumentsRealtime<Message>(
+            this.messagesCollection,
+            [
+                where('conversationId', '==', conversationId),
+                orderBy('timestamp', 'asc'),
+            ],
+        );
+    }
+
+    sendDirectMessage(otherUserId: string, text: string): Observable<string> {
         const currentUser = this.authService.getCurrentUser();
         if (!currentUser) {
             throw new Error('User not authenticated');
         }
 
-        // Vereinfachte Abfrage - in production würde man eine bessere Struktur verwenden
-        return this.firestoreService.queryDocuments<Message>(
-            this.messagesCollection,
-            [
-                where('senderId', '==', currentUser.uid),
-                where('receiverId', '==', otherUserId),
-                orderBy('timestamp', 'asc'),
-            ],
+        if (currentUser.isAnonymous) {
+            throw new Error('Anonymous users cannot send messages');
+        }
+
+        const conversationId = this.createConversationId(
+            currentUser.uid,
+            otherUserId,
         );
+
+        return this.firestoreService.addDocument(this.messagesCollection, {
+            text,
+            senderId: currentUser.uid,
+            receiverId: otherUserId,
+            conversationId,
+            timestamp: new Date(),
+            read: false,
+        });
     }
 
     /**
@@ -180,5 +213,9 @@ export class MessageService {
                     error: (error) => observer.error(error),
                 });
         });
+    }
+
+    private createConversationId(firstUserId: string, secondUserId: string): string {
+        return [firstUserId, secondUserId].sort().join('__');
     }
 }
