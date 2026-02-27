@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NavigationEnd, Router } from '@angular/router';
-import { filter, Subscription, take } from 'rxjs';
+import { filter, finalize, Subscription, take } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { Channel, ChannelService } from '../../services/channel.service';
 import { User, UserService } from '../../services/user.service';
@@ -23,7 +23,7 @@ interface SidebarChannel {
 export class SidebarComponent implements OnInit, OnDestroy {
     readonly channels: SidebarChannel[] = [];
     readonly defaultChannels: SidebarChannel[] = [
-        { id: 'taegliches', label: 'tägliches' },
+        { id: 'taegliches', label: 'Allgemein' },
         { id: 'entwicklerteam', label: 'Entwicklerteam' },
     ];
     readonly channelNameControl = new FormControl('', {
@@ -151,22 +151,31 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.isSaving = true;
         this.saveError = '';
 
-        this.channelService.createChannelWithId(channelId, payload).subscribe({
-            next: () => {
-                this.channels.push({
-                    id: channelId,
-                    label: rawName,
-                    description: payload.description,
-                });
-                this.sortChannels();
-                this.closeCreateChannelDialog();
-            },
-            error: () => {
-                this.saveError =
-                    'Channel konnte nicht erstellt werden. Bitte erneut versuchen.';
-                this.isSaving = false;
-            },
-        });
+        this.subscription.add(
+            this.channelService
+                .createChannelWithId(channelId, payload)
+                .pipe(
+                    finalize(() => {
+                        this.isSaving = false;
+                    })
+                )
+                .subscribe({
+                    next: () => {
+                        this.channels.push({
+                            id: channelId,
+                            label: rawName,
+                            description: payload.description,
+                        });
+                        this.sortChannels();
+                        this.closeCreateChannelDialog();
+                    },
+                    error: (error) => {
+                        console.error('Channel creation failed:', error);
+                        this.saveError =
+                            'Channel konnte nicht erstellt werden. Bitte erneut versuchen.';
+                    },
+                })
+        );
     }
 
     private loadChannels(): void {

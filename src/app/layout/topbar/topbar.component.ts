@@ -4,7 +4,8 @@ import { Router } from '@angular/router';
 import { combineLatest, Subscription, catchError, of, switchMap, take } from 'rxjs';
 import { UiStateService } from '../../services/ui-state.service';
 import { AuthService } from '../../services/auth.service';
-import { UserService } from '../../services/user.service';
+import { PresenceService } from '../../services/presence.service';
+import { PresenceStatus, UserService } from '../../services/user.service';
 import { ChannelService } from '../../services/channel.service';
 import { MessageService } from '../../services/message.service';
 
@@ -34,6 +35,7 @@ interface SearchMessageResult {
 })
 export class TopbarComponent implements OnInit, OnDestroy {
     displayName = 'Gast';
+    presenceStatus: PresenceStatus = 'offline';
     avatarUrl: string | null = null;
     showAvatarImage = false;
     showUserMenu = false;
@@ -51,6 +53,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
         public readonly ui: UiStateService,
         private readonly authService: AuthService,
         private readonly userService: UserService,
+        private readonly presenceService: PresenceService,
         private readonly channelService: ChannelService,
         private readonly messageService: MessageService,
         private readonly router: Router,
@@ -63,6 +66,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
                     switchMap((user) => {
                         if (!user || user.isAnonymous) {
                             this.displayName = 'Gast';
+                            this.presenceStatus = 'offline';
                             this.clearAvatar();
                             return of(null);
                         }
@@ -73,6 +77,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
                             'Gast';
 
                         this.applyAvatar(user.photoURL);
+                        this.presenceStatus = 'online';
 
                         // Kontinuierlich Profil-Updates laden mit Real-time Listener
                         return this.userService.getUserRealtime(user.uid).pipe(
@@ -92,6 +97,8 @@ export class TopbarComponent implements OnInit, OnDestroy {
                         if (profile.avatar) {
                             this.applyAvatar(profile.avatar);
                         }
+                        this.presenceStatus =
+                            profile.presenceStatus ?? this.presenceStatus;
                     },
                 }),
         );
@@ -229,8 +236,23 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
     async logout(): Promise<void> {
         this.closeUserMenu();
-        await this.authService.logout();
-        void this.router.navigateByUrl('/');
+        try {
+            await this.presenceService.setStatus('offline');
+            await this.authService.logout();
+        } finally {
+            void this.router.navigateByUrl('/');
+        }
+    }
+
+    get presenceLabel(): string {
+        switch (this.presenceStatus) {
+            case 'online':
+                return 'Online';
+            case 'away':
+                return 'Abwesend';
+            default:
+                return 'Offline';
+        }
     }
 
     private loadSearchData(): void {
@@ -244,7 +266,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
                 .subscribe({
                     next: ([channels, users, messages]) => {
                         const defaultChannels: SearchChannelResult[] = [
-                            { id: 'taegliches', name: 'tägliches' },
+                            { id: 'taegliches', name: 'Allgemein' },
                             { id: 'entwicklerteam', name: 'Entwicklerteam' },
                         ];
 

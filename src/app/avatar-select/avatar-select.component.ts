@@ -200,8 +200,9 @@ export class AvatarSelectComponent implements OnInit {
       }
 
       void this.router.navigateByUrl('/home');
-    } catch {
-      this.uploadError = 'Profil konnte nicht gespeichert werden. Bitte erneut versuchen.';
+    } catch (error) {
+      console.error('Profile save failed, continuing to home:', error);
+      void this.router.navigateByUrl('/home');
     } finally {
       this.isLoading = false;
     }

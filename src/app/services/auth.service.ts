@@ -83,7 +83,11 @@ export class AuthService implements OnDestroy {
                 console.log('User logged in successfully');
             })
             .catch((error) => {
-                console.error('Login error:', error);
+                if (error?.code === 'auth/invalid-credential') {
+                    console.info('Login failed: invalid credentials');
+                } else {
+                    console.error('Login error:', error);
+                }
                 throw error;
             });
     }

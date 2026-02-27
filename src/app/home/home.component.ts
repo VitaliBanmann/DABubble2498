@@ -4,6 +4,7 @@ import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
 import { distinctUntilChanged, Subscription, switchMap } from 'rxjs';
 import { AuthService } from '../services/auth.service';
+import { PresenceService } from '../services/presence.service';
 import {
     Message,
     MessageReaction,
@@ -21,7 +22,7 @@ import { UiStateService } from '../services/ui-state.service';
 export class HomeComponent implements OnInit, OnDestroy {
     readonly messageControl = new FormControl('', { nonNullable: true });
     readonly channelNames: Record<string, string> = {
-        taegliches: 'tägliches',
+        taegliches: 'Allgemein',
         entwicklerteam: 'Entwicklerteam',
     };
 
@@ -38,6 +39,7 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     constructor(
         private readonly authService: AuthService,
+        private readonly presenceService: PresenceService,
         private readonly messageService: MessageService,
         private readonly route: ActivatedRoute,
         private readonly router: Router,
@@ -92,8 +94,12 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     async logout(): Promise<void> {
-        await this.authService.logout();
-        await this.router.navigateByUrl('/');
+        try {
+            await this.presenceService.setStatus('offline');
+            await this.authService.logout();
+        } finally {
+            await this.router.navigateByUrl('/');
+        }
     }
 
     sendMessage(): void {

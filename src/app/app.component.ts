@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, NgZone } from '@angular/core';
+import { ChangeDetectorRef, Component, Inject, NgZone } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
     NavigationEnd,
@@ -8,6 +8,7 @@ import {
     RouterOutlet,
 } from '@angular/router';
 import { AuthService } from './services/auth.service';
+import { PresenceService } from './services/presence.service';
 import { UserService } from './services/user.service';
 import { take } from 'rxjs';
 
@@ -23,10 +24,11 @@ export class AppComponent {
     showAuthScreen = true;
     showPassword = false;
     showForgotPasswordOverlay = false;
+    isRegisterMode = false;
 
     loginForm = this.formBuilder.group({
         email: ['', [Validators.required, Validators.email]],
-        password: ['', [Validators.required, Validators.minLength(6)]],
+        password: ['', [Validators.required]],
         rememberMe: [false],
     });
 
@@ -43,11 +45,15 @@ export class AppComponent {
     constructor(
         private readonly formBuilder: FormBuilder,
         private readonly authService: AuthService,
+        @Inject(PresenceService)
+        private readonly presenceService: PresenceService,
         private readonly userService: UserService,
         private readonly router: Router,
         private readonly cdr: ChangeDetectorRef,
         private readonly ngZone: NgZone,
     ) {
+        this.presenceService.startTracking();
+
         // Splash ausblenden (zuverlässig, auch wenn Angular/Zone mal "spinnt")
         setTimeout(() => {
             this.ngZone.run(() => {
@@ -69,6 +75,18 @@ export class AppComponent {
         // auth state
         this.authService.currentUser$.subscribe((user) => {
             if (!user) {
+                this.showAuthScreen = true;
+
+                const pathname = (this.router.url || '').split('?')[0];
+                const isProtectedArea =
+                    pathname.startsWith('/app') ||
+                    pathname.startsWith('/home') ||
+                    pathname.startsWith('/avatar-select');
+
+                if (isProtectedArea) {
+                    void this.router.navigateByUrl('/');
+                }
+
                 return;
             }
 
@@ -103,9 +121,9 @@ export class AppComponent {
     }
 
     async onSubmit(mode: 'login' | 'register'): Promise<void> {
-        // Hinweis: dein aktuelles Template nutzt onSubmit('register') für "Konto erstellen".
-        // Solange ihr noch keinen separaten Register-Form habt, behandeln wir register wie login,
-        // oder du deaktivierst den Button später.
+        // Setze Register-Modus
+        this.isRegisterMode = (mode === 'register');
+        
         if (this.loginForm.invalid) {
             this.loginForm.markAllAsTouched();
             return;
@@ -117,6 +135,13 @@ export class AppComponent {
 
         const email = (this.loginForm.value.email ?? '').trim();
         const password = this.loginForm.value.password ?? '';
+
+        if (mode === 'register' && !this.isPasswordStrong) {
+            this.errorMessage =
+                'Für die Registrierung muss das Kennwort mindestens 8 Zeichen, einen Großbuchstaben und ein Sonderzeichen enthalten.';
+            this.isSubmitting = false;
+            return;
+        }
 
         try {
             if (mode === 'login') {
@@ -181,6 +206,20 @@ export class AppComponent {
 
     get passwordControl() {
         return this.loginForm.controls.password;
+    }
+
+    get passwordChecks() {
+        const value = this.passwordControl.value ?? '';
+        return {
+            minLength: value.length >= 8,
+            uppercase: /[A-ZÄÖÜ]/.test(value),
+            specialChar: /[^A-Za-z0-9]/.test(value),
+        };
+    }
+
+    get isPasswordStrong(): boolean {
+        const checks = this.passwordChecks;
+        return checks.minLength && checks.uppercase && checks.specialChar;
     }
 
     togglePasswordVisibility(): void {
@@ -314,17 +353,21 @@ export class AppComponent {
 
         switch (code) {
             case 'auth/popup-closed-by-user':
-                return 'Google-Popup wurde geschlossen. Bitte erneut versuchen.';
+                return 'Google-Fenster wurde geschlossen. Bitte klicke erneut auf „Anmelden mit Google“ und schließe das Fenster nicht, bis die Anmeldung abgeschlossen ist.';
             case 'auth/popup-blocked':
-                return 'Popup wurde blockiert. Bitte Popup-Blocker deaktivieren und erneut versuchen.';
+                return 'Popup wurde blockiert. Bitte erlaube Popups für diese Seite und klicke danach erneut auf „Anmelden mit Google“.';
             case 'auth/unauthorized-domain':
-                return 'Domain nicht autorisiert. Bitte Firebase Authorized Domains prüfen.';
+                return 'Diese Domain ist in Firebase noch nicht freigegeben. Bitte melde dich beim Support/Team und versuche es danach erneut.';
             case 'auth/operation-not-allowed':
-                return 'Anmeldemethode ist in Firebase nicht aktiviert.';
+                return 'Google-Anmeldung ist aktuell nicht aktiviert. Bitte melde dich beim Support/Team.';
             case 'auth/admin-restricted-operation':
-                return 'Diese Anmeldung ist aktuell eingeschränkt. Firebase-Konfiguration prüfen.';
+                return 'Diese Anmeldung ist derzeit eingeschränkt. Bitte melde dich beim Support/Team.';
             case 'auth/invalid-email':
                 return 'Ungültige E-Mail-Adresse. Bitte überprüfe deine Eingabe.';
+            case 'auth/invalid-credential':
+                return 'E-Mail oder Passwort ist nicht korrekt. Bitte prüfe beides und versuche es erneut.';
+            case 'auth/weak-password':
+                return 'Das Kennwort ist zu schwach. Verwende mindestens 8 Zeichen, einen Großbuchstaben und ein Sonderzeichen.';
             case 'auth/wrong-password':
                 return 'Falsches Passwort. Bitte versuche es erneut.';
             case 'auth/user-not-found':
@@ -332,7 +375,7 @@ export class AppComponent {
             case 'auth/email-already-in-use':
                 return 'Diese E-Mail ist bereits registriert.';
             case 'auth/network-request-failed':
-                return 'Netzwerkfehler. Bitte Internet/Firebase-Setup prüfen.';
+                return 'Netzwerkfehler. Bitte Internetverbindung prüfen und dann erneut versuchen.';
             default:
                 return message
                     ? `${fallback} (${code}: ${message})`

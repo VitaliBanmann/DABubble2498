@@ -3,11 +3,15 @@ import { FirestoreService } from './firestore.service';
 import { AuthService } from './auth.service';
 import { Observable, firstValueFrom, take } from 'rxjs';
 
+export type PresenceStatus = 'online' | 'away' | 'offline';
+
 export interface User extends Record<string, unknown> {
     id?: string;
     email: string;
     displayName: string;
     avatar?: string;
+    presenceStatus?: PresenceStatus;
+    lastSeen?: Date;
     createdAt?: Date;
     updatedAt?: Date;
 }
@@ -109,6 +113,50 @@ export class UserService {
         await firstValueFrom(
             this.firestoreService.setDocument(this.usersCollection, currentUser.uid, {
                 ...newUser,
+                createdAt: new Date(),
+                updatedAt: new Date(),
+            }),
+        );
+    }
+
+    async updateCurrentUserPresence(status: PresenceStatus): Promise<void> {
+        const currentUser = this.authService.getCurrentUser();
+        if (!currentUser) {
+            return;
+        }
+
+        await this.upsertUserPresence(
+            currentUser.uid,
+            status,
+            currentUser.email || '',
+            currentUser.displayName || 'Gast',
+        );
+    }
+
+    async upsertUserPresence(
+        userId: string,
+        status: PresenceStatus,
+        email: string,
+        displayName: string,
+    ): Promise<void> {
+        const existingProfile = await firstValueFrom(this.getUser(userId).pipe(take(1)));
+
+        if (existingProfile) {
+            await firstValueFrom(
+                this.updateUser(userId, {
+                    presenceStatus: status,
+                    lastSeen: new Date(),
+                }),
+            );
+            return;
+        }
+
+        await firstValueFrom(
+            this.firestoreService.setDocument(this.usersCollection, userId, {
+                email,
+                displayName,
+                presenceStatus: status,
+                lastSeen: new Date(),
                 createdAt: new Date(),
                 updatedAt: new Date(),
             }),

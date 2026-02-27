@@ -212,6 +212,34 @@ form {
     color: #e74c3c;
 }
 
+.password-hints {
+    margin-top: -4px;
+    margin-bottom: 2px;
+
+    p {
+        margin: 0 0 4px;
+        font-size: 12px;
+        color: #7d7f96;
+    }
+
+    ul {
+        margin: 0;
+        padding-left: 18px;
+        display: grid;
+        gap: 2px;
+    }
+
+    li {
+        font-size: 12px;
+        color: #7d7f96;
+    }
+
+    li.met {
+        color: #0f766e;
+        font-weight: 600;
+    }
+}
+
 .message {
     margin: 4px 0 0;
     font-size: 14px;

@@ -104,6 +104,12 @@
     background: #dfe3ff;
 }
 
+.topbar__avatar-wrap {
+    position: relative;
+    width: 34px;
+    height: 34px;
+}
+
 .topbar__avatar-fallback {
     width: 34px;
     height: 34px;
@@ -117,6 +123,29 @@
     font-weight: 700;
     letter-spacing: 0.4px;
     text-transform: uppercase;
+}
+
+.status-dot {
+    position: absolute;
+    right: -1px;
+    bottom: -1px;
+    width: 11px;
+    height: 11px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+    background: #9aa0b8;
+}
+
+.status-dot.online {
+    background: #22c55e;
+}
+
+.status-dot.away {
+    background: #f59e0b;
+}
+
+.status-dot.offline {
+    background: #9aa0b8;
 }
 
 .topbar__chevron {
@@ -155,6 +184,22 @@
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     padding: 8px 0;
     min-width: 180px;
+}
+
+.user-menu__status {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px 6px;
+    font-size: 13px;
+    color: #4b4f63;
+
+    .status-dot {
+        position: static;
+        width: 10px;
+        height: 10px;
+        border-width: 0;
+    }
 }
 
 .user-menu__item {

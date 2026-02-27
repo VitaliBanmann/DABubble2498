@@ -64,18 +64,21 @@
 
     <div class="topbar__user">
         <span class="topbar__username">{{ displayName }}</span>
-        @if (showAvatarImage && avatarUrl) {
-            <img
-                class="topbar__avatar"
-                [src]="avatarUrl"
-                [alt]="displayName"
-                (error)="onAvatarError()"
-            />
-        } @else {
-            <div class="topbar__avatar-fallback" [attr.aria-label]="displayName">
-                {{ initials }}
-            </div>
-        }
+        <div class="topbar__avatar-wrap">
+            @if (showAvatarImage && avatarUrl) {
+                <img
+                    class="topbar__avatar"
+                    [src]="avatarUrl"
+                    [alt]="displayName"
+                    (error)="onAvatarError()"
+                />
+            } @else {
+                <div class="topbar__avatar-fallback" [attr.aria-label]="displayName">
+                    {{ initials }}
+                </div>
+            }
+            <span class="status-dot" [ngClass]="presenceStatus"></span>
+        </div>
         <button
             type="button"
             class="topbar__chevron"

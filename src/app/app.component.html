@@ -99,8 +99,25 @@
                 </label>
                 @if (passwordControl.touched && passwordControl.invalid) {
                     <p class="field-error">
-                        Dein Passwort muss mindestens 6 Zeichen haben.
+                        Bitte gib dein Passwort ein.
                     </p>
+                }
+
+                @if (isRegisterMode) {
+                    <div class="password-hints" aria-live="polite">
+                        <p>Für „Konto erstellen" gilt:</p>
+                        <ul>
+                            <li [class.met]="passwordChecks.minLength">
+                                Mindestens 8 Zeichen
+                            </li>
+                            <li [class.met]="passwordChecks.uppercase">
+                                Mindestens 1 Großbuchstabe
+                            </li>
+                            <li [class.met]="passwordChecks.specialChar">
+                                Mindestens 1 Sonderzeichen
+                            </li>
+                        </ul>
+                    </div>
                 }
 
                 <button
