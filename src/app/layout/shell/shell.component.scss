@@ -121,7 +121,7 @@
 /* Responsive: on smaller screens hide thread column (MVP) */
 @media (max-width: 1100px) {
     .shell__body.sidebar-open.thread-open {
-        grid-template-columns: 300px 1fr;
+        grid-template-columns: 366px 1fr;
     }
     .shell__thread {
         display: none;

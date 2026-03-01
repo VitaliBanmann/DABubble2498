@@ -13,9 +13,11 @@
     </div>
 
     <div class="sidebar__section">
+        <!--
         /* ===========================
         Channel section only for channels
         =========================== */
+        -->
         <div class="only__channels">
             <div class="sidebar__channelsection">
                 <div
@@ -80,9 +82,11 @@
             </div>
         </div>
 
+        <!--
         /* ===========================
         Chat section for direct messages
         =========================== */
+        -->
 
         <div class="only__chats">
             <div class="sidebar__chatsection">
@@ -121,9 +125,19 @@
                         [class.active]="activeDirectMessageId === member.id"
                         (click)="openDirectMessage(member.id)"
                     >
-                        <span class="direct-link__avatar">
-                            {{ getInitials(member.label.replace(' (Du)', '')) }}
-                        </span>
+      <span class="direct-link__avatar" [class.has-image]="!!member.avatar">
+        @if (member.avatar) {
+            <img
+                class="direct-link__avatar-img"
+                [src]="member.avatar"
+                [alt]="member.label.replace(' (Du)', '') + ' Avatar'"
+                loading="lazy"
+                (error)="onAvatarError(member)"
+            />
+        } @else {
+            {{ getInitials(member.label.replace(' (Du)', '')) }}
+        }
+      </span>
 
                         <span class="direct-link__label">{{ member.label }}</span>
 

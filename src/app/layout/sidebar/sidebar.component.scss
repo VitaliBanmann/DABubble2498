@@ -101,7 +101,7 @@ $purple__hover: #535AF1;
     align-items: center;
     width: 100%;
     padding: 10px 40px;
-    border-radius: 10px;
+    border-radius: 40px;
     border: 0;
     background: transparent;
     text-align: left;
@@ -145,8 +145,10 @@ $purple__hover: #535AF1;
     display: flex;
     align-items: center;
     width: 100%;
+    max-height: 56px;
+    height: 100%;
     padding: 10px 40px;
-    border-radius: 10px;
+    border-radius: 40px;
     border: 0;
     background: transparent;
     text-align: left;
@@ -174,6 +176,14 @@ $purple__hover: #535AF1;
     margin-right: 10px;
     background: #adb0d9;
     font-weight: 700;
+}
+
+.has-image img {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background-size: cover;
+    background-position: center;
 }
 
 .direct-link__status {
