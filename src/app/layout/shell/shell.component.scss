@@ -15,17 +15,18 @@
 }
 
 .shell__body.sidebar-open {
-    grid-template-columns: 280px 1fr;
+    grid-template-columns: 366px 1fr;
 }
 
 .shell__body.sidebar-open.thread-open {
-    grid-template-columns: 280px 1fr 360px;
+    grid-template-columns: 366px 1fr 485px;
 }
 
 .shell__sidebar {
     background: #fff;
     border-right: 1px solid rgba(0, 0, 0, 0.06);
-    min-width: 0;
+    margin: 16px 0 16px 16px;
+    border-radius: 18px;
 }
 
 .shell__content {
@@ -34,10 +35,6 @@
     background: #fff;
     border-radius: 18px;
     margin: 16px;
-}
-
-.shell__body.sidebar-open .shell__content {
-    margin-left: 0; // aligns like your Figma spacing
 }
 
 .shell__thread {
@@ -124,7 +121,7 @@
 /* Responsive: on smaller screens hide thread column (MVP) */
 @media (max-width: 1100px) {
     .shell__body.sidebar-open.thread-open {
-        grid-template-columns: 280px 1fr;
+        grid-template-columns: 300px 1fr;
     }
     .shell__thread {
         display: none;

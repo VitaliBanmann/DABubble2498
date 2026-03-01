@@ -1,51 +1,127 @@
+$purple__hover: #535AF1;
+
 .sidebar {
     height: 100%;
     padding: 16px;
 }
 
-.sidebar__section {
+.sidebar__section,
+.sidebar__topsection {
     margin-top: 18px;
 }
 
-.sidebar__header {
+.sidebar__headsection {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    width: 100%;
+}
+
+.sidebar__headsection__left {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    font-size: 14px;
+}
+
+.sidebar__headsection__right {
+    cursor: pointer;
+}
+
+.sidebar__header,
+.sidebar__channelsection,
+.sidebar__chatsection {
     display: flex;
     justify-content: space-between;
     align-items: center;
     margin-bottom: 10px;
 }
 
+.sidebar__channelsection__header,
+.sidebar__chatsection__header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    user-select: none;
+    color: inherit; // oder deine Default-Textfarbe
+    transition: color .15s ease;
+
+    &:hover {
+        color: $purple__hover;
+    }
+
+    &:focus-visible {
+        outline: 2px solid rgba(68, 77, 242, 0.4);
+        outline-offset: 4px;
+        border-radius: 10px;
+        color: $purple__hover;
+    }
+}
+
+.only__channels {
+    margin-bottom: 40px;
+}
+
+.sidebar__dropdownIcon {
+    width: 30px;
+    height: 30px;
+    flex: 0 0 auto;
+}
+
+.channel__selection.is-collapsed {
+    display: none;
+}
+
 .sidebar__title {
     font-size: 12px;
-    opacity: 0.6;
 }
 
 .sidebar__add {
-    width: 24px;
-    height: 24px;
-    border: 0;
-    border-radius: 8px;
-    background: #eef0ff;
-    color: #444df2;
+    width: 30px;
+    height: 30px;
+    color: #000000;
     cursor: pointer;
     font-weight: 700;
-}
+    background-color: transparent;
+    border: none;
 
-.sidebar__add:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    &:hover {
+        color: $purple__hover;
+    }
+
+    &:disabled {
+        opacity: .5;
+        cursor: not-allowed;
+    }
 }
 
 .channel-link {
-    display: block;
+    display: flex;
+    align-items: center;
     width: 100%;
-    padding: 10px 12px;
+    padding: 10px 40px;
     border-radius: 10px;
     border: 0;
     background: transparent;
     text-align: left;
-    color: #111;
     font-weight: 500;
     cursor: pointer;
+    font-size: 18px;
+
+    color: inherit; // oder deine Default-Farbe, z.B. $text
+
+    .channel__hashtag svg {
+        display: block;
+    }
+
+    &:hover {
+        color: $purple__hover; // <- färbt Text UND SVG (über currentColor)
+    }
+
+    &.active {
+        color: $purple__hover; // optional, falls Active auch lila sein soll
+    }
 }
 
 .channel-link.active {
@@ -53,59 +129,8 @@
     color: #444df2;
 }
 
-.direct-link {
-    width: 100%;
-    border: 0;
-    background: transparent;
-    border-radius: 12px;
-    padding: 8px 10px;
-    display: grid;
-    grid-template-columns: 28px 1fr 10px;
-    align-items: center;
-    gap: 8px;
-    cursor: pointer;
-    text-align: left;
-}
-
-.direct-link:hover {
-    background: #f7f8ff;
-}
-
-.direct-link.active {
-    background: #eef0ff;
-}
-
-.direct-link__avatar {
-    width: 28px;
-    height: 28px;
-    border-radius: 50%;
-    background: #444df2;
-    color: #fff;
-    font-size: 12px;
-    font-weight: 700;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.direct-link__label {
-    color: #1f2232;
-    font-size: 14px;
-    line-height: 1.25;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-}
-
-.direct-link__status {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #c4c9db;
-}
-
-.direct-link__status.online {
-    background: #59d84d;
+.channel__hashtag {
+    margin-right: 10px;
 }
 
 .overlay {
@@ -206,20 +231,6 @@ textarea {
     border-radius: 999px;
     padding: 8px 10px;
     cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.member-status {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #c4c9db;
-}
-
-.member-status.online {
-    background: #59d84d;
 }
 
 .member-toggle {

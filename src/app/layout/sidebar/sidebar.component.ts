@@ -57,6 +57,17 @@ export class SidebarComponent implements OnInit, OnDestroy {
     private readonly subscription = new Subscription();
     currentUserId = '';
 
+    isChannelsSectionOpen = true;
+    isDirectMessagesSectionOpen = true;
+
+    toggleChannelsSection(): void {
+        this.isChannelsSectionOpen = !this.isChannelsSectionOpen;
+    }
+
+    toggleDirectMessagesSection(): void {
+        this.isDirectMessagesSectionOpen = !this.isDirectMessagesSectionOpen;
+    }
+
     constructor(
         private readonly authService: AuthService,
         private readonly channelService: ChannelService,
