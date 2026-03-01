@@ -1,11 +1,11 @@
-import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
-import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
-import { NavigationEnd, Router } from '@angular/router';
-import { filter, finalize, Subscription, take } from 'rxjs';
-import { AuthService } from '../../services/auth.service';
-import { Channel, ChannelService } from '../../services/channel.service';
-import { User, UserService } from '../../services/user.service';
+import {CommonModule} from '@angular/common';
+import {Component, OnDestroy, OnInit} from '@angular/core';
+import {FormControl, ReactiveFormsModule, Validators} from '@angular/forms';
+import {NavigationEnd, Router} from '@angular/router';
+import {filter, finalize, Subscription, take} from 'rxjs';
+import {AuthService} from '../../services/auth.service';
+import {Channel, ChannelService} from '../../services/channel.service';
+import {User, UserService} from '../../services/user.service';
 
 interface SidebarChannel {
     id: string;
@@ -30,8 +30,8 @@ interface SidebarDirectMessage {
 export class SidebarComponent implements OnInit, OnDestroy {
     readonly channels: SidebarChannel[] = [];
     readonly defaultChannels: SidebarChannel[] = [
-        { id: 'allgemein', label: 'Allgemein' },
-        { id: 'entwicklerteam', label: 'Entwicklerteam' },
+        {id: 'allgemein', label: 'Allgemein'},
+        {id: 'entwicklerteam', label: 'Entwicklerteam'},
     ];
     private readonly canonicalChannelLabels: Record<string, string> = {
         allgemein: 'Allgemein',
@@ -73,7 +73,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
         private readonly channelService: ChannelService,
         private readonly userService: UserService,
         private readonly router: Router,
-    ) {}
+    ) {
+    }
 
     ngOnInit(): void {
         this.channels.splice(0, this.channels.length, ...this.defaultChannels);

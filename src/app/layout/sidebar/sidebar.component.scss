@@ -111,7 +111,8 @@ $purple__hover: #535AF1;
 
     color: inherit; // oder deine Default-Farbe, z.B. $text
 
-    .channel__hashtag svg {
+    .channel__hashtag svg,
+    .message__avatar svg {
         display: block;
     }
 
@@ -129,8 +130,62 @@ $purple__hover: #535AF1;
     color: #444df2;
 }
 
-.channel__hashtag {
+.channel__hashtag,
+.message__avatar {
     margin-right: 10px;
+}
+
+.message__avatar svg {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+}
+
+.direct-link {
+    display: flex;
+    align-items: center;
+    width: 100%;
+    padding: 10px 40px;
+    border-radius: 10px;
+    border: 0;
+    background: transparent;
+    text-align: left;
+    cursor: pointer;
+    font-size: 18px;
+    color: inherit;
+
+    &:hover {
+        color: $purple__hover;
+    }
+
+    &.active {
+        background: #eef0ff;
+        color: #444df2;
+    }
+}
+
+.direct-link__avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-right: 10px;
+    background: #adb0d9;
+    font-weight: 700;
+}
+
+.direct-link__status {
+    margin-left: auto;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #bbb;
+
+    &.online {
+        background: #2ecc71;
+    }
 }
 
 .overlay {
