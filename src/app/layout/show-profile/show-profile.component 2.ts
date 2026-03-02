@@ -15,9 +15,6 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
     displayName = 'Gast';
     email = '';
     avatarUrl: string | null = null;
-    isEditing = false;
-    editDisplayName = '';
-    isSaving = false;
 
     private readonly subscription = new Subscription();
 
@@ -76,23 +73,6 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
 
     onClose(): void {
         this.close.emit();
-    }
-
-    startEdit(): void {
-        this.isEditing = true;
-        this.editDisplayName = this.displayName;
-    }
-
-    cancelEdit(): void {
-        this.isEditing = false;
-    }
-
-    saveEdit(): void {
-        // Step 1: Only UI switch. Saving comes next.
-    }
-
-    onEditNameInput(value: string): void {
-        this.editDisplayName = value;
     }
 
     get initials(): string {
