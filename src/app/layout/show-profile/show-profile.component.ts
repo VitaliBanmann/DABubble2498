@@ -1,4 +1,11 @@
-import { Component, EventEmitter, OnDestroy, OnInit, Output } from '@angular/core';
+import {
+    Component,
+    EventEmitter,
+    NgZone,
+    OnDestroy,
+    OnInit,
+    Output,
+} from '@angular/core';
 import { Subscription, catchError, of, switchMap } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { UserService } from '../../services/user.service';
@@ -24,6 +31,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
     constructor(
         private readonly authService: AuthService,
         private readonly userService: UserService,
+        private readonly zone: NgZone,
     ) {}
 
     ngOnInit(): void {
@@ -87,8 +95,34 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         this.isEditing = false;
     }
 
-    saveEdit(): void {
-        // Step 1: Only UI switch. Saving comes next.
+    async saveEdit(): Promise<void> {
+        const nextName = this.editDisplayName.trim();
+        if (!nextName || this.isSaving) {
+            return;
+        }
+
+        // UI sofort zurück zur normalen Ansicht schalten (Saving machen wir im Hintergrund).
+        this.zone.run(() => {
+            this.displayName = nextName;
+            this.isEditing = false;
+            this.isSaving = true;
+        });
+
+        try {
+            await this.userService.updateCurrentUserProfile({
+                displayName: nextName,
+            });
+        } catch (error) {
+            console.error('Profil speichern fehlgeschlagen:', error);
+            // Optional: zurück in den Bearbeiten-Modus, wenn Speichern fehlschlägt
+            this.zone.run(() => {
+                this.isEditing = true;
+            });
+        } finally {
+            this.zone.run(() => {
+                this.isSaving = false;
+            });
+        }
     }
 
     onEditNameInput(value: string): void {

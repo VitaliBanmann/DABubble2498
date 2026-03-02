@@ -77,6 +77,7 @@
                     [value]="editDisplayName"
                     (input)="onEditNameInput(($any($event.target)).value)"
                     autocomplete="name"
+                    [disabled]="isSaving"
                 />
             </div>
 
@@ -85,6 +86,7 @@
                     class="show-profile__action show-profile__action--cancel"
                     type="button"
                     (click)="cancelEdit()"
+                    [disabled]="isSaving"
                 >
                     Abbrechen
                 </button>
@@ -92,6 +94,7 @@
                     class="show-profile__action show-profile__action--save"
                     type="button"
                     (click)="saveEdit()"
+                    [disabled]="isSaving || !editDisplayName.trim()"
                 >
                     Speichern
                 </button>
@@ -99,4 +102,3 @@
         </form>
     }
 </section>
-
