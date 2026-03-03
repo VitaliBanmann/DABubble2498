@@ -37,6 +37,8 @@
 
 .topbar__search {
     position: relative;
+    width: min(100%, 520px);
+    justify-self: center;
 }
 
 .search-results {

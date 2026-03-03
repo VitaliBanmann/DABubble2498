@@ -1,7 +1,14 @@
 import { Injectable } from '@angular/core';
 import { FirestoreService } from './firestore.service';
 import { AuthService } from './auth.service';
-import { map, Observable, of } from 'rxjs';
+import {
+    distinctUntilChanged,
+    map,
+    Observable,
+    of,
+    switchMap,
+    take,
+} from 'rxjs';
 import { Timestamp, where } from 'firebase/firestore';
 
 export interface Channel extends Record<string, unknown> {
@@ -61,14 +68,10 @@ export class ChannelService {
      * Rufe alle Kanäle ab
      */
     getAllChannels(): Observable<Channel[]> {
-        const currentUser = this.authService.getCurrentUser();
-        if (!currentUser) {
-            return of([]);
-        }
-
-        return this.firestoreService.queryDocuments<Channel>(
-            this.channelsCollection,
-            [where('members', 'array-contains', currentUser.uid)],
+        return this.authService.currentUser$.pipe(
+            map((user) => this.getMemberUid(user)),
+            distinctUntilChanged(),
+            switchMap((uid) => this.getChannelsForUid(uid)),
         );
     }
 
@@ -100,26 +103,9 @@ export class ChannelService {
      * Füge einen Mitglied zu einem Kanal hinzu
      */
     addMemberToChannel(channelId: string, userId: string): Observable<void> {
-        return new Observable((observer) => {
-            this.getChannel(channelId).subscribe({
-                next: (channel) => {
-                    if (channel && !channel.members.includes(userId)) {
-                        const updatedMembers = [...channel.members, userId];
-                        this.updateChannel(channelId, {
-                            members: updatedMembers,
-                        }).subscribe({
-                            next: () => observer.next(),
-                            error: (error) => observer.error(error),
-                            complete: () => observer.complete(),
-                        });
-                    } else {
-                        observer.next();
-                        observer.complete();
-                    }
-                },
-                error: (error) => observer.error(error),
-            });
-        });
+        return this.updateChannelMembers(channelId, (members) =>
+            members.includes(userId) ? members : [...members, userId],
+        );
     }
 
     /**
@@ -129,27 +115,55 @@ export class ChannelService {
         channelId: string,
         userId: string,
     ): Observable<void> {
-        return new Observable((observer) => {
-            this.getChannel(channelId).subscribe({
-                next: (channel) => {
-                    if (channel) {
-                        const updatedMembers = channel.members.filter(
-                            (id) => id !== userId,
-                        );
-                        this.updateChannel(channelId, {
-                            members: updatedMembers,
-                        }).subscribe({
-                            next: () => observer.next(),
-                            error: (error) => observer.error(error),
-                            complete: () => observer.complete(),
-                        });
-                    } else {
-                        observer.next();
-                        observer.complete();
-                    }
-                },
-                error: (error) => observer.error(error),
-            });
-        });
+        return this.updateChannelMembers(channelId, (members) =>
+            members.filter((id) => id !== userId),
+        );
+    }
+
+    private getMemberUid(user: { uid: string; isAnonymous: boolean } | null): string {
+        return user && !user.isAnonymous ? user.uid : '';
+    }
+
+    private getChannelsForUid(uid: string): Observable<Channel[]> {
+        if (!uid) {
+            return of([]);
+        }
+
+        return this.firestoreService.queryDocumentsRealtime<Channel>(
+            this.channelsCollection,
+            [where('members', 'array-contains', uid)],
+        );
+    }
+
+    private updateChannelMembers(
+        channelId: string,
+        transform: (members: string[]) => string[],
+    ): Observable<void> {
+        return this.getChannel(channelId).pipe(
+            take(1),
+            switchMap((channel) => this.applyMemberUpdate(channelId, channel, transform)),
+        );
+    }
+
+    private applyMemberUpdate(
+        channelId: string,
+        channel: Channel | null,
+        transform: (members: string[]) => string[],
+    ): Observable<void> {
+        const currentMembers = channel?.members ?? [];
+        const updatedMembers = transform(currentMembers);
+        if (this.sameMembers(currentMembers, updatedMembers)) {
+            return of(void 0);
+        }
+
+        return this.updateChannel(channelId, { members: updatedMembers });
+    }
+
+    private sameMembers(current: string[], updated: string[]): boolean {
+        if (current.length !== updated.length) {
+            return false;
+        }
+
+        return current.every((member, index) => member === updated[index]);
     }
 }

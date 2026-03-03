@@ -79,27 +79,9 @@
         }
 
         ngOnInit(): void {
-            this.channels.splice(0, this.channels.length, ...this.defaultChannels);
-
-            this.subscription.add(
-                this.authService.currentUser$.subscribe((user) => {
-                    this.currentUserId = user?.uid ?? '';
-                    this.canCreateChannel = !!user && !user.isAnonymous;
-                    this.buildDirectMessages();
-                }),
-            );
-
-            this.updateActiveChannelFromUrl(this.router.url);
-
-            this.subscription.add(
-                this.router.events
-                    .pipe(filter((event) => event instanceof NavigationEnd))
-                    .subscribe((event) => {
-                        const navigation = event as NavigationEnd;
-                        this.updateActiveChannelFromUrl(navigation.urlAfterRedirects);
-                    }),
-            );
-
+            this.setDefaultChannels();
+            this.subscribeToCurrentUser();
+            this.subscribeToRouteChanges();
             this.loadChannels();
             this.loadMembers();
         }
@@ -180,87 +162,18 @@
         }
 
         createChannel(): void {
-            if (this.isCreateDisabled) {
-                this.channelNameControl.markAsTouched();
+            const draft = this.buildChannelDraft();
+            if (!draft) {
                 return;
             }
 
-            const rawName = this.channelNameControl.value.trim();
-            const channelId = this.createUniqueChannelId(rawName);
-            const memberIds = new Set<string>(this.selectedMemberIds);
-            if (this.currentUserId) {
-                memberIds.add(this.currentUserId);
-            }
-
-            const payload: Channel = {
-                name: rawName,
-                description: this.channelDescriptionControl.value.trim(),
-                members: Array.from(memberIds),
-                createdBy: this.currentUserId,
-            };
-
-            this.isSaving = true;
-            this.saveError = '';
-
-            this.subscription.add(
-                this.channelService
-                    .createChannelWithId(channelId, payload)
-                    .pipe(
-                        finalize(() => {
-                            this.isSaving = false;
-                        })
-                    )
-                    .subscribe({
-                        next: () => {
-                            this.channels.push({
-                                id: channelId,
-                                label: rawName,
-                                description: payload.description,
-                            });
-                            this.sortChannels();
-                            this.closeCreateChannelDialog();
-                        },
-                        error: (error) => {
-                            console.error('Channel creation failed:', error);
-                            this.saveError =
-                                'Channel konnte nicht erstellt werden. Bitte erneut versuchen.';
-                        },
-                    })
-            );
+            this.saveChannelDraft(draft.id, draft.payload);
         }
 
         private loadChannels(): void {
             this.subscription.add(
                 this.channelService.getAllChannels().subscribe({
-                    next: (channels) => {
-                        const merged = [...this.defaultChannels];
-
-                        for (const channel of channels) {
-                            if (!channel.id) {
-                                continue;
-                            }
-
-                            const existingIndex = merged.findIndex(
-                                (item) => item.id === channel.id,
-                            );
-                            const mapped: SidebarChannel = {
-                                id: channel.id,
-                                label:
-                                    this.canonicalChannelLabels[channel.id] ??
-                                    channel.name,
-                                description: channel.description,
-                            };
-
-                            if (existingIndex >= 0) {
-                                merged[existingIndex] = mapped;
-                            } else {
-                                merged.push(mapped);
-                            }
-                        }
-
-                        this.channels.splice(0, this.channels.length, ...merged);
-                        this.sortChannels();
-                    },
+                    next: (channels) => this.applyChannels(channels),
                 }),
             );
         }
@@ -281,31 +194,7 @@
 
         private getUniqueMembers(members: User[]): User[] {
             const map = new Map<string, User>();
-
-            for (const member of members) {
-                const key = (member.email || member.displayName || member.id || '')
-                    .toString()
-                    .trim()
-                    .toLowerCase();
-
-                if (!key) {
-                    continue;
-                }
-
-                const existing = map.get(key);
-                if (!existing) {
-                    map.set(key, member);
-                    continue;
-                }
-
-                const existingScore = this.scoreMemberRecord(existing);
-                const candidateScore = this.scoreMemberRecord(member);
-
-                if (candidateScore > existingScore) {
-                    map.set(key, member);
-                }
-            }
-
+            members.forEach((member) => this.mergeUniqueMember(map, member));
             return Array.from(map.values());
         }
 
@@ -326,24 +215,207 @@
         private buildDirectMessages(): void {
             this.directMessages = this.availableMembers
                 .filter((member) => !!member.id)
-                .map((member) => {
-                    const isSelf = member.id === this.currentUserId;
-
-                    return {
-                        id: member.id ?? '',
-                        label: isSelf ? `${member.displayName} (Du)` : member.displayName,
-                        isOnline: member.presenceStatus === 'online',
-                        isSelf,
-                        avatar: member.avatar ?? null, // ✅ HIER dazu
-                    } satisfies SidebarDirectMessage;
-                })
-                .sort((left, right) => {
-                    if (left.isSelf) return -1;
-                    if (right.isSelf) return 1;
-                    return left.label.localeCompare(right.label, 'de');
-                });
-
+                .map((member) => this.toDirectMessage(member))
+                .sort((left, right) => this.compareDirectMessages(left, right));
             this.cdr.detectChanges();
+        }
+
+        private setDefaultChannels(): void {
+            this.channels.splice(0, this.channels.length, ...this.defaultChannels);
+        }
+
+        private subscribeToCurrentUser(): void {
+            this.subscription.add(
+                this.authService.currentUser$.subscribe((user) => {
+                    this.currentUserId = user?.uid ?? '';
+                    this.canCreateChannel = !!user && !user.isAnonymous;
+                    this.buildDirectMessages();
+                }),
+            );
+        }
+
+        private subscribeToRouteChanges(): void {
+            this.updateActiveChannelFromUrl(this.router.url);
+            this.subscription.add(
+                this.router.events
+                    .pipe(filter((event) => event instanceof NavigationEnd))
+                    .subscribe((event) => this.updateFromNavigationEvent(event as NavigationEnd)),
+            );
+        }
+
+        private updateFromNavigationEvent(event: NavigationEnd): void {
+            this.updateActiveChannelFromUrl(event.urlAfterRedirects);
+        }
+
+        private buildChannelDraft(): { id: string; payload: Channel } | null {
+            const channelName = this.getValidatedChannelName();
+            if (!channelName || !this.ensureCurrentUser()) {
+                return null;
+            }
+
+            return {
+                id: this.createUniqueChannelId(channelName),
+                payload: this.createChannelPayload(channelName),
+            };
+        }
+
+        private getValidatedChannelName(): string {
+            if (this.isCreateDisabled) {
+                this.channelNameControl.markAsTouched();
+                return '';
+            }
+
+            const channelName = this.channelNameControl.value.trim();
+            if (channelName) {
+                return channelName;
+            }
+
+            this.markInvalidChannelName();
+            return '';
+        }
+
+        private markInvalidChannelName(): void {
+            this.saveError = 'Bitte gib einen gültigen Channel-Namen ein.';
+            this.channelNameControl.markAsTouched();
+        }
+
+        private ensureCurrentUser(): boolean {
+            if (this.currentUserId) {
+                return true;
+            }
+
+            this.saveError = 'Bitte erneut anmelden und dann Channel erstellen.';
+            return false;
+        }
+
+        private createChannelPayload(channelName: string): Channel {
+            const memberIds = new Set<string>(this.selectedMemberIds);
+            memberIds.add(this.currentUserId);
+            return {
+                name: channelName,
+                description: this.channelDescriptionControl.value.trim(),
+                members: Array.from(memberIds),
+                createdBy: this.currentUserId,
+            };
+        }
+
+        private startSaving(): void {
+            this.isSaving = true;
+            this.saveError = '';
+        }
+
+        private saveChannelDraft(channelId: string, payload: Channel): void {
+            this.startSaving();
+            this.subscription.add(
+                this.channelService
+                    .createChannelWithId(channelId, payload)
+                    .pipe(finalize(() => this.finishSaving()))
+                    .subscribe({
+                        next: () => this.handleChannelCreated(channelId, payload),
+                        error: (error) => this.handleCreateChannelError(error),
+                    }),
+            );
+        }
+
+        private finishSaving(): void {
+            this.isSaving = false;
+        }
+
+        private handleChannelCreated(channelId: string, payload: Channel): void {
+            this.channels.push({
+                id: channelId,
+                label: payload.name,
+                description: payload.description,
+            });
+            this.sortChannels();
+            this.closeCreateChannelDialog();
+            this.openChannel(channelId);
+        }
+
+        private handleCreateChannelError(error: unknown): void {
+            console.error('Channel creation failed:', error);
+            this.saveError = 'Channel konnte nicht erstellt werden. Bitte erneut versuchen.';
+        }
+
+        private applyChannels(channels: Channel[]): void {
+            const merged = channels.reduce(
+                (accumulator, channel) => this.mergeChannel(accumulator, channel),
+                [...this.defaultChannels],
+            );
+            this.channels.splice(0, this.channels.length, ...merged);
+            this.sortChannels();
+        }
+
+        private mergeChannel(merged: SidebarChannel[], channel: Channel): SidebarChannel[] {
+            if (!channel.id) {
+                return merged;
+            }
+
+            const existingIndex = merged.findIndex((item) => item.id === channel.id);
+            this.upsertMergedChannel(merged, existingIndex, this.mapSidebarChannel(channel));
+            return merged;
+        }
+
+        private upsertMergedChannel(
+            merged: SidebarChannel[],
+            index: number,
+            channel: SidebarChannel,
+        ): void {
+            if (index >= 0) {
+                merged[index] = channel;
+                return;
+            }
+
+            merged.push(channel);
+        }
+
+        private mapSidebarChannel(channel: Channel): SidebarChannel {
+            return {
+                id: channel.id ?? '',
+                label: this.canonicalChannelLabels[channel.id ?? ''] ?? channel.name,
+                description: channel.description,
+            };
+        }
+
+        private mergeUniqueMember(map: Map<string, User>, member: User): void {
+            const key = this.getMemberKey(member);
+            if (!key) {
+                return;
+            }
+
+            const existing = map.get(key);
+            if (!existing || this.scoreMemberRecord(member) > this.scoreMemberRecord(existing)) {
+                map.set(key, member);
+            }
+        }
+
+        private getMemberKey(member: User): string {
+            const value = member.email || member.displayName || member.id || '';
+            return value.toString().trim().toLowerCase();
+        }
+
+        private toDirectMessage(member: User): SidebarDirectMessage {
+            const isSelf = member.id === this.currentUserId;
+            return {
+                id: member.id ?? '',
+                label: isSelf ? `${member.displayName} (Du)` : member.displayName,
+                isOnline: member.presenceStatus === 'online',
+                isSelf,
+                avatar: member.avatar ?? null,
+            };
+        }
+
+        private compareDirectMessages(
+            left: SidebarDirectMessage,
+            right: SidebarDirectMessage,
+        ): number {
+            if (left.isSelf) {
+                return -1;
+            }
+            if (right.isSelf) {
+                return 1;
+            }
+            return left.label.localeCompare(right.label, 'de');
         }
 
         private sortChannels(): void {

@@ -45,6 +45,8 @@ export class AuthService implements OnDestroy {
             return;
         }
 
+        this.currentUserSubject.next(this.auth.currentUser);
+
         this.unsubscribeAuthState?.();
         this.unsubscribeAuthState = onAuthStateChanged(this.auth, (user) => {
             this.currentUserSubject.next(user);
@@ -55,131 +57,70 @@ export class AuthService implements OnDestroy {
         email: string,
         password: string,
     ): Promise<void> {
-        if (!this.auth) {
-            return Promise.reject(
-                new Error('Auth is not available on the server.'),
-            );
-        }
-
-        return createUserWithEmailAndPassword(this.auth, email, password)
-            .then(() => {
-                console.log('User registered successfully');
-            })
-            .catch((error) => {
-                console.error('Registration error:', error);
-                throw error;
-            });
+        return this.runAuthAction(
+            () =>
+                createUserWithEmailAndPassword(
+                    this.getRequiredAuth(),
+                    email,
+                    password,
+                ),
+            'User registered successfully',
+            'Registration error:',
+        );
     }
 
     loginWithEmailAndPassword(email: string, password: string): Promise<void> {
-        if (!this.auth) {
-            return Promise.reject(
-                new Error('Auth is not available on the server.'),
-            );
-        }
-
-        return signInWithEmailAndPassword(this.auth, email, password)
-            .then(() => {
-                console.log('User logged in successfully');
-            })
-            .catch((error) => {
-                if (error?.code === 'auth/invalid-credential') {
-                    console.info('Login failed: invalid credentials');
-                } else {
-                    console.error('Login error:', error);
-                }
-                throw error;
-            });
+        return this.runAuthAction(
+            () =>
+                signInWithEmailAndPassword(
+                    this.getRequiredAuth(),
+                    email,
+                    password,
+                ),
+            'User logged in successfully',
+            'Login error:',
+            (error) => this.logInvalidCredentials(error),
+        );
     }
 
     loginWithGoogle(): Promise<void> {
-        if (!this.auth) {
-            return Promise.reject(
-                new Error('Auth is not available on the server.'),
-            );
-        }
-
-        const provider = new GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
-        provider.addScope('email');
-        provider.addScope('profile');
-
-        return signInWithPopup(this.auth, provider)
-            .then(() => {
-                console.log('User logged in with Google successfully');
-            })
-            .catch((error) => {
-                console.error('Google popup login error:', error);
-                throw error;
-            });
+        return this.runAuthAction(
+            () => signInWithPopup(this.getRequiredAuth(), this.createGoogleProvider()),
+            'User logged in with Google successfully',
+            'Google popup login error:',
+        );
     }
 
     loginAsGuest(): Promise<void> {
-        if (!this.auth) {
-            return Promise.reject(
-                new Error('Auth is not available on the server.'),
-            );
-        }
-
-        return signInAnonymously(this.auth)
-            .then(() => {
-                console.log('User logged in as guest successfully');
-            })
-            .catch((error) => {
-                console.error('Guest login error:', error);
-                throw error;
-            });
+        return this.runAuthAction(
+            () => signInAnonymously(this.getRequiredAuth()),
+            'User logged in as guest successfully',
+            'Guest login error:',
+        );
     }
 
     logout(): Promise<void> {
-        if (!this.auth) {
-            return Promise.reject(
-                new Error('Auth is not available on the server.'),
-            );
-        }
-
-        return signOut(this.auth)
-            .then(() => {
-                console.log('User logged out successfully');
-            })
-            .catch((error) => {
-                console.error('Logout error:', error);
-                throw error;
-            });
+        return this.runAuthAction(
+            () => signOut(this.getRequiredAuth()),
+            'User logged out successfully',
+            'Logout error:',
+        );
     }
 
     sendPasswordResetEmail(email: string): Promise<void> {
-        if (!this.auth) {
-            return Promise.reject(
-                new Error('Auth is not available on the server.'),
-            );
-        }
-
-        return sendPasswordResetEmail(this.auth, email)
-            .then(() => {
-                console.log('Password reset email sent successfully');
-            })
-            .catch((error) => {
-                console.error('Password reset email error:', error);
-                throw error;
-            });
+        return this.runAuthAction(
+            () => sendPasswordResetEmail(this.getRequiredAuth(), email),
+            'Password reset email sent successfully',
+            'Password reset email error:',
+        );
     }
 
     confirmPasswordReset(code: string, newPassword: string): Promise<void> {
-        if (!this.auth) {
-            return Promise.reject(
-                new Error('Auth is not available on the server.'),
-            );
-        }
-
-        return confirmPasswordReset(this.auth, code, newPassword)
-            .then(() => {
-                console.log('Password reset successful');
-            })
-            .catch((error) => {
-                console.error('Password reset error:', error);
-                throw error;
-            });
+        return this.runAuthAction(
+            () => confirmPasswordReset(this.getRequiredAuth(), code, newPassword),
+            'Password reset successful',
+            'Password reset error:',
+        );
     }
 
     getCurrentUser(): User | null {
@@ -188,5 +129,47 @@ export class AuthService implements OnDestroy {
 
     ngOnDestroy(): void {
         this.unsubscribeAuthState?.();
+    }
+
+    private getRequiredAuth(): Auth {
+        if (!this.auth) {
+            throw new Error('Auth is not available on the server.');
+        }
+
+        return this.auth;
+    }
+
+    private createGoogleProvider(): GoogleAuthProvider {
+        const provider = new GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        provider.addScope('email');
+        provider.addScope('profile');
+        return provider;
+    }
+
+    private runAuthAction(
+        action: () => Promise<unknown>,
+        successMessage: string,
+        errorMessage: string,
+        beforeErrorLog?: (error: any) => void,
+    ): Promise<void> {
+        return Promise.resolve()
+            .then(action)
+            .then(() => {
+                console.log(successMessage);
+            })
+            .catch((error) => {
+                beforeErrorLog?.(error);
+                if (error?.code !== 'auth/invalid-credential') {
+                    console.error(errorMessage, error);
+                }
+                throw error;
+            });
+    }
+
+    private logInvalidCredentials(error: { code?: string }): void {
+        if (error?.code === 'auth/invalid-credential') {
+            console.info('Login failed: invalid credentials');
+        }
     }
 }

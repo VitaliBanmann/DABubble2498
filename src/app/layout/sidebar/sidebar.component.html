@@ -131,7 +131,7 @@
                 class="direct-link__avatar-img"
                 [src]="member.avatar"
                 [alt]="member.label.replace(' (Du)', '') + ' Avatar'"
-                loading="lazy"
+                loading="eager"
                 (error)="onAvatarError(member)"
             />
         } @else {
