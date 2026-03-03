@@ -1,0 +1,27 @@
+name: Predeploy Check
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+jobs:
+  predeploy-check:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Run predeploy checks
+        run: npm run predeploy:check

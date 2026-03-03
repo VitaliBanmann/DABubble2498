@@ -86,6 +86,7 @@ export class HomeComponent implements OnInit, OnDestroy {
                 .pipe(
                     switchMap((params) => {
                         const directUserId = params.get('userId') ?? '';
+                        this.errorMessage = '';
 
                         if (directUserId) {
                             this.isDirectMessage = true;
@@ -285,6 +286,8 @@ export class HomeComponent implements OnInit, OnDestroy {
             return;
         }
 
+        this.currentDirectUserName = this.currentDirectUserId;
+
         const knownUser = this.usersById[this.currentDirectUserId];
         if (knownUser?.displayName) {
             this.currentDirectUserName = knownUser.displayName;
@@ -298,6 +301,9 @@ export class HomeComponent implements OnInit, OnDestroy {
                 next: (user) => {
                     this.currentDirectUserName =
                         user?.displayName ?? this.currentDirectUserId;
+                },
+                error: () => {
+                    this.currentDirectUserName = this.currentDirectUserId;
                 },
             });
     }

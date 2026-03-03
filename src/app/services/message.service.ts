@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
 import { FirestoreService } from './firestore.service';
 import { AuthService } from './auth.service';
-import { Observable, of } from 'rxjs';
-import { query, where, orderBy, Timestamp } from 'firebase/firestore';
+import { Observable, of, map } from 'rxjs';
+import { where, orderBy, Timestamp } from 'firebase/firestore';
 
 export interface MessageReaction extends Record<string, unknown> {
     emoji: string;
@@ -83,13 +83,19 @@ export class MessageService {
             otherUserId,
         );
 
-        return this.firestoreService.queryDocumentsRealtime<Message>(
-            this.messagesCollection,
-            [
+        return this.firestoreService
+            .queryDocumentsRealtime<Message>(this.messagesCollection, [
                 where('conversationId', '==', conversationId),
-                orderBy('timestamp', 'asc'),
-            ],
-        );
+            ])
+            .pipe(
+                map((messages) =>
+                    [...messages].sort(
+                        (left, right) =>
+                            this.toTimestampMillis(left.timestamp) -
+                            this.toTimestampMillis(right.timestamp),
+                    ),
+                ),
+            );
     }
 
     sendDirectMessage(otherUserId: string, text: string): Observable<string> {
@@ -217,5 +223,21 @@ export class MessageService {
 
     private createConversationId(firstUserId: string, secondUserId: string): string {
         return [firstUserId, secondUserId].sort().join('__');
+    }
+
+    private toTimestampMillis(value: Timestamp | Date): number {
+        if (value instanceof Date) {
+            return value.getTime();
+        }
+
+        if ('toMillis' in value && typeof value.toMillis === 'function') {
+            return value.toMillis();
+        }
+
+        if ('toDate' in value && typeof value.toDate === 'function') {
+            return value.toDate().getTime();
+        }
+
+        return 0;
     }
 }
