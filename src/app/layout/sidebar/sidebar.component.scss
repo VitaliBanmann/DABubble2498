@@ -170,6 +170,8 @@ $purple__hover: #535AF1;
     width: 40px;
     height: 40px;
     border-radius: 50%;
+    overflow: hidden;
+    flex-shrink: 0;
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -178,12 +180,13 @@ $purple__hover: #535AF1;
     font-weight: 700;
 }
 
-.has-image img {
-    width: 40px;
-    height: 40px;
+.direct-link__avatar-img {
+    width: 100%;
+    height: 100%;
     border-radius: 50%;
-    background-size: cover;
-    background-position: center;
+    object-fit: cover;
+    object-position: center;
+    display: block;
 }
 
 .direct-link__status {
