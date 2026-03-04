@@ -95,7 +95,7 @@ export class AppComponent {
             if (pathname === '/' || pathname === '') {
                 // Prüfe ob User bereits ein Profil mit Avatar hat
                 this.userService
-                    .getUser(user.uid)
+                    .getUserProfile(user.uid, user.email ?? '')
                     .pipe(take(1))
                     .subscribe({
                         next: (profile) => {
@@ -155,7 +155,10 @@ export class AppComponent {
                 const currentUser = this.authService.getCurrentUser();
                 if (currentUser) {
                     this.userService
-                        .getUser(currentUser.uid)
+                        .getUserProfile(
+                            currentUser.uid,
+                            currentUser.email ?? '',
+                        )
                         .pipe(take(1))
                         .subscribe({
                             next: (profile) => {
@@ -244,7 +247,7 @@ export class AppComponent {
 
             // Lade Profil aus Firestore
             this.userService
-                .getUser(currentUser.uid)
+                .getUserProfile(currentUser.uid, currentUser.email ?? '')
                 .pipe(take(1))
                 .subscribe({
                     next: (profile) => {

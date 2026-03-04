@@ -1,6 +1,7 @@
 import {
     Component,
     EventEmitter,
+    Input,
     NgZone,
     OnDestroy,
     OnInit,
@@ -17,6 +18,9 @@ import { UserService } from '../../services/user.service';
     styleUrl: './show-profile.component.scss',
 })
 export class ShowProfileComponent implements OnInit, OnDestroy {
+    @Input() initialDisplayName = '';
+    @Input() initialEmail = '';
+    @Input() initialAvatarUrl: string | null = null;
     @Output() close = new EventEmitter<void>();
 
     displayName = 'Gast';
@@ -35,6 +39,8 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
     ) {}
 
     ngOnInit(): void {
+        this.applyInitialValues();
+
         this.subscription.add(
             this.authService.currentUser$
                 .pipe(
@@ -53,9 +59,11 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
                         this.email = user.email ?? '';
                         this.avatarUrl = this.resolveAvatarUrl(user.photoURL ?? '');
 
-                        return this.userService.getUserRealtime(user.uid).pipe(
+                        return this.userService
+                            .getUserProfileRealtime(user.uid, user.email ?? '')
+                            .pipe(
                             catchError(() => of(null)),
-                        );
+                            );
                     }),
                 )
                 .subscribe((profile) => {
@@ -67,8 +75,9 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
                         this.displayName = profile.displayName.trim();
                     }
 
-                    if (profile.email?.trim()) {
-                        this.email = profile.email.trim();
+                    const resolvedEmail = this.resolveProfileEmail(profile);
+                    if (resolvedEmail) {
+                        this.email = resolvedEmail;
                     }
 
                     if (profile.avatar) {
@@ -141,6 +150,39 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         }
 
         return parts[0][0].toUpperCase();
+    }
+
+    private applyInitialValues(): void {
+        const seededName = this.initialDisplayName.trim();
+        const seededEmail = this.initialEmail.trim();
+        const seededAvatar = this.resolveAvatarUrl(this.initialAvatarUrl ?? '');
+
+        if (seededName) {
+            this.displayName = seededName;
+        }
+
+        if (seededEmail) {
+            this.email = seededEmail;
+        }
+
+        if (seededAvatar) {
+            this.avatarUrl = seededAvatar;
+        }
+    }
+
+    private resolveProfileEmail(profile: Record<string, unknown>): string {
+        const candidates = [
+            profile['email'],
+            profile['mail'],
+            profile['emailAddress'],
+            profile['eMail'],
+        ];
+
+        const firstEmail = candidates.find(
+            (value) => typeof value === 'string' && value.trim().length > 0,
+        );
+
+        return typeof firstEmail === 'string' ? firstEmail.trim() : '';
     }
 
     private resolveAvatarUrl(avatar: string): string | null {

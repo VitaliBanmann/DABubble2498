@@ -1,7 +1,8 @@
 import { Injectable } from '@angular/core';
 import { FirestoreService } from './firestore.service';
 import { AuthService } from './auth.service';
-import { Observable, firstValueFrom, take } from 'rxjs';
+import { Observable, firstValueFrom, map, of, switchMap, take } from 'rxjs';
+import { where } from 'firebase/firestore';
 
 export type PresenceStatus = 'online' | 'away' | 'offline';
 
@@ -58,6 +59,54 @@ export class UserService {
         );
     }
 
+    getUserByEmailRealtime(email: string): Observable<User | null> {
+        const normalized = email.trim();
+        if (!normalized) {
+            return of(null);
+        }
+
+        return this.firestoreService
+            .queryDocumentsRealtime<User>(this.usersCollection, [
+                where('email', '==', normalized),
+            ])
+            .pipe(map((users) => users[0] ?? null));
+    }
+
+    getUserByEmail(email: string): Observable<User | null> {
+        const normalized = email.trim();
+        if (!normalized) {
+            return of(null);
+        }
+
+        return this.firestoreService
+            .queryDocuments<User>(this.usersCollection, [
+                where('email', '==', normalized),
+            ])
+            .pipe(map((users) => users[0] ?? null));
+    }
+
+    getUserProfileRealtime(userId: string, email: string): Observable<User | null> {
+        return this.getUserRealtime(userId).pipe(
+            switchMap((user) => {
+                if (user) {
+                    return of(user);
+                }
+                return this.getUserByEmailRealtime(email);
+            }),
+        );
+    }
+
+    getUserProfile(userId: string, email: string): Observable<User | null> {
+        return this.getUser(userId).pipe(
+            switchMap((user) => {
+                if (user) {
+                    return of(user);
+                }
+                return this.getUserByEmail(email);
+            }),
+        );
+    }
+
     /**
      * Aktualisiere einen Benutzer
      */
@@ -100,12 +149,20 @@ export class UserService {
         );
 
         if (existingProfile) {
-            await firstValueFrom(this.updateUser(currentUser.uid, updates));
+            const ensuredEmail =
+                updates.email || existingProfile.email || currentUser.email || '';
+
+            await firstValueFrom(
+                this.updateUser(currentUser.uid, {
+                    ...updates,
+                    email: ensuredEmail,
+                }),
+            );
             return;
         }
 
         const newUser: User = {
-            email: currentUser.email || '',
+            email: updates.email || currentUser.email || '',
             displayName: updates.displayName || currentUser.displayName || 'Gast',
             avatar: updates.avatar,
         };

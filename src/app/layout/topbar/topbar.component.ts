@@ -36,6 +36,7 @@ interface SearchMessageResult {
 })
 export class TopbarComponent implements OnInit, OnDestroy {
     displayName = 'Gast';
+    email = '';
     presenceStatus: PresenceStatus = 'offline';
     avatarUrl: string | null = null;
     showAvatarImage = false;
@@ -68,6 +69,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
                     switchMap((user) => {
                         if (!user || user.isAnonymous) {
                             this.displayName = 'Gast';
+                            this.email = '';
                             this.presenceStatus = 'offline';
                             this.clearAvatar();
                             return of(null);
@@ -77,14 +79,17 @@ export class TopbarComponent implements OnInit, OnDestroy {
                             user.displayName?.trim() ||
                             user.email?.split('@')[0] ||
                             'Gast';
+                        this.email = user.email ?? '';
 
                         this.applyAvatar(user.photoURL);
                         this.presenceStatus = 'online';
 
                         // Kontinuierlich Profil-Updates laden mit Real-time Listener
-                        return this.userService.getUserRealtime(user.uid).pipe(
+                        return this.userService
+                            .getUserProfileRealtime(user.uid, user.email ?? '')
+                            .pipe(
                             catchError(() => of(null)),
-                        );
+                            );
                     }),
                 )
                 .subscribe({
@@ -95,6 +100,10 @@ export class TopbarComponent implements OnInit, OnDestroy {
                         const profileName = profile.displayName?.trim();
                         if (profileName) {
                             this.displayName = profileName;
+                        }
+                        const profileEmail = this.resolveProfileEmail(profile);
+                        if (profileEmail) {
+                            this.email = profileEmail;
                         }
                         if (profile.avatar) {
                             this.applyAvatar(profile.avatar);
@@ -141,6 +150,21 @@ export class TopbarComponent implements OnInit, OnDestroy {
     private clearAvatar(): void {
         this.avatarUrl = null;
         this.showAvatarImage = false;
+    }
+
+    private resolveProfileEmail(profile: Record<string, unknown>): string {
+        const candidates = [
+            profile['email'],
+            profile['mail'],
+            profile['emailAddress'],
+            profile['eMail'],
+        ];
+
+        const firstEmail = candidates.find(
+            (value) => typeof value === 'string' && value.trim().length > 0,
+        );
+
+        return typeof firstEmail === 'string' ? firstEmail.trim() : '';
     }
 
     private resolveAvatarUrl(avatar: string): string {

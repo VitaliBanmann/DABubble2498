@@ -42,6 +42,7 @@ export class AvatarSelectComponent implements OnInit {
 
   ngOnInit(): void {
     const currentUser = this.authService.getCurrentUser();
+    const currentUserEmail = currentUser?.email ?? '';
 
     if (currentUser?.isAnonymous) {
       this.userName = 'Gast';
@@ -52,7 +53,10 @@ export class AvatarSelectComponent implements OnInit {
     }
 
     if (currentUser?.uid) {
-      this.userService.getUser(currentUser.uid).pipe(take(1)).subscribe({
+      this.userService
+        .getUserProfile(currentUser.uid, currentUserEmail)
+        .pipe(take(1))
+        .subscribe({
         next: (profile) => {
           if (profile?.displayName) {
             this.userName = profile.displayName;

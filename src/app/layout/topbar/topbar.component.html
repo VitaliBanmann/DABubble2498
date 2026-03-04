@@ -117,7 +117,12 @@
 @if (showProfile) {
     <div class="profile-modal" (click)="closeProfile()">
         <div class="profile-modal__panel" (click)="$event.stopPropagation()">
-            <app-show-profile (close)="closeProfile()"></app-show-profile>
+            <app-show-profile
+                [initialDisplayName]="displayName"
+                [initialEmail]="email"
+                [initialAvatarUrl]="avatarUrl"
+                (close)="closeProfile()"
+            ></app-show-profile>
         </div>
     </div>
 }
