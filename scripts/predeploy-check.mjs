@@ -63,10 +63,94 @@ function getChangedFiles() {
     .filter((filePath) => filePath.startsWith(path.join(root, 'src')));
 }
 
+function getChangedLineMap(changedFiles) {
+  const map = new Map();
+  if (!changedFiles.length) {
+    return map;
+  }
+
+  const baseRef = process.env.PREDEPLOY_BASE || 'origin/main';
+  const hasBaseRef = (() => {
+    try {
+      runCommand(`git rev-parse --verify ${baseRef}`);
+      return true;
+    } catch {
+      return false;
+    }
+  })();
+
+  const changedAbsoluteSet = new Set(changedFiles);
+  const diffCommand = hasBaseRef
+    ? `git diff --unified=0 ${baseRef}...HEAD`
+    : 'git diff --unified=0 --cached';
+
+  let output = '';
+  try {
+    output = runCommand(diffCommand);
+  } catch {
+    return map;
+  }
+
+  let currentFile = '';
+  output.split('\n').forEach((line) => {
+    if (line.startsWith('+++ b/')) {
+      const relative = line.slice('+++ b/'.length).trim();
+      currentFile = path.resolve(root, relative);
+      if (!changedAbsoluteSet.has(currentFile)) {
+        currentFile = '';
+      }
+      return;
+    }
+
+    if (!currentFile || !line.startsWith('@@')) {
+      return;
+    }
+
+    const match = /@@ -\d+(?:,\d+)? \+(\d+)(?:,(\d+))? @@/.exec(line);
+    if (!match) {
+      return;
+    }
+
+    const start = Number(match[1]);
+    const count = Number(match[2] || 1);
+    if (count <= 0) {
+      return;
+    }
+
+    const target = map.get(currentFile) || new Set();
+    for (let index = 0; index < count; index += 1) {
+      target.add(start + index);
+    }
+    map.set(currentFile, target);
+  });
+
+  return map;
+}
+
 function getBodyLineCount(sourceFile, body) {
   const start = sourceFile.getLineAndCharacterOfPosition(body.getStart()).line;
   const end = sourceFile.getLineAndCharacterOfPosition(body.getEnd()).line;
   return end - start + 1;
+}
+
+function getLineRange(sourceFile, node) {
+  const start = sourceFile.getLineAndCharacterOfPosition(node.getStart()).line + 1;
+  const end = sourceFile.getLineAndCharacterOfPosition(node.getEnd()).line + 1;
+  return { start, end };
+}
+
+function hasChangedLineInRange(changedLines, start, end) {
+  if (!changedLines || changedLines.size === 0) {
+    return false;
+  }
+
+  for (let line = start; line <= end; line += 1) {
+    if (changedLines.has(line)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 function getNodeName(node) {
@@ -82,7 +166,7 @@ function getNodeName(node) {
   return null;
 }
 
-function checkTypescriptFile(filePath, errors) {
+function checkTypescriptFile(filePath, errors, changedLines) {
   const content = readFileSync(filePath, 'utf8');
   const sourceFile = ts.createSourceFile(filePath, content, ts.ScriptTarget.Latest, true);
 
@@ -98,6 +182,12 @@ function checkTypescriptFile(filePath, errors) {
       ts.isArrowFunction(node);
 
     if (isFunctionLike && node.body) {
+      const bodyRange = getLineRange(sourceFile, node.body);
+      if (!hasChangedLineInRange(changedLines, bodyRange.start, bodyRange.end)) {
+        ts.forEachChild(node, visit);
+        return;
+      }
+
       const name = getNodeName(node.parent) || getNodeName(node);
       if (name && !isCamelCase(name)) {
         errors.push(`${path.relative(root, filePath)}: Funktion '${name}' ist nicht camelCase.`);
@@ -171,11 +261,14 @@ function run() {
   const errors = [];
   const warnings = [];
   const changedFiles = getChangedFiles();
+  const changedLineMap = getChangedLineMap(changedFiles);
 
   const tsFiles = changedFiles.filter((filePath) => filePath.endsWith('.ts') && !filePath.endsWith('.spec.ts'));
   const htmlFiles = changedFiles.filter((filePath) => filePath.endsWith('.html'));
 
-  tsFiles.forEach((filePath) => checkTypescriptFile(filePath, errors));
+  tsFiles.forEach((filePath) =>
+    checkTypescriptFile(filePath, errors, changedLineMap.get(filePath) || new Set()),
+  );
   htmlFiles.forEach((filePath) => checkHtmlFile(filePath, errors, warnings));
   checkButtonStyles(errors);
 
