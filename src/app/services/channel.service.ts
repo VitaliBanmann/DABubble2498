@@ -3,6 +3,7 @@ import { FirestoreService } from './firestore.service';
 import { AuthService } from './auth.service';
 import {
     distinctUntilChanged,
+    firstValueFrom,
     map,
     Observable,
     of,
@@ -165,5 +166,19 @@ export class ChannelService {
         }
 
         return current.every((member, index) => member === updated[index]);
+    }
+
+    async ensureDefaultChannels(): Promise<void> {
+        const currentUser = this.authService.getCurrentUser();
+        if (!currentUser) return;
+        await this.ensureChannelExists('allgemein', 'Allgemein', currentUser.uid);
+        await this.ensureChannelExists('entwicklerteam', 'Entwicklerteam', currentUser.uid);
+    }
+
+    private async ensureChannelExists(id: string, name: string, uid: string): Promise<void> {
+        const exists = await firstValueFrom(this.getChannel(id).pipe(take(1)));
+        if (exists) return;
+        const channel: Channel = { name, description: '', members: [uid], createdBy: uid };
+        await firstValueFrom(this.createChannelWithId(id, channel));
     }
 }

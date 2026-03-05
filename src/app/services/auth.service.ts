@@ -100,12 +100,10 @@ export class AuthService implements OnDestroy {
         );
     }
 
-    loginWithGoogle(): Promise<void> {
-        return this.runAuthAction(
-            () => signInWithPopup(this.getRequiredAuth(), this.createGoogleProvider()),
-            'User logged in with Google successfully',
-            'Google popup login error:',
-        );
+    async loginWithGoogle(): Promise<{ email: string | null }> {
+        const credential = await signInWithPopup(this.getRequiredAuth(), this.createGoogleProvider());
+        console.log('User logged in with Google successfully');
+        return { email: credential.user.email };
     }
 
     loginAsGuest(): Promise<void> {

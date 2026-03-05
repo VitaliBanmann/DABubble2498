@@ -69,29 +69,26 @@ export class MessageService {
 
     getDirectMessages(otherUserId: string): Observable<Message[]> {
         const currentUser = this.authService.getCurrentUser();
-        if (!currentUser) {
-            return of([]);
-        }
-
-        const sent$ = this.firestoreService
-            .queryDocumentsRealtime<Message>(this.messagesCollection, [
-                where('senderId', '==', currentUser.uid),
-                where('receiverId', '==', otherUserId),
-            ])
-            .pipe(catchError(() => of([])));
-
-        const received$ = this.firestoreService
-            .queryDocumentsRealtime<Message>(this.messagesCollection, [
-                where('senderId', '==', otherUserId),
-                where('receiverId', '==', currentUser.uid),
-            ])
-            .pipe(catchError(() => of([])));
-
+        if (!currentUser) return of([]);
+        const sent$ = this.querySentMessages(currentUser.uid, otherUserId);
+        const received$ = this.queryReceivedMessages(currentUser.uid, otherUserId);
         return combineLatest([sent$, received$]).pipe(
-            map(([sent, received]) =>
-                this.mergeAndSortMessages([...sent, ...received]),
-            ),
+            map(([sent, received]) => this.mergeAndSortMessages([...sent, ...received])),
         );
+    }
+
+    private querySentMessages(senderId: string, receiverId: string): Observable<Message[]> {
+        return this.firestoreService.queryDocumentsRealtime<Message>(this.messagesCollection, [
+            where('senderId', '==', senderId),
+            where('receiverId', '==', receiverId),
+        ]).pipe(catchError(() => of([])));
+    }
+
+    private queryReceivedMessages(receiverId: string, senderId: string): Observable<Message[]> {
+        return this.firestoreService.queryDocumentsRealtime<Message>(this.messagesCollection, [
+            where('senderId', '==', senderId),
+            where('receiverId', '==', receiverId),
+        ]).pipe(catchError(() => of([])));
     }
 
     sendDirectMessage(otherUserId: string, text: string): Observable<string> {

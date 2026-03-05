@@ -8,6 +8,7 @@ import {
     RouterOutlet,
 } from '@angular/router';
 import { AuthService } from './services/auth.service';
+import { ChannelService } from './services/channel.service';
 import { PresenceService } from './services/presence.service';
 import { UserService } from './services/user.service';
 import { take } from 'rxjs';
@@ -48,6 +49,7 @@ export class AppComponent {
         @Inject(PresenceService)
         private readonly presenceService: PresenceService,
         private readonly userService: UserService,
+        private readonly channelService: ChannelService,
         private readonly router: Router,
         private readonly cdr: ChangeDetectorRef,
         private readonly ngZone: NgZone,
@@ -90,6 +92,10 @@ export class AppComponent {
                 return;
             }
 
+            if (!user.isAnonymous) {
+                void this.channelService.ensureDefaultChannels();
+            }
+
             // Wenn User eingeloggt und noch auf "/" ist -> intelligente Navigation
             const pathname = (this.router.url || '').split('?')[0];
             if (pathname === '/' || pathname === '') {
@@ -121,107 +127,101 @@ export class AppComponent {
     }
 
     async onSubmit(mode: 'login' | 'register'): Promise<void> {
-        // Setze Register-Modus
         this.isRegisterMode = (mode === 'register');
-        
         if (this.loginForm.invalid) {
             this.loginForm.markAllAsTouched();
             return;
         }
+        this.prepareSubmit();
+        const email = (this.loginForm.value.email ?? '').trim();
+        const password = this.loginForm.value.password ?? '';
+        if (!this.validatePassword(mode)) return;
+        await this.executeAuth(mode, email, password);
+    }
 
+    private prepareSubmit(): void {
         this.isSubmitting = true;
         this.errorMessage = '';
         this.successMessage = '';
+    }
 
-        const email = (this.loginForm.value.email ?? '').trim();
-        const password = this.loginForm.value.password ?? '';
-
+    private validatePassword(mode: string): boolean {
         if (mode === 'register' && !this.isPasswordStrong) {
-            this.errorMessage =
-                'Für die Registrierung muss das Kennwort mindestens 8 Zeichen, einen Großbuchstaben und ein Sonderzeichen enthalten.';
+            this.errorMessage = 'Für die Registrierung muss das Kennwort mindestens 8 Zeichen, einen Großbuchstaben und ein Sonderzeichen enthalten.';
             this.isSubmitting = false;
-            return;
+            return false;
         }
+        return true;
+    }
 
+    private async executeAuth(mode: string, email: string, password: string): Promise<void> {
         try {
             if (mode === 'login') {
-                await this.authService.loginWithEmailAndPassword(
-                    email,
-                    password,
-                );
-                this.successMessage = 'Angemeldet.';
-
-                // Speichere Email in Firestore für das Profil
-                let currentUser = this.authService.getCurrentUser();
-                if (currentUser && !currentUser.isAnonymous) {
-                    try {
-                        await this.userService.updateCurrentUserProfile({ email });
-                    } catch (emailError) {
-                        console.error('Failed to save email:', emailError);
-                    }
-                }
-
-                // Prüfe ob User bereits ein Profil hat
-                currentUser = this.authService.getCurrentUser();
-                if (currentUser) {
-                    this.userService
-                        .getUserProfile(
-                            currentUser.uid,
-                            currentUser.email ?? '',
-                        )
-                        .pipe(take(1))
-                        .subscribe({
-                            next: (profile) => {
-                                // Falls Profil existiert und Avatar vorhanden → direkt zu Home
-                                if (profile && profile.avatar) {
-                                    void this.router.navigateByUrl('/home');
-                                } else {
-                                    // Sonst → Avatar auswählen
-                                    void this.router.navigateByUrl('/avatar-select');
-                                }
-                            },
-                            error: () => {
-                                // Bei Fehler → Avatar auswählen lassen
-                                void this.router.navigateByUrl('/avatar-select');
-                            },
-                        });
-                } else {
-                    void this.router.navigateByUrl('/avatar-select');
-                }
+                await this.handleLogin(email, password);
             } else {
-                await this.authService.registerWithEmailAndPassword(
-                    email,
-                    password,
-                );
-                this.successMessage = 'Konto erfolgreich erstellt.';
-
-                // Speichere Email in Firestore für das Profil
-                let currentUser = this.authService.getCurrentUser();
-                if (currentUser && !currentUser.isAnonymous) {
-                    try {
-                        await this.userService.updateCurrentUserProfile({ email });
-                    } catch (emailError) {
-                        console.error('Failed to save email:', emailError);
-                    }
-                }
-
-                // Bei Registrierung → immer Avatar auswählen
-                void this.router.navigateByUrl('/avatar-select');
+                await this.handleRegister(email, password);
             }
         } catch (error) {
-            this.errorMessage =
-                mode === 'login'
-                    ? this.getAuthErrorMessage(
-                          error,
-                          'Anmeldung fehlgeschlagen. Bitte überprüfe E-Mail und Passwort.',
-                      )
-                    : this.getAuthErrorMessage(
-                          error,
-                          'Registrierung fehlgeschlagen. Bitte versuche es erneut.',
-                      );
+            this.handleAuthError(mode, error);
         } finally {
             this.isSubmitting = false;
         }
+    }
+
+    private async handleLogin(email: string, password: string): Promise<void> {
+        await this.authService.loginWithEmailAndPassword(email, password);
+        this.successMessage = 'Angemeldet.';
+        await this.saveUserEmail(email);
+        await this.navigateAfterAuth();
+    }
+
+    private async handleRegister(email: string, password: string): Promise<void> {
+        await this.authService.registerWithEmailAndPassword(email, password);
+        this.successMessage = 'Konto erfolgreich erstellt.';
+        await this.saveUserEmail(email);
+        void this.router.navigateByUrl('/avatar-select');
+    }
+
+    private async saveUserEmail(email: string): Promise<void> {
+        const user = this.authService.getCurrentUser();
+        if (user && !user.isAnonymous) {
+            try {
+                await this.userService.updateCurrentUserProfile({ email });
+            } catch (error) {
+                console.error('Failed to save email:', error);
+            }
+        }
+    }
+
+    private async navigateAfterAuth(): Promise<void> {
+        const user = this.authService.getCurrentUser();
+        if (!user) {
+            void this.router.navigateByUrl('/avatar-select');
+            return;
+        }
+        this.checkProfileAndNavigate(user);
+    }
+
+    private checkProfileAndNavigate(user: any): void {
+        this.userService.getUserProfile(user.uid, user.email ?? '').pipe(take(1)).subscribe({
+            next: (profile) => this.navigateBasedOnProfile(profile),
+            error: () => void this.router.navigateByUrl('/avatar-select'),
+        });
+    }
+
+    private navigateBasedOnProfile(profile: any): void {
+        if (profile && profile.avatar) {
+            void this.router.navigateByUrl('/home');
+        } else {
+            void this.router.navigateByUrl('/avatar-select');
+        }
+    }
+
+    private handleAuthError(mode: string, error: unknown): void {
+        const defaultMsg = mode === 'login'
+            ? 'Anmeldung fehlgeschlagen. Bitte überprüfe E-Mail und Passwort.'
+            : 'Registrierung fehlgeschlagen. Bitte versuche es erneut.';
+        this.errorMessage = this.getAuthErrorMessage(error, defaultMsg);
     }
 
     get emailControl() {
@@ -251,58 +251,37 @@ export class AppComponent {
     }
 
     async onGoogleLogin(): Promise<void> {
-        this.isSubmitting = true;
-        this.errorMessage = '';
-        this.successMessage = '';
-
+        this.prepareSubmit();
         try {
-            await this.authService.loginWithGoogle();
+            const result = await this.authService.loginWithGoogle();
             this.successMessage = 'Erfolgreich mit Google angemeldet.';
-            
-            // Speichere Email aus Google-Account in Firestore
-            const currentUser = this.authService.getCurrentUser();
-            if (currentUser && !currentUser.isAnonymous) {
-                try {
-                    await this.userService.updateCurrentUserProfile({
-                        email: currentUser.email ?? '',
-                    });
-                } catch (emailError) {
-                    console.error('Failed to save Google email:', emailError);
-                }
-            }
-
-            if (!currentUser) {
-                void this.router.navigateByUrl('/avatar-select');
-                return;
-            }
-
-            // Lade Profil aus Firestore
-            this.userService
-                .getUserProfile(currentUser.uid, currentUser.email ?? '')
-                .pipe(take(1))
-                .subscribe({
-                    next: (profile) => {
-                        // Falls Profil existiert und Avatar vorhanden → direkt zu Home
-                        if (profile && profile.avatar) {
-                            void this.router.navigateByUrl('/home');
-                        } else {
-                            // Sonst → Avatar auswählen
-                            void this.router.navigateByUrl('/avatar-select');
-                        }
-                    },
-                    error: () => {
-                        // Bei Fehler → Avatar auswählen lassen
-                        void this.router.navigateByUrl('/avatar-select');
-                    },
-                });
+            await this.saveGoogleEmail(result.email);
+            await this.navigateAfterGoogleAuth();
         } catch (error) {
-            this.errorMessage = this.getAuthErrorMessage(
-                error,
-                'Google-Anmeldung fehlgeschlagen. Bitte versuche es erneut.',
-            );
+            this.errorMessage = this.getAuthErrorMessage(error, 'Google-Anmeldung fehlgeschlagen. Bitte versuche es erneut.');
         } finally {
             this.isSubmitting = false;
         }
+    }
+
+    private async saveGoogleEmail(email: string | null): Promise<void> {
+        const user = this.authService.getCurrentUser();
+        if (user && !user.isAnonymous && email) {
+            try {
+                await this.userService.updateCurrentUserProfile({ email });
+            } catch (error) {
+                console.error('Failed to save Google email:', error);
+            }
+        }
+    }
+
+    private async navigateAfterGoogleAuth(): Promise<void> {
+        const user = this.authService.getCurrentUser();
+        if (!user) {
+            void this.router.navigateByUrl('/avatar-select');
+            return;
+        }
+        this.checkProfileAndNavigate(user);
     }
 
     async onGuestLogin(): Promise<void> {

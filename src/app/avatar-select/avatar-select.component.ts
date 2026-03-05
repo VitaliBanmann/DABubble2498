@@ -187,23 +187,15 @@ export class AvatarSelectComponent implements OnInit {
 
   async onContinue(): Promise<void> {
     const avatarToSave = this.resolveAvatarForSave();
-    if (!avatarToSave) {
-      return;
-    }
-
+    if (!avatarToSave) return;
     this.isLoading = true;
     this.uploadError = '';
+    await this.saveProfileAndNavigate(avatarToSave);
+  }
 
+  private async saveProfileAndNavigate(avatarToSave: string): Promise<void> {
     try {
-      const currentUser = this.authService.getCurrentUser();
-      if (currentUser) {
-        await this.userService.updateCurrentUserProfile({
-          avatar: avatarToSave,
-          displayName: this.resolveDisplayNameForSave(),
-          email: currentUser.email ?? '',
-        });
-      }
-
+      await this.saveProfile(avatarToSave);
       void this.router.navigateByUrl('/home');
     } catch (error) {
       console.error('Profile save failed, continuing to home:', error);
@@ -211,5 +203,15 @@ export class AvatarSelectComponent implements OnInit {
     } finally {
       this.isLoading = false;
     }
+  }
+
+  private async saveProfile(avatarToSave: string): Promise<void> {
+    const user = this.authService.getCurrentUser();
+    if (!user) return;
+    await this.userService.updateCurrentUserProfile({
+      avatar: avatarToSave,
+      displayName: this.resolveDisplayNameForSave(),
+      email: user.email ?? '',
+    });
   }
 }

@@ -2,7 +2,7 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { distinctUntilChanged, of, Subscription, switchMap, take } from 'rxjs';
+import { distinctUntilChanged, Observable, of, Subscription, switchMap, take } from 'rxjs';
 import { AuthService } from '../services/auth.service';
 import { PresenceService } from '../services/presence.service';
 import {
@@ -54,7 +54,12 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     ngOnInit(): void {
         this.ui.openThread();
+        this.subscribeToAuth();
+        this.subscribeToUsers();
+        this.subscribeToRouteMessages();
+    }
 
+    private subscribeToAuth(): void {
         this.subscription.add(
             this.authService.currentUser$.subscribe((user) => {
                 this.currentUserId = user?.uid ?? null;
@@ -62,68 +67,62 @@ export class HomeComponent implements OnInit, OnDestroy {
                 this.seedHelloWorldIfNeeded();
             }),
         );
+    }
 
+    private subscribeToUsers(): void {
         this.subscription.add(
             this.userService.getAllUsers().subscribe({
-                next: (users) => {
-                    this.usersById = users.reduce<Record<string, User>>(
-                        (accumulator, user) => {
-                            if (user.id) {
-                                accumulator[user.id] = user;
-                            }
-                            return accumulator;
-                        },
-                        {},
-                    );
-
-                    this.resolveCurrentDirectUserName();
-                },
+                next: (users) => this.buildUserMap(users),
             }),
         );
+    }
 
+    private buildUserMap(users: User[]): void {
+        this.usersById = users.reduce<Record<string, User>>((acc, user) => {
+            if (user.id) acc[user.id] = user;
+            return acc;
+        }, {});
+        this.resolveCurrentDirectUserName();
+    }
+
+    private subscribeToRouteMessages(): void {
         this.subscription.add(
-            this.route.paramMap
-                .pipe(
-                    switchMap((params) => {
-                        const directUserId = params.get('userId') ?? '';
-                        const directUserName =
-                            this.route.snapshot.queryParamMap
-                                .get('name')
-                                ?.trim() ?? '';
-                        this.errorMessage = '';
-
-                        if (directUserId) {
-                            this.isDirectMessage = true;
-                            this.currentDirectUserId = directUserId;
-                            this.resolveCurrentDirectUserName(directUserName);
-                            return this.messageService.getDirectMessages(
-                                directUserId,
-                            );
-                        }
-
-                        this.isDirectMessage = false;
-                        this.currentDirectUserId = '';
-                        this.currentDirectUserName = '';
-                        this.currentChannelId =
-                            params.get('channelId') ?? 'entwicklerteam';
-
-                        return this.messageService.getChannelMessages(
-                            this.currentChannelId,
-                        );
-                    }),
-                    distinctUntilChanged(),
-                )
-                .subscribe({
-                    next: (messages) => {
-                        this.messages = messages;
-                        this.seedHelloWorldIfNeeded();
-                    },
-                    error: () => {
-                        this.errorMessage =
-                            'Nachrichten konnten nicht geladen werden.';
-                    },
-                }),
+            this.route.paramMap.pipe(
+                switchMap((params) => this.loadMessagesForRoute(params)),
+                distinctUntilChanged(),
+            ).subscribe({
+                next: (messages) => this.handleMessagesLoaded(messages),
+                error: () => this.errorMessage = 'Nachrichten konnten nicht geladen werden.',
+            }),
         );
+    }
+
+    private loadMessagesForRoute(params: any): Observable<Message[]> {
+        const directUserId = params.get('userId') ?? '';
+        const directUserName = this.route.snapshot.queryParamMap.get('name')?.trim() ?? '';
+        this.errorMessage = '';
+        if (directUserId) return this.setupDirectMessages(directUserId, directUserName);
+        return this.setupChannelMessages(params);
+    }
+
+    private setupDirectMessages(userId: string, name: string): Observable<Message[]> {
+        this.isDirectMessage = true;
+        this.currentDirectUserId = userId;
+        this.resolveCurrentDirectUserName(name);
+        return this.messageService.getDirectMessages(userId);
+    }
+
+    private setupChannelMessages(params: any): Observable<Message[]> {
+        this.isDirectMessage = false;
+        this.currentDirectUserId = '';
+        this.currentDirectUserName = '';
+        this.currentChannelId = params.get('channelId') ?? 'entwicklerteam';
+        return this.messageService.getChannelMessages(this.currentChannelId);
+    }
+
+    private handleMessagesLoaded(messages: Message[]): void {
+        this.messages = messages;
+        this.seedHelloWorldIfNeeded();
     }
 
     ngOnDestroy(): void {
@@ -289,26 +288,19 @@ export class HomeComponent implements OnInit, OnDestroy {
             this.currentDirectUserName = '';
             return;
         }
-
         this.currentDirectUserName = preferredName || this.currentDirectUserId;
-
         const knownUser = this.usersById[this.currentDirectUserId];
         if (knownUser?.displayName) {
             this.currentDirectUserName = knownUser.displayName;
             return;
         }
+        this.fetchDirectUserName(preferredName);
+    }
 
-        this.userService
-            .getUser(this.currentDirectUserId)
-            .pipe(take(1))
-            .subscribe({
-                next: (user) => {
-                    this.currentDirectUserName =
-                        user?.displayName ?? preferredName ?? this.currentDirectUserId;
-                },
-                error: () => {
-                    this.currentDirectUserName = preferredName || this.currentDirectUserId;
-                },
-            });
+    private fetchDirectUserName(preferredName: string): void {
+        this.userService.getUser(this.currentDirectUserId).pipe(take(1)).subscribe({
+            next: (user) => this.currentDirectUserName = user?.displayName ?? preferredName ?? this.currentDirectUserId,
+            error: () => this.currentDirectUserName = preferredName || this.currentDirectUserId,
+        });
     }
 }
