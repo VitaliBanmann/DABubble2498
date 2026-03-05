@@ -85,15 +85,8 @@ export class UserService {
             .pipe(map((users) => users[0] ?? null));
     }
 
-    getUserProfileRealtime(userId: string, email: string): Observable<User | null> {
-        return this.getUserRealtime(userId).pipe(
-            switchMap((user) => {
-                if (user) {
-                    return of(user);
-                }
-                return this.getUserByEmailRealtime(email);
-            }),
-        );
+    getUserProfileRealtime(userId: string, _email: string): Observable<User | null> {
+        return this.getUserRealtime(userId);
     }
 
     getUserProfile(userId: string, email: string): Observable<User | null> {

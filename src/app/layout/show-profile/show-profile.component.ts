@@ -7,7 +7,7 @@ import {
     OnInit,
     Output,
 } from '@angular/core';
-import { Subscription, catchError, of, switchMap } from 'rxjs';
+import { Subscription, catchError, map, of, startWith, switchMap } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { UserService } from '../../services/user.service';
 
@@ -52,37 +52,45 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
                             return of(null);
                         }
 
-                        this.displayName =
-                            user.displayName?.trim() ||
-                            user.email?.split('@')[0] ||
-                            'Gast';
-                        this.email = user.email ?? '';
-                        this.avatarUrl = this.resolveAvatarUrl(user.photoURL ?? '');
-
                         return this.userService
                             .getUserProfileRealtime(user.uid, user.email ?? '')
                             .pipe(
-                            catchError(() => of(null)),
+                                startWith(null),
+                                catchError(() => of(null)),
+                                map((profile) => ({ user, profile })),
                             );
                     }),
                 )
-                .subscribe((profile) => {
-                    if (!profile) {
+                .subscribe((data) => {
+                    if (!data) {
                         return;
                     }
 
-                    if (profile.displayName?.trim()) {
-                        this.displayName = profile.displayName.trim();
-                    }
+                    const { user, profile } = data;
 
-                    const resolvedEmail = this.resolveProfileEmail(profile);
-                    if (resolvedEmail) {
-                        this.email = resolvedEmail;
-                    }
+                    const seededName = this.initialDisplayName.trim();
+                    const resolvedName =
+                        profile?.displayName?.trim() ||
+                        seededName ||
+                        user.displayName?.trim() ||
+                        user.email?.split('@')[0] ||
+                        'Gast';
 
-                    if (profile.avatar) {
-                        this.avatarUrl = this.resolveAvatarUrl(profile.avatar);
-                    }
+                    const seededEmail = this.initialEmail.trim();
+                    const resolvedEmail =
+                        this.resolveProfileEmail(profile ?? {}) ||
+                        seededEmail ||
+                        user.email ||
+                        '';
+
+                    const resolvedAvatar =
+                        this.resolveAvatarUrl(profile?.avatar ?? '') ||
+                        this.resolveAvatarUrl(this.initialAvatarUrl ?? '') ||
+                        this.resolveAvatarUrl(user.photoURL ?? '');
+
+                    this.displayName = resolvedName;
+                    this.email = resolvedEmail;
+                    this.avatarUrl = resolvedAvatar;
                 }),
         );
     }

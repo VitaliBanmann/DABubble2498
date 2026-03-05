@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, NgZone } from '@angular/core';
 import {
     Firestore,
     collection,
@@ -15,7 +15,7 @@ import {
     DocumentData,
     Query,
 } from '@angular/fire/firestore';
-import { Observable, from } from 'rxjs';
+import { Observable, from, retry, timer } from 'rxjs';
 
 type WithId = { id: string };
 
@@ -23,7 +23,10 @@ type WithId = { id: string };
     providedIn: 'root',
 })
 export class FirestoreService {
-    constructor(private readonly firestore: Firestore) {}
+    constructor(
+        private readonly firestore: Firestore,
+        private readonly zone: NgZone,
+    ) {}
 
     addDocument<T extends Record<string, unknown>>(
         collectionName: string,
@@ -80,24 +83,34 @@ export class FirestoreService {
         collectionName: string,
         docId: string,
     ): Observable<(T & WithId) | null> {
-        return new Observable((observer) => {
+        return new Observable<(T & WithId) | null>((subscriber) => {
             const docRef = doc(this.firestore, collectionName, docId);
             const unsubscribe = onSnapshot(
                 docRef,
                 (snap) => {
-                    if (!snap.exists()) {
-                        observer.next(null);
-                        return;
-                    }
-                    const data = snap.data() as unknown as T;
-                    observer.next({ id: snap.id, ...data });
+                    this.zone.run(() => {
+                        if (subscriber.closed) {
+                            return;
+                        }
+                        if (!snap.exists()) {
+                            subscriber.next(null);
+                            return;
+                        }
+                        const data = snap.data() as unknown as T;
+                        subscriber.next({ id: snap.id, ...data });
+                    });
                 },
                 (error) => {
-                    observer.error(error);
+                    this.zone.run(() => {
+                        if (subscriber.closed) {
+                            return;
+                        }
+                        subscriber.error(error);
+                    });
                 },
             );
             return () => unsubscribe();
-        });
+        }).pipe(this.retryOnAuthNotReady());
     }
 
     updateDocument<T extends Record<string, unknown>>(
@@ -137,26 +150,62 @@ export class FirestoreService {
         collectionName: string,
         constraints: QueryConstraint[],
     ): Observable<(T & WithId)[]> {
-        return new Observable((observer) => {
+        return new Observable<(T & WithId)[]>((subscriber) => {
             const baseCollection = collection(this.firestore, collectionName);
             const queryRef = query(baseCollection, ...constraints) as Query<DocumentData>;
 
             const unsubscribe = onSnapshot(
                 queryRef,
                 (snap) => {
-                    observer.next(
-                        snap.docs.map((docSnapshot) => {
-                            const data = docSnapshot.data() as unknown as T;
-                            return { id: docSnapshot.id, ...data };
-                        }),
-                    );
+                    this.zone.run(() => {
+                        if (subscriber.closed) {
+                            return;
+                        }
+                        subscriber.next(
+                            snap.docs.map((docSnapshot) => {
+                                const data = docSnapshot.data() as unknown as T;
+                                return { id: docSnapshot.id, ...data };
+                            }),
+                        );
+                    });
                 },
                 (error) => {
-                    observer.error(error);
+                    this.zone.run(() => {
+                        if (subscriber.closed) {
+                            return;
+                        }
+                        subscriber.error(error);
+                    });
                 },
             );
 
             return () => unsubscribe();
-        });
+        }).pipe(this.retryOnAuthNotReady());
+    }
+
+    private retryOnAuthNotReady<T>(): (source: Observable<T>) => Observable<T> {
+        return (source) =>
+            source.pipe(
+                retry({
+                    count: 5,
+                    delay: (error, retryCount) => {
+                        const code = this.getFirebaseErrorCode(error);
+                        if (code !== 'permission-denied' && code !== 'unauthenticated') {
+                            throw error;
+                        }
+
+                        const delayMs = Math.min(500 * Math.pow(2, retryCount - 1), 4000);
+                        return timer(delayMs);
+                    },
+                }),
+            );
+    }
+
+    private getFirebaseErrorCode(error: unknown): string | null {
+        if (!error || typeof error !== 'object') {
+            return null;
+        }
+        const code = (error as { code?: unknown }).code;
+        return typeof code === 'string' ? code : null;
     }
 }

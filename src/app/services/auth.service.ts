@@ -1,6 +1,7 @@
 import {
     Inject,
     Injectable,
+    NgZone,
     OnDestroy,
     PLATFORM_ID,
     Optional,
@@ -30,10 +31,13 @@ export class AuthService implements OnDestroy {
         new BehaviorSubject<User | null>(null);
     public currentUser$: Observable<User | null> =
         this.currentUserSubject.asObservable();
+    private authReadySubject = new BehaviorSubject<boolean>(false);
+    public authReady$: Observable<boolean> = this.authReadySubject.asObservable();
 
     constructor(
         @Inject(PLATFORM_ID) private readonly platformId: object,
         @Optional() private readonly auth: Auth | null,
+        private readonly zone: NgZone,
     ) {
         if (isPlatformBrowser(this.platformId) && this.auth) {
             this.initAuthState();
@@ -45,11 +49,24 @@ export class AuthService implements OnDestroy {
             return;
         }
 
-        this.currentUserSubject.next(this.auth.currentUser);
-
         this.unsubscribeAuthState?.();
-        this.unsubscribeAuthState = onAuthStateChanged(this.auth, (user) => {
-            this.currentUserSubject.next(user);
+        let hasEmittedReady = false;
+        this.unsubscribeAuthState = onAuthStateChanged(this.auth, async (user) => {
+            if (user) {
+                try {
+                    await user.getIdToken();
+                } catch {
+                    // ignore: we still emit auth state, Firestore might retry
+                }
+            }
+
+            this.zone.run(() => {
+                this.currentUserSubject.next(user);
+                if (!hasEmittedReady) {
+                    hasEmittedReady = true;
+                    this.authReadySubject.next(true);
+                }
+            });
         });
     }
 

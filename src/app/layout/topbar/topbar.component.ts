@@ -1,7 +1,16 @@
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
-import { combineLatest, Subscription, catchError, of, switchMap, take } from 'rxjs';
+import {
+    combineLatest,
+    Subscription,
+    catchError,
+    map,
+    of,
+    startWith,
+    switchMap,
+    take,
+} from 'rxjs';
 import { UiStateService } from '../../services/ui-state.service';
 import { AuthService } from '../../services/auth.service';
 import { PresenceService } from '../../services/presence.service';
@@ -35,7 +44,7 @@ interface SearchMessageResult {
     styleUrl: './topbar.component.scss',
 })
 export class TopbarComponent implements OnInit, OnDestroy {
-    displayName = 'Gast';
+    displayName = '';
     email = '';
     presenceStatus: PresenceStatus = 'offline';
     avatarUrl: string | null = null;
@@ -51,6 +60,10 @@ export class TopbarComponent implements OnInit, OnDestroy {
     private searchableUsers: SearchUserResult[] = [];
     private searchableMessages: SearchMessageResult[] = [];
     private readonly subscription = new Subscription();
+    private searchDataLoaded = false;
+    private profileUid: string | null = null;
+    private profileResolved = false;
+    private profileFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
     constructor(
         public readonly ui: UiStateService,
@@ -64,63 +77,89 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
     ngOnInit(): void {
         this.subscription.add(
+            this.authService.authReady$.subscribe((ready) => {
+                if (!ready) {
+                    return;
+                }
+                // auth state resolved; if user is not logged in we should show guest
+                if (!this.authService.getCurrentUser()) {
+                    this.displayName = 'Gast';
+                    this.email = '';
+                    this.presenceStatus = 'offline';
+                    this.clearAvatar();
+                }
+            }),
+        );
+
+        this.subscription.add(
             this.authService.currentUser$
                 .pipe(
                     switchMap((user) => {
                         if (!user || user.isAnonymous) {
-                            this.displayName = 'Gast';
-                            this.email = '';
-                            this.presenceStatus = 'offline';
-                            this.clearAvatar();
+                            if (this.searchDataLoaded) {
+                                this.searchDataLoaded = false;
+                                this.searchableChannels = [];
+                                this.searchableUsers = [];
+                                this.searchableMessages = [];
+                            }
+                            this.clearProfileFallback();
                             return of(null);
                         }
 
-                        this.displayName =
-                            user.displayName?.trim() ||
-                            user.email?.split('@')[0] ||
-                            'Gast';
-                        this.email = user.email ?? '';
+                        if (!this.searchDataLoaded) {
+                            this.searchDataLoaded = true;
+                            this.loadSearchData();
+                        }
 
-                        this.applyAvatar(user.photoURL);
-                        this.presenceStatus = 'online';
+                        this.beginProfileFallback(user.uid, user);
 
-                        // Kontinuierlich Profil-Updates laden mit Real-time Listener
                         return this.userService
                             .getUserProfileRealtime(user.uid, user.email ?? '')
                             .pipe(
-                            catchError(() => of(null)),
+                                catchError(() => of(null)),
+                                map((profile) => ({ user, profile })),
                             );
                     }),
                 )
                 .subscribe({
-                    next: (profile) => {
-                        if (!profile) {
+                    next: (data) => {
+                        if (!data) {
                             return;
                         }
-                        const profileName = profile.displayName?.trim();
-                        if (profileName) {
-                            this.displayName = profileName;
+
+                        const { user, profile } = data;
+
+                        if (profile) {
+                            this.profileResolved = true;
+                            this.clearProfileFallback();
+
+                            const resolvedName =
+                                profile.displayName?.trim() ||
+                                user.displayName?.trim() ||
+                                user.email?.split('@')[0] ||
+                                'Gast';
+                            this.displayName = resolvedName;
+
+                            const resolvedEmail =
+                                this.resolveProfileEmail(profile) ||
+                                user.email ||
+                                '';
+                            this.email = resolvedEmail;
+
+                            this.applyAvatar(profile.avatar || user.photoURL || null);
+
+                            this.presenceStatus =
+                                profile.presenceStatus ?? 'online';
                         }
-                        const profileEmail = this.resolveProfileEmail(profile);
-                        if (profileEmail) {
-                            this.email = profileEmail;
-                        }
-                        if (profile.avatar) {
-                            this.applyAvatar(profile.avatar);
-                        }
-                        this.presenceStatus =
-                            profile.presenceStatus ?? this.presenceStatus;
                     },
                 }),
         );
-
-            this.loadSearchData();
     }
 
     get initials(): string {
         const name = this.displayName.trim();
         if (!name) {
-            return 'G';
+            return '';
         }
 
         const parts = name.split(/\s+/).filter(Boolean);
@@ -341,5 +380,39 @@ export class TopbarComponent implements OnInit, OnDestroy {
                     },
                 }),
         );
+    }
+
+    private beginProfileFallback(
+        uid: string,
+        user: { displayName?: string | null; email?: string | null; photoURL?: string | null },
+    ): void {
+        if (this.profileUid !== uid) {
+            this.profileUid = uid;
+            this.profileResolved = false;
+            this.displayName = '';
+            this.email = '';
+            this.clearAvatar();
+            this.presenceStatus = 'online';
+        }
+
+        this.clearProfileFallback();
+        this.profileFallbackTimer = setTimeout(() => {
+            if (this.profileUid !== uid || this.profileResolved) {
+                return;
+            }
+
+            this.displayName =
+                user.displayName?.trim() || user.email?.split('@')[0] || 'Gast';
+            this.email = user.email ?? '';
+            this.applyAvatar(user.photoURL);
+            this.presenceStatus = 'online';
+        }, 1200);
+    }
+
+    private clearProfileFallback(): void {
+        if (this.profileFallbackTimer) {
+            clearTimeout(this.profileFallbackTimer);
+            this.profileFallbackTimer = null;
+        }
     }
 }
