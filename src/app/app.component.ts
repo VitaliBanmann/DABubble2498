@@ -84,44 +84,43 @@ export class AppComponent {
         });
     }
 
+    private handleNoUser(): void {
+        this.showAuthScreen = true;
+        const pathname = (this.router.url || '').split('?')[0];
+        const isProtectedArea = pathname.startsWith('/app')
+            || pathname.startsWith('/home')
+            || pathname.startsWith('/avatar-select');
+        if (isProtectedArea) {
+            void this.router.navigateByUrl('/');
+        }
+    }
+
+    private handleAuthenticatedUser(user: any): void {
+        if (!user.isAnonymous) {
+            void this.channelService.ensureDefaultChannels();
+        }
+        const pathname = (this.router.url || '').split('?')[0];
+        if (pathname === '/' || pathname === '') {
+            this.checkProfileAndNavigateHome(user);
+        }
+    }
+
+    private checkProfileAndNavigateHome(user: any): void {
+        this.userService.getUserProfile(user.uid, user.email ?? '').pipe(take(1)).subscribe({
+            next: (profile) => this.navigateBasedOnAvatar(profile),
+            error: () => void this.router.navigateByUrl('/avatar-select'),
+        });
+    }
+
+    private navigateBasedOnAvatar(profile: any): void {
+        if (profile && profile.avatar) {
+            void this.router.navigateByUrl('/home');
+        } else {
+            void this.router.navigateByUrl('/avatar-select');
+        }
+    }
+
     private updateAuthScreenVisibility(url: string): void {
-            private handleNoUser(): void {
-                this.showAuthScreen = true;
-                const pathname = (this.router.url || '').split('?')[0];
-                const isProtectedArea = pathname.startsWith('/app')
-                    || pathname.startsWith('/home')
-                    || pathname.startsWith('/avatar-select');
-                if (isProtectedArea) {
-                    void this.router.navigateByUrl('/');
-                }
-            }
-
-            private handleAuthenticatedUser(user: any): void {
-                if (!user.isAnonymous) {
-                    void this.channelService.ensureDefaultChannels();
-                }
-                const pathname = (this.router.url || '').split('?')[0];
-                if (pathname === '/' || pathname === '') {
-                    this.checkProfileAndNavigateHome(user);
-                }
-            }
-
-            private checkProfileAndNavigateHome(user: any): void {
-                this.userService.getUserProfile(user.uid, user.email ?? '').pipe(take(1)).subscribe({
-                    next: (profile) => this.navigateBasedOnAvatar(profile),
-                    error: () => void this.router.navigateByUrl('/avatar-select'),
-                });
-            }
-
-            private navigateBasedOnAvatar(profile: any): void {
-                if (profile && profile.avatar) {
-                    void this.router.navigateByUrl('/home');
-                } else {
-                    void this.router.navigateByUrl('/avatar-select');
-                }
-            }
-
-            private updateAuthScreenVisibility(url: string): void {
         const pathname = (url || '').split('?')[0];
 
         // Auth-Screen NUR auf "/"
