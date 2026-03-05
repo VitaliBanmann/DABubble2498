@@ -86,12 +86,16 @@ export class HomeComponent implements OnInit, OnDestroy {
                 .pipe(
                     switchMap((params) => {
                         const directUserId = params.get('userId') ?? '';
+                        const directUserName =
+                            this.route.snapshot.queryParamMap
+                                .get('name')
+                                ?.trim() ?? '';
                         this.errorMessage = '';
 
                         if (directUserId) {
                             this.isDirectMessage = true;
                             this.currentDirectUserId = directUserId;
-                            this.resolveCurrentDirectUserName();
+                            this.resolveCurrentDirectUserName(directUserName);
                             return this.messageService.getDirectMessages(
                                 directUserId,
                             );
@@ -280,13 +284,13 @@ export class HomeComponent implements OnInit, OnDestroy {
         // Seeding disabled to prevent duplicates
     }
 
-    private resolveCurrentDirectUserName(): void {
+    private resolveCurrentDirectUserName(preferredName = ''): void {
         if (!this.currentDirectUserId) {
             this.currentDirectUserName = '';
             return;
         }
 
-        this.currentDirectUserName = this.currentDirectUserId;
+        this.currentDirectUserName = preferredName || this.currentDirectUserId;
 
         const knownUser = this.usersById[this.currentDirectUserId];
         if (knownUser?.displayName) {
@@ -300,10 +304,10 @@ export class HomeComponent implements OnInit, OnDestroy {
             .subscribe({
                 next: (user) => {
                     this.currentDirectUserName =
-                        user?.displayName ?? this.currentDirectUserId;
+                        user?.displayName ?? preferredName ?? this.currentDirectUserId;
                 },
                 error: () => {
-                    this.currentDirectUserName = this.currentDirectUserId;
+                    this.currentDirectUserName = preferredName || this.currentDirectUserId;
                 },
             });
     }

@@ -123,7 +123,7 @@
                         type="button"
                         class="direct-link"
                         [class.active]="activeDirectMessageId === member.id"
-                        (click)="openDirectMessage(member.id)"
+                        (click)="openDirectMessage(member)"
                     >
       <span class="direct-link__avatar" [class.has-image]="!!member.avatar">
         @if (member.avatar) {

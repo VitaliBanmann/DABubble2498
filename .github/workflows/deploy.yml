@@ -1,9 +1,7 @@
 name: Deploy Production
 
 on:
-  workflow_run:
-    workflows: ["Predeploy Check"]
-    types: [completed]
+  workflow_dispatch:
 
 jobs:
   deploy:

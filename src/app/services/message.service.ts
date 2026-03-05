@@ -1,8 +1,8 @@
 import { Injectable } from '@angular/core';
-import { FirestoreService } from './firestore.service';
-import { AuthService } from './auth.service';
+import { where, Timestamp } from 'firebase/firestore';
 import { Observable, catchError, combineLatest, map, of } from 'rxjs';
-import { where, orderBy, Timestamp } from 'firebase/firestore';
+import { AuthService } from './auth.service';
+import { FirestoreService } from './firestore.service';
 
 export interface MessageReaction extends Record<string, unknown> {
     emoji: string;
@@ -13,14 +13,10 @@ export interface Message extends Record<string, unknown> {
     id?: string;
     text: string;
     senderId: string;
-    sender?: string;
     receiverId?: string;
-    receiver?: string;
     channelId?: string;
-    channel?: string;
     conversationId?: string;
     timestamp: Timestamp | Date;
-    createdAt?: Timestamp | Date;
     read?: boolean;
     edited?: boolean;
     editedAt?: Date;
@@ -38,9 +34,6 @@ export class MessageService {
         private authService: AuthService,
     ) {}
 
-    /**
-     * Sende eine neue Nachricht
-     */
     sendMessage(message: Message): Observable<string> {
         const currentUser = this.authService.getCurrentUser();
         if (!currentUser) {
@@ -59,33 +52,17 @@ export class MessageService {
         });
     }
 
-    /**
-     * Rufe Nachrichten für einen Kanal ab
-     */
     getChannelMessages(channelId: string): Observable<Message[]> {
-        const modern$ = this.firestoreService
+        return this.firestoreService
             .queryDocumentsRealtime<Message>(this.messagesCollection, [
                 where('channelId', '==', channelId),
-                orderBy('timestamp', 'asc'),
             ])
-            .pipe(catchError(() => of([])));
-
-        const legacy$ = this.firestoreService
-            .queryDocumentsRealtime<Message>(this.messagesCollection, [
-                where('channel', '==', channelId),
-            ])
-            .pipe(catchError(() => of([])));
-
-        return combineLatest([modern$, legacy$]).pipe(
-            map(([modernMessages, legacyMessages]) =>
-                this.mergeAndSortMessages([...modernMessages, ...legacyMessages]),
-            ),
-        );
+            .pipe(
+                catchError(() => of([])),
+                map((messages) => this.mergeAndSortMessages(messages)),
+            );
     }
 
-    /**
-     * Rufe private Nachrichten zwischen zwei Benutzern ab
-     */
     getPrivateMessages(otherUserId: string): Observable<Message[]> {
         return this.getDirectMessages(otherUserId);
     }
@@ -96,38 +73,23 @@ export class MessageService {
             return of([]);
         }
 
-        const conversationId = this.createConversationId(
-            currentUser.uid,
-            otherUserId,
-        );
-
-        const modern$ = this.firestoreService
+        const sent$ = this.firestoreService
             .queryDocumentsRealtime<Message>(this.messagesCollection, [
-                where('conversationId', '==', conversationId),
+                where('senderId', '==', currentUser.uid),
+                where('receiverId', '==', otherUserId),
             ])
             .pipe(catchError(() => of([])));
 
-        const legacySent$ = this.firestoreService
+        const received$ = this.firestoreService
             .queryDocumentsRealtime<Message>(this.messagesCollection, [
-                where('sender', '==', currentUser.uid),
-                where('receiver', '==', otherUserId),
+                where('senderId', '==', otherUserId),
+                where('receiverId', '==', currentUser.uid),
             ])
             .pipe(catchError(() => of([])));
 
-        const legacyReceived$ = this.firestoreService
-            .queryDocumentsRealtime<Message>(this.messagesCollection, [
-                where('sender', '==', otherUserId),
-                where('receiver', '==', currentUser.uid),
-            ])
-            .pipe(catchError(() => of([])));
-
-        return combineLatest([modern$, legacySent$, legacyReceived$]).pipe(
-            map(([modernMessages, legacySent, legacyReceived]) =>
-                this.mergeAndSortMessages([
-                    ...modernMessages,
-                    ...legacySent,
-                    ...legacyReceived,
-                ]),
+        return combineLatest([sent$, received$]).pipe(
+            map(([sent, received]) =>
+                this.mergeAndSortMessages([...sent, ...received]),
             ),
         );
     }
@@ -157,9 +119,6 @@ export class MessageService {
         });
     }
 
-    /**
-     * Aktualisiere eine Nachricht
-     */
     updateMessage(
         messageId: string,
         updates: Partial<Message>,
@@ -171,9 +130,6 @@ export class MessageService {
         );
     }
 
-    /**
-     * Lösche eine Nachricht
-     */
     deleteMessage(messageId: string): Observable<void> {
         return this.firestoreService.deleteDocument(
             this.messagesCollection,
@@ -181,9 +137,6 @@ export class MessageService {
         );
     }
 
-    /**
-     * Markiere eine Nachricht als gelesen
-     */
     markAsRead(messageId: string): Observable<void> {
         return this.firestoreService.updateDocument(
             this.messagesCollection,
@@ -279,9 +232,8 @@ export class MessageService {
         const deduplicated = new Map<string, Message>();
 
         messages.forEach((message, index) => {
-            const normalized = this.normalizeLegacyMessage(message);
-            const key = normalized.id ?? `${normalized.senderId}-${normalized.text}-${index}`;
-            deduplicated.set(key, normalized);
+            const key = message.id ?? `${message.senderId}-${message.text}-${index}`;
+            deduplicated.set(key, message);
         });
 
         return Array.from(deduplicated.values()).sort(
@@ -289,20 +241,5 @@ export class MessageService {
                 this.toTimestampMillis(left.timestamp) -
                 this.toTimestampMillis(right.timestamp),
         );
-    }
-
-    private normalizeLegacyMessage(message: Message): Message {
-        const senderId = message.senderId || message.sender || '';
-        const receiverId = message.receiverId || message.receiver;
-        const channelId = message.channelId || message.channel;
-        const timestamp = message.timestamp || message.createdAt || new Date(0);
-
-        return {
-            ...message,
-            senderId,
-            receiverId,
-            channelId,
-            timestamp,
-        };
     }
 }

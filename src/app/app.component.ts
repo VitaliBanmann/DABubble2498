@@ -151,8 +151,18 @@ export class AppComponent {
                 );
                 this.successMessage = 'Angemeldet.';
 
+                // Speichere Email in Firestore für das Profil
+                let currentUser = this.authService.getCurrentUser();
+                if (currentUser && !currentUser.isAnonymous) {
+                    try {
+                        await this.userService.updateCurrentUserProfile({ email });
+                    } catch (emailError) {
+                        console.error('Failed to save email:', emailError);
+                    }
+                }
+
                 // Prüfe ob User bereits ein Profil hat
-                const currentUser = this.authService.getCurrentUser();
+                currentUser = this.authService.getCurrentUser();
                 if (currentUser) {
                     this.userService
                         .getUserProfile(
@@ -184,6 +194,17 @@ export class AppComponent {
                     password,
                 );
                 this.successMessage = 'Konto erfolgreich erstellt.';
+
+                // Speichere Email in Firestore für das Profil
+                let currentUser = this.authService.getCurrentUser();
+                if (currentUser && !currentUser.isAnonymous) {
+                    try {
+                        await this.userService.updateCurrentUserProfile({ email });
+                    } catch (emailError) {
+                        console.error('Failed to save email:', emailError);
+                    }
+                }
+
                 // Bei Registrierung → immer Avatar auswählen
                 void this.router.navigateByUrl('/avatar-select');
             }
@@ -238,8 +259,18 @@ export class AppComponent {
             await this.authService.loginWithGoogle();
             this.successMessage = 'Erfolgreich mit Google angemeldet.';
             
-            // Prüfe ob User bereits ein Profil hat
+            // Speichere Email aus Google-Account in Firestore
             const currentUser = this.authService.getCurrentUser();
+            if (currentUser && !currentUser.isAnonymous) {
+                try {
+                    await this.userService.updateCurrentUserProfile({
+                        email: currentUser.email ?? '',
+                    });
+                } catch (emailError) {
+                    console.error('Failed to save Google email:', emailError);
+                }
+            }
+
             if (!currentUser) {
                 void this.router.navigateByUrl('/avatar-select');
                 return;

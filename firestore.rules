@@ -62,26 +62,7 @@ service cloud.firestore {
     function canReadMessage(data) {
       return isDirectMessage(data)
         ? (request.auth.uid == data.senderId || request.auth.uid == data.receiverId)
-        : (
-            (isChannelMessage(data) && canReadChannel(data.channelId))
-            || canReadLegacyDirectMessage(data)
-            || canReadLegacyChannelMessage(data)
-          );
-    }
-
-    function canReadLegacyDirectMessage(data) {
-      return hasField(data, 'sender')
-        && hasField(data, 'receiver')
-        && !hasField(data, 'channelId')
-        && !hasField(data, 'channel')
-        && (request.auth.uid == data.sender || request.auth.uid == data.receiver);
-    }
-
-    function canReadLegacyChannelMessage(data) {
-      return hasField(data, 'channel')
-        && !hasField(data, 'receiverId')
-        && !hasField(data, 'receiver')
-        && canReadChannel(data.channel);
+        : (isChannelMessage(data) && canReadChannel(data.channelId));
     }
 
     function canCreateDirectMessage(data) {

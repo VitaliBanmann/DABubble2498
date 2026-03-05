@@ -200,6 +200,7 @@ export class AvatarSelectComponent implements OnInit {
         await this.userService.updateCurrentUserProfile({
           avatar: avatarToSave,
           displayName: this.resolveDisplayNameForSave(),
+          email: currentUser.email ?? '',
         });
       }
 

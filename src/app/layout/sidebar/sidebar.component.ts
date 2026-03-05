@@ -139,9 +139,16 @@
             void this.router.navigateByUrl(`/app/channel/${channelId}`);
         }
 
-        openDirectMessage(userId: string): void {
+        openDirectMessage(member: SidebarDirectMessage): void {
+            const userId = member.id;
+            if (!userId) {
+                return;
+            }
+
             this.activeDirectMessageId = userId;
-            void this.router.navigateByUrl(`/app/dm/${userId}`);
+            void this.router.navigate(['/app/dm', userId], {
+                queryParams: { name: this.normalizeDirectMessageLabel(member.label) },
+            });
         }
 
         onAvatarError(member: SidebarDirectMessage): void {
@@ -319,6 +326,7 @@
 
         private finishSaving(): void {
             this.isSaving = false;
+            this.cdr.detectChanges();
         }
 
         private handleChannelCreated(channelId: string, payload: Channel): void {
@@ -330,6 +338,7 @@
             this.sortChannels();
             this.closeCreateChannelDialog();
             this.openChannel(channelId);
+            this.cdr.detectChanges();
         }
 
         private handleCreateChannelError(error: unknown): void {
@@ -416,6 +425,10 @@
                 return 1;
             }
             return left.label.localeCompare(right.label, 'de');
+        }
+
+        private normalizeDirectMessageLabel(label: string): string {
+            return label.replace(' (Du)', '').trim();
         }
 
         private sortChannels(): void {
