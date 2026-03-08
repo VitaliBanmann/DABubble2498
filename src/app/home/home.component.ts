@@ -2,9 +2,17 @@ import { CommonModule } from '@angular/common';
 import { Component, OnDestroy, OnInit } from '@angular/core';
 import { FormControl, ReactiveFormsModule } from '@angular/forms';
 import { ActivatedRoute, Router } from '@angular/router';
-import { distinctUntilChanged, Observable, of, Subscription, switchMap, take } from 'rxjs';
+import {
+    combineLatest,
+    distinctUntilChanged,
+    Observable,
+    of,
+    Subscription,
+    switchMap,
+    take,
+} from 'rxjs';
+import { AuthFlowService } from '../services/auth-flow.service';
 import { AuthService } from '../services/auth.service';
-import { PresenceService } from '../services/presence.service';
 import {
     Message,
     MessageReaction,
@@ -43,8 +51,8 @@ export class HomeComponent implements OnInit, OnDestroy {
     private readonly subscription = new Subscription();
 
     constructor(
+        private readonly authFlow: AuthFlowService,
         private readonly authService: AuthService,
-        private readonly presenceService: PresenceService,
         private readonly messageService: MessageService,
         private readonly userService: UserService,
         private readonly route: ActivatedRoute,
@@ -61,9 +69,10 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     private subscribeToAuth(): void {
         this.subscription.add(
-            this.authService.currentUser$.subscribe((user) => {
-                this.currentUserId = user?.uid ?? null;
-                this.canWrite = !!user && !user.isAnonymous;
+            this.authService.currentUser$.subscribe(() => {
+                const activeUser = this.authService.getCurrentUser();
+                this.currentUserId = activeUser?.uid ?? null;
+                this.canWrite = !!activeUser && !activeUser.isAnonymous;
                 this.seedHelloWorldIfNeeded();
             }),
         );
@@ -87,13 +96,23 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     private subscribeToRouteMessages(): void {
         this.subscription.add(
-            this.route.paramMap.pipe(
-                switchMap((params) => this.loadMessagesForRoute(params)),
-                distinctUntilChanged(),
-            ).subscribe({
-                next: (messages) => this.handleMessagesLoaded(messages),
-                error: () => this.errorMessage = 'Nachrichten konnten nicht geladen werden.',
-            }),
+            combineLatest([this.authService.currentUser$, this.route.paramMap])
+                .pipe(
+                    switchMap(([user, params]) => {
+                        if (!user) {
+                            return of([] as Message[]);
+                        }
+
+                        return this.loadMessagesForRoute(params);
+                    }),
+                    distinctUntilChanged(),
+                )
+                .subscribe({
+                    next: (messages) => this.handleMessagesLoaded(messages),
+                    error: () =>
+                        (this.errorMessage =
+                            'Nachrichten konnten nicht geladen werden.'),
+                }),
         );
     }
 
@@ -116,7 +135,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.isDirectMessage = false;
         this.currentDirectUserId = '';
         this.currentDirectUserName = '';
-        this.currentChannelId = params.get('channelId') ?? 'entwicklerteam';
+        this.currentChannelId = params.get('channelId') ?? 'allgemein';
         return this.messageService.getChannelMessages(this.currentChannelId);
     }
 
@@ -137,12 +156,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     async logout(): Promise<void> {
-        try {
-            await this.presenceService.setStatus('offline');
-            await this.authService.logout();
-        } finally {
-            await this.router.navigateByUrl('/');
-        }
+        await this.authFlow.logoutToLogin();
     }
 
     sendMessage(): void {
@@ -151,7 +165,14 @@ export class HomeComponent implements OnInit, OnDestroy {
             return;
         }
 
-        if (!this.canWrite) {
+        const currentUser = this.authService.getCurrentUser();
+        if (!currentUser) {
+            this.errorMessage =
+                'Du bist nicht angemeldet. Bitte melde dich erneut an.';
+            return;
+        }
+
+        if (currentUser.isAnonymous) {
             this.errorMessage =
                 'Als Gast kannst du keine Nachrichten senden.';
             return;
@@ -160,22 +181,38 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.isSending = true;
         this.errorMessage = '';
 
-        const request$ = this.isDirectMessage
-            ? this.messageService.sendDirectMessage(this.currentDirectUserId, text)
-            : this.messageService.sendMessage({
-                  text,
-                  channelId: this.currentChannelId,
-                  senderId: this.currentUserId ?? '',
-                  timestamp: new Date(),
-              });
+        let request$: Observable<string>;
+        try {
+            request$ = this.isDirectMessage
+                ? this.messageService.sendDirectMessage(
+                      this.currentDirectUserId,
+                      text,
+                  )
+                : this.messageService.sendMessage({
+                      text,
+                      channelId: this.currentChannelId || 'allgemein',
+                      senderId: this.currentUserId ?? '',
+                      timestamp: new Date(),
+                  });
+        } catch (error) {
+            this.errorMessage =
+                error instanceof Error
+                    ? `Nachricht konnte nicht gesendet werden: ${error.message}`
+                    : 'Nachricht konnte nicht gesendet werden.';
+            this.isSending = false;
+            return;
+        }
 
         request$.subscribe({
             next: () => {
                 this.messageControl.setValue('');
                 this.isSending = false;
             },
-            error: () => {
-                this.errorMessage = 'Nachricht konnte nicht gesendet werden.';
+            error: (error) => {
+                this.errorMessage =
+                    error instanceof Error
+                        ? `Nachricht konnte nicht gesendet werden: ${error.message}`
+                        : 'Nachricht konnte nicht gesendet werden.';
                 this.isSending = false;
             },
         });

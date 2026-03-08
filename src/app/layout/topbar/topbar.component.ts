@@ -12,8 +12,8 @@ import {
     take,
 } from 'rxjs';
 import { UiStateService } from '../../services/ui-state.service';
+import { AuthFlowService } from '../../services/auth-flow.service';
 import { AuthService } from '../../services/auth.service';
-import { PresenceService } from '../../services/presence.service';
 import { PresenceStatus, UserService } from '../../services/user.service';
 import { ChannelService } from '../../services/channel.service';
 import { MessageService } from '../../services/message.service';
@@ -67,9 +67,9 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
     constructor(
         public readonly ui: UiStateService,
+        private readonly authFlow: AuthFlowService,
         private readonly authService: AuthService,
         private readonly userService: UserService,
-        private readonly presenceService: PresenceService,
         private readonly channelService: ChannelService,
         private readonly messageService: MessageService,
         private readonly router: Router,
@@ -305,12 +305,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
     async logout(): Promise<void> {
         this.closeUserMenu();
-        try {
-            await this.presenceService.setStatus('offline');
-            await this.authService.logout();
-        } finally {
-            void this.router.navigateByUrl('/');
-        }
+        await this.authFlow.logoutToLogin();
     }
 
     get presenceLabel(): string {

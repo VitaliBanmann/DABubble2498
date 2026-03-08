@@ -42,7 +42,6 @@ export class AvatarSelectComponent implements OnInit {
 
   ngOnInit(): void {
     const currentUser = this.authService.getCurrentUser();
-    const currentUserEmail = currentUser?.email ?? '';
 
     if (currentUser?.isAnonymous) {
       this.userName = 'Gast';
@@ -53,10 +52,7 @@ export class AvatarSelectComponent implements OnInit {
     }
 
     if (currentUser?.uid) {
-      this.userService
-        .getUserProfile(currentUser.uid, currentUserEmail)
-        .pipe(take(1))
-        .subscribe({
+      this.userService.getUser(currentUser.uid).pipe(take(1)).subscribe({
         next: (profile) => {
           if (profile?.displayName) {
             this.userName = profile.displayName;
@@ -187,31 +183,25 @@ export class AvatarSelectComponent implements OnInit {
 
   async onContinue(): Promise<void> {
     const avatarToSave = this.resolveAvatarForSave();
-    if (!avatarToSave) return;
-    this.isLoading = true;
-    this.uploadError = '';
-    await this.saveProfileAndNavigate(avatarToSave);
-  }
-
-  private async saveProfileAndNavigate(avatarToSave: string): Promise<void> {
-    try {
-      await this.saveProfile(avatarToSave);
-      void this.router.navigateByUrl('/home');
-    } catch (error) {
-      console.error('Profile save failed, continuing to home:', error);
-      void this.router.navigateByUrl('/home');
-    } finally {
-      this.isLoading = false;
+    if (!avatarToSave) {
+      return;
     }
-  }
 
-  private async saveProfile(avatarToSave: string): Promise<void> {
-    const user = this.authService.getCurrentUser();
-    if (!user) return;
-    await this.userService.updateCurrentUserProfile({
-      avatar: avatarToSave,
-      displayName: this.resolveDisplayNameForSave(),
-      email: user.email ?? '',
-    });
+    this.isLoading = true;
+
+    // Warte auf erfolgreiche Speicherung
+    const currentUser = this.authService.getCurrentUser();
+    if (currentUser) {
+      this.userService.updateCurrentUserProfile({
+        avatar: avatarToSave,
+        displayName: this.resolveDisplayNameForSave()
+      });
+
+      // Warte kurz damit Firestore das Profil speichern kann
+      await new Promise(resolve => setTimeout(resolve, 800));
+    }
+
+    this.isLoading = false;
+    void this.router.navigateByUrl('/home');
   }
 }

@@ -128,6 +128,13 @@ export class UserService {
         return this.firestoreService.getDocuments<User>(this.usersCollection);
     }
 
+    getAllUsersRealtime(): Observable<User[]> {
+        return this.firestoreService.queryDocumentsRealtime<User>(
+            this.usersCollection,
+            [],
+        );
+    }
+
     /**
      * Aktualisiere den Profil des aktuellen Benutzers
      */
@@ -137,13 +144,22 @@ export class UserService {
             throw new Error('User not authenticated');
         }
 
+        const authEmail = this.resolveAuthEmail(currentUser);
+        const updateEmail = (updates.email ?? '').trim();
+
         const existingProfile = await firstValueFrom(
             this.getUser(currentUser.uid).pipe(take(1)),
         );
 
         if (existingProfile) {
             const ensuredEmail =
-                updates.email || existingProfile.email || currentUser.email || '';
+                updateEmail
+                || (existingProfile.email ?? '').trim()
+                || authEmail;
+
+            if (!currentUser.isAnonymous && !ensuredEmail) {
+                throw new Error('Authenticated users must have an email.');
+            }
 
             await firstValueFrom(
                 this.updateUser(currentUser.uid, {
@@ -155,10 +171,14 @@ export class UserService {
         }
 
         const newUser: User = {
-            email: updates.email || currentUser.email || '',
+            email: updateEmail || authEmail,
             displayName: updates.displayName || currentUser.displayName || 'Gast',
             avatar: updates.avatar,
         };
+
+        if (!currentUser.isAnonymous && !newUser.email) {
+            throw new Error('Authenticated users must have an email.');
+        }
 
         await firstValueFrom(
             this.firestoreService.setDocument(this.usersCollection, currentUser.uid, {
@@ -178,7 +198,7 @@ export class UserService {
         await this.upsertUserPresence(
             currentUser.uid,
             status,
-            currentUser.email || '',
+            this.resolveAuthEmail(currentUser),
             currentUser.displayName || 'Gast',
         );
     }
@@ -192,8 +212,13 @@ export class UserService {
         const existingProfile = await firstValueFrom(this.getUser(userId).pipe(take(1)));
 
         if (existingProfile) {
+            const existingEmail = (existingProfile.email ?? '').trim();
+            const normalizedEmail = (email ?? '').trim();
             await firstValueFrom(
                 this.updateUser(userId, {
+                    ...(existingEmail || !normalizedEmail
+                        ? {}
+                        : { email: normalizedEmail }),
                     presenceStatus: status,
                     lastSeen: new Date(),
                 }),
@@ -211,5 +236,21 @@ export class UserService {
                 updatedAt: new Date(),
             }),
         );
+    }
+
+    private resolveAuthEmail(user: {
+        email: string | null;
+        providerData: Array<{ email: string | null }>;
+    }): string {
+        const direct = (user.email ?? '').trim();
+        if (direct) {
+            return direct;
+        }
+
+        const fromProvider = user.providerData.find(
+            (provider) => (provider.email ?? '').trim().length > 0,
+        )?.email;
+
+        return (fromProvider ?? '').trim();
     }
 }

@@ -1,5 +1,5 @@
 import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, Inject, NgZone } from '@angular/core';
+import { ChangeDetectorRef, Component, NgZone } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import {
     NavigationEnd,
@@ -7,11 +7,9 @@ import {
     RouterLink,
     RouterOutlet,
 } from '@angular/router';
+import { AuthFlowService } from './services/auth-flow.service';
 import { AuthService } from './services/auth.service';
-import { ChannelService } from './services/channel.service';
 import { PresenceService } from './services/presence.service';
-import { UserService } from './services/user.service';
-import { take } from 'rxjs';
 
 @Component({
     selector: 'app-root',
@@ -29,7 +27,7 @@ export class AppComponent {
 
     loginForm = this.formBuilder.group({
         email: ['', [Validators.required, Validators.email]],
-        password: ['', [Validators.required]],
+        password: ['', [Validators.required, Validators.minLength(6)]],
         rememberMe: [false],
     });
 
@@ -45,11 +43,9 @@ export class AppComponent {
 
     constructor(
         private readonly formBuilder: FormBuilder,
+        private readonly authFlow: AuthFlowService,
         private readonly authService: AuthService,
-        @Inject(PresenceService)
         private readonly presenceService: PresenceService,
-        private readonly userService: UserService,
-        private readonly channelService: ChannelService,
         private readonly router: Router,
         private readonly cdr: ChangeDetectorRef,
         private readonly ngZone: NgZone,
@@ -76,48 +72,8 @@ export class AppComponent {
 
         // auth state
         this.authService.currentUser$.subscribe((user) => {
-            if (!user) {
-                this.handleNoUser();
-                return;
-            }
-            this.handleAuthenticatedUser(user);
+            void this.authFlow.handleAuthState(user, this.router.url);
         });
-    }
-
-    private handleNoUser(): void {
-        this.showAuthScreen = true;
-        const pathname = (this.router.url || '').split('?')[0];
-        const isProtectedArea = pathname.startsWith('/app')
-            || pathname.startsWith('/home')
-            || pathname.startsWith('/avatar-select');
-        if (isProtectedArea) {
-            void this.router.navigateByUrl('/');
-        }
-    }
-
-    private handleAuthenticatedUser(user: any): void {
-        if (!user.isAnonymous) {
-            void this.channelService.ensureDefaultChannels();
-        }
-        const pathname = (this.router.url || '').split('?')[0];
-        if (pathname === '/' || pathname === '') {
-            this.checkProfileAndNavigateHome(user);
-        }
-    }
-
-    private checkProfileAndNavigateHome(user: any): void {
-        this.userService.getUserProfile(user.uid, user.email ?? '').pipe(take(1)).subscribe({
-            next: (profile) => this.navigateBasedOnAvatar(profile),
-            error: () => void this.router.navigateByUrl('/avatar-select'),
-        });
-    }
-
-    private navigateBasedOnAvatar(profile: any): void {
-        if (profile && profile.avatar) {
-            void this.router.navigateByUrl('/home');
-        } else {
-            void this.router.navigateByUrl('/avatar-select');
-        }
     }
 
     private updateAuthScreenVisibility(url: string): void {
@@ -128,101 +84,55 @@ export class AppComponent {
     }
 
     async onSubmit(mode: 'login' | 'register'): Promise<void> {
-        this.isRegisterMode = (mode === 'register');
+        this.isRegisterMode = mode === 'register';
+
+        // Hinweis: dein aktuelles Template nutzt onSubmit('register') für "Konto erstellen".
+        // Solange ihr noch keinen separaten Register-Form habt, behandeln wir register wie login,
+        // oder du deaktivierst den Button später.
         if (this.loginForm.invalid) {
             this.loginForm.markAllAsTouched();
             return;
         }
-        this.prepareSubmit();
-        const email = (this.loginForm.value.email ?? '').trim();
-        const password = this.loginForm.value.password ?? '';
-        if (!this.validatePassword(mode)) return;
-        await this.executeAuth(mode, email, password);
-    }
 
-    private prepareSubmit(): void {
         this.isSubmitting = true;
         this.errorMessage = '';
         this.successMessage = '';
-    }
 
-    private validatePassword(mode: string): boolean {
-        if (mode === 'register' && !this.isPasswordStrong) {
-            this.errorMessage = 'Für die Registrierung muss das Kennwort mindestens 8 Zeichen, einen Großbuchstaben und ein Sonderzeichen enthalten.';
-            this.isSubmitting = false;
-            return false;
-        }
-        return true;
-    }
+        const email = (this.loginForm.value.email ?? '').trim();
+        const password = this.loginForm.value.password ?? '';
 
-    private async executeAuth(mode: string, email: string, password: string): Promise<void> {
         try {
             if (mode === 'login') {
-                await this.handleLogin(email, password);
+                await this.authService.loginWithEmailAndPassword(
+                    email,
+                    password,
+                );
+                this.successMessage = 'Angemeldet.';
+                await this.authFlow.syncEmailFromAuth(email);
+                await this.authFlow.navigateAfterLogin();
             } else {
-                await this.handleRegister(email, password);
+                await this.authService.registerWithEmailAndPassword(
+                    email,
+                    password,
+                );
+                this.successMessage = 'Konto erfolgreich erstellt.';
+                await this.authFlow.syncEmailFromAuth(email);
+                await this.authFlow.navigateAfterLogin();
             }
         } catch (error) {
-            this.handleAuthError(mode, error);
+            this.errorMessage =
+                mode === 'login'
+                    ? this.getAuthErrorMessage(
+                          error,
+                          'Anmeldung fehlgeschlagen. Bitte überprüfe E-Mail und Passwort.',
+                      )
+                    : this.getAuthErrorMessage(
+                          error,
+                          'Registrierung fehlgeschlagen. Bitte versuche es erneut.',
+                      );
         } finally {
             this.isSubmitting = false;
         }
-    }
-
-    private async handleLogin(email: string, password: string): Promise<void> {
-        await this.authService.loginWithEmailAndPassword(email, password);
-        this.successMessage = 'Angemeldet.';
-        await this.saveUserEmail(email);
-        await this.navigateAfterAuth();
-    }
-
-    private async handleRegister(email: string, password: string): Promise<void> {
-        await this.authService.registerWithEmailAndPassword(email, password);
-        this.successMessage = 'Konto erfolgreich erstellt.';
-        await this.saveUserEmail(email);
-        void this.router.navigateByUrl('/avatar-select');
-    }
-
-    private async saveUserEmail(email: string): Promise<void> {
-        const user = this.authService.getCurrentUser();
-        if (user && !user.isAnonymous) {
-            try {
-                await this.userService.updateCurrentUserProfile({ email });
-            } catch (error) {
-                console.error('Failed to save email:', error);
-            }
-        }
-    }
-
-    private async navigateAfterAuth(): Promise<void> {
-        const user = this.authService.getCurrentUser();
-        if (!user) {
-            void this.router.navigateByUrl('/avatar-select');
-            return;
-        }
-        this.checkProfileAndNavigate(user);
-    }
-
-    private checkProfileAndNavigate(user: any): void {
-        this.userService.getUserProfile(user.uid, user.email ?? '').pipe(take(1)).subscribe({
-            next: (profile) => this.navigateBasedOnProfile(profile),
-            error: () => void this.router.navigateByUrl('/avatar-select'),
-        });
-    }
-
-    private navigateBasedOnProfile(profile: any): void {
-        if (profile && profile.avatar) {
-            void this.router.navigateByUrl('/home');
-        } else {
-            void this.router.navigateByUrl('/avatar-select');
-        }
-    }
-
-    private handleAuthError(mode: string, error: unknown): void {
-        const defaultMsg = mode === 'login'
-            ? 'Anmeldung fehlgeschlagen. Bitte überprüfe E-Mail und Passwort.'
-            : 'Registrierung fehlgeschlagen. Bitte versuche es erneut.';
-        this.errorMessage = this.getAuthErrorMessage(error, defaultMsg);
     }
 
     get emailControl() {
@@ -242,47 +152,28 @@ export class AppComponent {
         };
     }
 
-    get isPasswordStrong(): boolean {
-        const checks = this.passwordChecks;
-        return checks.minLength && checks.uppercase && checks.specialChar;
-    }
-
     togglePasswordVisibility(): void {
         this.showPassword = !this.showPassword;
     }
 
     async onGoogleLogin(): Promise<void> {
-        this.prepareSubmit();
+        this.isSubmitting = true;
+        this.errorMessage = '';
+        this.successMessage = '';
+
         try {
             const result = await this.authService.loginWithGoogle();
             this.successMessage = 'Erfolgreich mit Google angemeldet.';
-            await this.saveGoogleEmail(result.email);
-            await this.navigateAfterGoogleAuth();
+            await this.authFlow.syncEmailFromAuth(result.email ?? '');
+            await this.authFlow.navigateAfterLogin();
         } catch (error) {
-            this.errorMessage = this.getAuthErrorMessage(error, 'Google-Anmeldung fehlgeschlagen. Bitte versuche es erneut.');
+            this.errorMessage = this.getAuthErrorMessage(
+                error,
+                'Google-Anmeldung fehlgeschlagen. Bitte versuche es erneut.',
+            );
         } finally {
             this.isSubmitting = false;
         }
-    }
-
-    private async saveGoogleEmail(email: string | null): Promise<void> {
-        const user = this.authService.getCurrentUser();
-        if (user && !user.isAnonymous && email) {
-            try {
-                await this.userService.updateCurrentUserProfile({ email });
-            } catch (error) {
-                console.error('Failed to save Google email:', error);
-            }
-        }
-    }
-
-    private async navigateAfterGoogleAuth(): Promise<void> {
-        const user = this.authService.getCurrentUser();
-        if (!user) {
-            void this.router.navigateByUrl('/avatar-select');
-            return;
-        }
-        this.checkProfileAndNavigate(user);
     }
 
     async onGuestLogin(): Promise<void> {
@@ -367,21 +258,17 @@ export class AppComponent {
 
         switch (code) {
             case 'auth/popup-closed-by-user':
-                return 'Google-Fenster wurde geschlossen. Bitte klicke erneut auf „Anmelden mit Google“ und schließe das Fenster nicht, bis die Anmeldung abgeschlossen ist.';
+                return 'Google-Popup wurde geschlossen. Bitte erneut versuchen.';
             case 'auth/popup-blocked':
-                return 'Popup wurde blockiert. Bitte erlaube Popups für diese Seite und klicke danach erneut auf „Anmelden mit Google“.';
+                return 'Popup wurde blockiert. Bitte Popup-Blocker deaktivieren und erneut versuchen.';
             case 'auth/unauthorized-domain':
-                return 'Diese Domain ist in Firebase noch nicht freigegeben. Bitte melde dich beim Support/Team und versuche es danach erneut.';
+                return 'Domain nicht autorisiert. Bitte Firebase Authorized Domains prüfen.';
             case 'auth/operation-not-allowed':
-                return 'Google-Anmeldung ist aktuell nicht aktiviert. Bitte melde dich beim Support/Team.';
+                return 'Anmeldemethode ist in Firebase nicht aktiviert.';
             case 'auth/admin-restricted-operation':
-                return 'Diese Anmeldung ist derzeit eingeschränkt. Bitte melde dich beim Support/Team.';
+                return 'Diese Anmeldung ist aktuell eingeschränkt. Firebase-Konfiguration prüfen.';
             case 'auth/invalid-email':
                 return 'Ungültige E-Mail-Adresse. Bitte überprüfe deine Eingabe.';
-            case 'auth/invalid-credential':
-                return 'E-Mail oder Passwort ist nicht korrekt. Bitte prüfe beides und versuche es erneut.';
-            case 'auth/weak-password':
-                return 'Das Kennwort ist zu schwach. Verwende mindestens 8 Zeichen, einen Großbuchstaben und ein Sonderzeichen.';
             case 'auth/wrong-password':
                 return 'Falsches Passwort. Bitte versuche es erneut.';
             case 'auth/user-not-found':
@@ -389,11 +276,12 @@ export class AppComponent {
             case 'auth/email-already-in-use':
                 return 'Diese E-Mail ist bereits registriert.';
             case 'auth/network-request-failed':
-                return 'Netzwerkfehler. Bitte Internetverbindung prüfen und dann erneut versuchen.';
+                return 'Netzwerkfehler. Bitte Internet/Firebase-Setup prüfen.';
             default:
                 return message
                     ? `${fallback} (${code}: ${message})`
                     : `${fallback} (${code})`;
         }
     }
+
 }

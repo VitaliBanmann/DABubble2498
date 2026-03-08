@@ -186,17 +186,20 @@
         }
 
         private loadMembers(): void {
-            this.userService
-                .getAllUsers()
-                .pipe(take(1))
-                .subscribe({
+            this.subscription.add(
+                this.userService.getAllUsersRealtime().subscribe({
                     next: (members) => {
-                        this.availableMembers = this.getUniqueMembers(members).sort((left, right) =>
-                            left.displayName.localeCompare(right.displayName, 'de'),
+                        this.availableMembers = this.getUniqueMembers(members).sort(
+                            (left, right) =>
+                                left.displayName.localeCompare(
+                                    right.displayName,
+                                    'de',
+                                ),
                         );
                         this.buildDirectMessages();
                     },
-                });
+                }),
+            );
         }
 
         private getUniqueMembers(members: User[]): User[] {

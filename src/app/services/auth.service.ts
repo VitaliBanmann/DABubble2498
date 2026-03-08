@@ -75,12 +75,14 @@ export class AuthService implements OnDestroy {
         password: string,
     ): Promise<void> {
         return this.runAuthAction(
-            () =>
-                createUserWithEmailAndPassword(
+            async () => {
+                const credential = await createUserWithEmailAndPassword(
                     this.getRequiredAuth(),
                     email,
                     password,
-                ),
+                );
+                this.emitCurrentUser(credential.user);
+            },
             'User registered successfully',
             'Registration error:',
         );
@@ -88,12 +90,14 @@ export class AuthService implements OnDestroy {
 
     loginWithEmailAndPassword(email: string, password: string): Promise<void> {
         return this.runAuthAction(
-            () =>
-                signInWithEmailAndPassword(
+            async () => {
+                const credential = await signInWithEmailAndPassword(
                     this.getRequiredAuth(),
                     email,
                     password,
-                ),
+                );
+                this.emitCurrentUser(credential.user);
+            },
             'User logged in successfully',
             'Login error:',
             (error) => this.logInvalidCredentials(error),
@@ -101,14 +105,28 @@ export class AuthService implements OnDestroy {
     }
 
     async loginWithGoogle(): Promise<{ email: string | null }> {
+        const activeUser = this.getCurrentUser();
+        if (activeUser?.isAnonymous) {
+            await signOut(this.getRequiredAuth());
+            this.emitCurrentUser(null);
+        }
+
         const credential = await signInWithPopup(this.getRequiredAuth(), this.createGoogleProvider());
+        if (credential.user.isAnonymous) {
+            throw new Error('Google login failed: anonymous session still active.');
+        }
+
+        this.emitCurrentUser(credential.user);
         console.log('User logged in with Google successfully');
-        return { email: credential.user.email };
+        return { email: this.resolveUserEmail(credential.user) };
     }
 
     loginAsGuest(): Promise<void> {
         return this.runAuthAction(
-            () => signInAnonymously(this.getRequiredAuth()),
+            async () => {
+                const credential = await signInAnonymously(this.getRequiredAuth());
+                this.emitCurrentUser(credential.user);
+            },
             'User logged in as guest successfully',
             'Guest login error:',
         );
@@ -116,7 +134,10 @@ export class AuthService implements OnDestroy {
 
     logout(): Promise<void> {
         return this.runAuthAction(
-            () => signOut(this.getRequiredAuth()),
+            async () => {
+                await signOut(this.getRequiredAuth());
+                this.emitCurrentUser(null);
+            },
             'User logged out successfully',
             'Logout error:',
         );
@@ -139,7 +160,7 @@ export class AuthService implements OnDestroy {
     }
 
     getCurrentUser(): User | null {
-        return this.currentUserSubject.value;
+        return this.auth?.currentUser ?? this.currentUserSubject.value;
     }
 
     ngOnDestroy(): void {
@@ -180,6 +201,29 @@ export class AuthService implements OnDestroy {
                 }
                 throw error;
             });
+    }
+
+    private emitCurrentUser(user: User | null): void {
+        this.zone.run(() => {
+            this.currentUserSubject.next(user);
+        });
+    }
+
+    private resolveUserEmail(user: User | null): string | null {
+        if (!user) {
+            return null;
+        }
+
+        const direct = (user.email ?? '').trim();
+        if (direct) {
+            return direct;
+        }
+
+        const fromProvider = user.providerData.find(
+            (provider) => (provider.email ?? '').trim().length > 0,
+        )?.email;
+
+        return (fromProvider ?? '').trim() || null;
     }
 
     private logInvalidCredentials(error: { code?: string }): void {
