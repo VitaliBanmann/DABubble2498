@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process';
-import { readFileSync, readdirSync, statSync } from 'node:fs';
+import { existsSync, readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import ts from 'typescript';
@@ -60,7 +60,8 @@ function getChangedFiles() {
 
   return [...new Set(all)]
     .map((value) => path.resolve(root, value))
-    .filter((filePath) => filePath.startsWith(path.join(root, 'src')));
+    .filter((filePath) => filePath.startsWith(path.join(root, 'src')))
+    .filter((filePath) => existsSync(filePath));
 }
 
 function getChangedLineMap(changedFiles) {
