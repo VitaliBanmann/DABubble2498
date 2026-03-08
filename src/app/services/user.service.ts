@@ -139,50 +139,102 @@ export class UserService {
      * Aktualisiere den Profil des aktuellen Benutzers
      */
     async updateCurrentUserProfile(updates: Partial<User>): Promise<void> {
+        const currentUser = this.requireCurrentUser();
+        const identity = this.resolveProfileIdentity(currentUser, updates);
+        const existingProfile = await this.getExistingProfile(currentUser.uid);
+        await this.persistCurrentUserProfile(currentUser, existingProfile, updates, identity);
+    }
+
+    private requireCurrentUser() {
         const currentUser = this.authService.getCurrentUser();
         if (!currentUser) {
             throw new Error('User not authenticated');
         }
 
-        const authEmail = this.resolveAuthEmail(currentUser);
-        const updateEmail = (updates.email ?? '').trim();
+        return currentUser;
+    }
 
-        const existingProfile = await firstValueFrom(
-            this.getUser(currentUser.uid).pipe(take(1)),
-        );
+    private resolveProfileIdentity(currentUser: { email: string | null; providerData: Array<{ email: string | null }> }, updates: Partial<User>) {
+        return {
+            authEmail: this.resolveAuthEmail(currentUser),
+            updateEmail: (updates.email ?? '').trim(),
+        };
+    }
 
+    private async persistCurrentUserProfile(
+        currentUser: { uid: string; isAnonymous: boolean; displayName: string | null },
+        existingProfile: User | null,
+        updates: Partial<User>,
+        identity: { authEmail: string; updateEmail: string },
+    ): Promise<void> {
         if (existingProfile) {
-            const ensuredEmail =
-                updateEmail
-                || (existingProfile.email ?? '').trim()
-                || authEmail;
-
-            if (!currentUser.isAnonymous && !ensuredEmail) {
-                throw new Error('Authenticated users must have an email.');
-            }
-
-            await firstValueFrom(
-                this.updateUser(currentUser.uid, {
-                    ...updates,
-                    email: ensuredEmail,
-                }),
+            await this.updateExistingProfile(
+                currentUser,
+                existingProfile,
+                updates,
+                identity.authEmail,
+                identity.updateEmail,
             );
             return;
         }
 
-        const newUser: User = {
+        await this.createNewProfile(currentUser, updates, identity.authEmail, identity.updateEmail);
+    }
+
+    private async getExistingProfile(userId: string): Promise<User | null> {
+        return firstValueFrom(this.getUser(userId).pipe(take(1)));
+    }
+
+    private async updateExistingProfile(
+        currentUser: { uid: string; isAnonymous: boolean },
+        existingProfile: User,
+        updates: Partial<User>,
+        authEmail: string,
+        updateEmail: string,
+    ): Promise<void> {
+        const ensuredEmail = this.resolveEnsuredEmail(existingProfile, authEmail, updateEmail);
+        this.assertEmailForRegularUser(currentUser.isAnonymous, ensuredEmail);
+        await firstValueFrom(this.updateUser(currentUser.uid, { ...updates, email: ensuredEmail }));
+    }
+
+    private async createNewProfile(
+        currentUser: { uid: string; isAnonymous: boolean; displayName: string | null },
+        updates: Partial<User>,
+        authEmail: string,
+        updateEmail: string,
+    ): Promise<void> {
+        const newUser = this.buildNewUser(currentUser, updates, authEmail, updateEmail);
+        this.assertEmailForRegularUser(currentUser.isAnonymous, newUser.email);
+        await this.setUserDocument(currentUser.uid, newUser);
+    }
+
+    private resolveEnsuredEmail(existingProfile: User, authEmail: string, updateEmail: string): string {
+        return updateEmail || (existingProfile.email ?? '').trim() || authEmail;
+    }
+
+    private buildNewUser(
+        currentUser: { displayName: string | null },
+        updates: Partial<User>,
+        authEmail: string,
+        updateEmail: string,
+    ): User {
+        return {
             email: updateEmail || authEmail,
             displayName: updates.displayName || currentUser.displayName || 'Gast',
             avatar: updates.avatar,
         };
+    }
 
-        if (!currentUser.isAnonymous && !newUser.email) {
+    private assertEmailForRegularUser(isAnonymous: boolean, email: string): void {
+        if (!isAnonymous && !email) {
             throw new Error('Authenticated users must have an email.');
         }
+    }
 
+    private async setUserDocument(userId: string, user: User): Promise<void> {
         await firstValueFrom(
-            this.firestoreService.setDocument(this.usersCollection, currentUser.uid, {
-                ...newUser,
+            this.firestoreService.setDocument(this.usersCollection, userId, {
+                ...user,
                 createdAt: new Date(),
                 updatedAt: new Date(),
             }),
@@ -209,23 +261,33 @@ export class UserService {
         email: string,
         displayName: string,
     ): Promise<void> {
-        const existingProfile = await firstValueFrom(this.getUser(userId).pipe(take(1)));
-
+        const existingProfile = await this.getExistingProfile(userId);
         if (existingProfile) {
-            const existingEmail = (existingProfile.email ?? '').trim();
-            const normalizedEmail = (email ?? '').trim();
-            await firstValueFrom(
-                this.updateUser(userId, {
-                    ...(existingEmail || !normalizedEmail
-                        ? {}
-                        : { email: normalizedEmail }),
-                    presenceStatus: status,
-                    lastSeen: new Date(),
-                }),
-            );
+            await this.updatePresenceOnExistingUser(userId, existingProfile, status, email);
             return;
         }
 
+        await this.createPresenceUser(userId, status, email, displayName);
+    }
+
+    private async updatePresenceOnExistingUser(
+        userId: string,
+        existingProfile: User,
+        status: PresenceStatus,
+        email: string,
+    ): Promise<void> {
+        const existingEmail = (existingProfile.email ?? '').trim();
+        const normalizedEmail = (email ?? '').trim();
+        const optionalEmail = existingEmail || !normalizedEmail ? {} : { email: normalizedEmail };
+        await firstValueFrom(this.updateUser(userId, { ...optionalEmail, presenceStatus: status, lastSeen: new Date() }));
+    }
+
+    private async createPresenceUser(
+        userId: string,
+        status: PresenceStatus,
+        email: string,
+        displayName: string,
+    ): Promise<void> {
         await firstValueFrom(
             this.firestoreService.setDocument(this.usersCollection, userId, {
                 email,

@@ -36,18 +36,30 @@ export class AuthFlowService {
 
     async navigateAfterLogin(): Promise<void> {
         const user = this.authService.getCurrentUser();
+        const fallbackRoute = this.resolveFallbackRoute(user);
+        if (fallbackRoute) {
+            await this.router.navigateByUrl(fallbackRoute);
+            return;
+        }
+
+        const profile = await this.getUserProfile(user!.uid);
+        await this.router.navigateByUrl(this.resolvePostLoginRoute(profile?.avatar));
+    }
+
+    private resolveFallbackRoute(user: User | null): string {
         if (!user) {
-            await this.router.navigateByUrl('/');
-            return;
+            return '/';
         }
 
-        if (user.isAnonymous) {
-            await this.router.navigateByUrl('/app');
-            return;
-        }
+        return user.isAnonymous ? '/app' : '';
+    }
 
-        const profile = await firstValueFrom(this.userService.getUser(user.uid).pipe(take(1)));
-        await this.router.navigateByUrl(profile?.avatar ? '/home' : '/avatar-select');
+    private getUserProfile(userId: string) {
+        return firstValueFrom(this.userService.getUser(userId).pipe(take(1)));
+    }
+
+    private resolvePostLoginRoute(avatar: unknown): string {
+        return avatar ? '/home' : '/avatar-select';
     }
 
     async syncEmailFromAuth(fallbackEmail = ''): Promise<void> {

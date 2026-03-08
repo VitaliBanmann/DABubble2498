@@ -42,36 +42,63 @@ export class AvatarSelectComponent implements OnInit {
 
   ngOnInit(): void {
     const currentUser = this.authService.getCurrentUser();
+    this.applyCurrentUserName(currentUser);
+    this.loadExistingProfile(currentUser?.uid ?? '');
+    this.ensureDefaultAvatar();
+  }
 
+  private applyCurrentUserName(currentUser: { isAnonymous: boolean; displayName: string | null; email: string | null } | null): void {
     if (currentUser?.isAnonymous) {
       this.userName = 'Gast';
-    } else if (currentUser?.displayName) {
+      return;
+    }
+
+    if (currentUser?.displayName) {
       this.userName = currentUser.displayName;
-    } else if (currentUser?.email) {
-      this.userName = currentUser.email.split('@')[0];
+      return;
     }
 
-    if (currentUser?.uid) {
-      this.userService.getUser(currentUser.uid).pipe(take(1)).subscribe({
-        next: (profile) => {
-          if (profile?.displayName) {
-            this.userName = profile.displayName;
-          }
+    this.applyEmailFallbackName(currentUser?.email ?? null);
+  }
 
-          if (profile?.avatar) {
-            const matchingAvatar = this.avatars.find((avatar) => `assets/pictures/${avatar.path}` === profile.avatar);
+  private applyEmailFallbackName(email: string | null): void {
+    if (email) {
+      this.userName = email.split('@')[0];
+    }
+  }
 
-            if (matchingAvatar) {
-              this.selectedAvatarId = matchingAvatar.id;
-            } else {
-              this.selectedAvatarId = 'custom';
-              this.uploadedAvatarDataUrl = profile.avatar;
-            }
-          }
-        }
-      });
+  private loadExistingProfile(userId: string): void {
+    if (!userId) {
+      return;
     }
 
+    this.userService.getUser(userId).pipe(take(1)).subscribe({
+      next: (profile) => this.applyProfileSelection(profile),
+    });
+  }
+
+  private applyProfileSelection(profile: { displayName?: string; avatar?: string } | null): void {
+    if (profile?.displayName) {
+      this.userName = profile.displayName;
+    }
+
+    if (profile?.avatar) {
+      this.selectAvatarFromProfile(profile.avatar);
+    }
+  }
+
+  private selectAvatarFromProfile(profileAvatar: string): void {
+    const matchingAvatar = this.avatars.find((avatar) => `assets/pictures/${avatar.path}` === profileAvatar);
+    if (matchingAvatar) {
+      this.selectedAvatarId = matchingAvatar.id;
+      return;
+    }
+
+    this.selectedAvatarId = 'custom';
+    this.uploadedAvatarDataUrl = profileAvatar;
+  }
+
+  private ensureDefaultAvatar(): void {
     if (!this.selectedAvatarId) {
       this.selectAvatar('m1');
     }
@@ -188,19 +215,23 @@ export class AvatarSelectComponent implements OnInit {
     }
 
     this.isLoading = true;
+    await this.persistAvatarSelection(avatarToSave);
+    this.finishContinue();
+  }
 
-    // Warte auf erfolgreiche Speicherung
+  private async persistAvatarSelection(avatarToSave: string): Promise<void> {
     const currentUser = this.authService.getCurrentUser();
-    if (currentUser) {
-      this.userService.updateCurrentUserProfile({
-        avatar: avatarToSave,
-        displayName: this.resolveDisplayNameForSave()
-      });
-
-      // Warte kurz damit Firestore das Profil speichern kann
-      await new Promise(resolve => setTimeout(resolve, 800));
+    if (!currentUser) {
+      return;
     }
 
+    await this.userService.updateCurrentUserProfile({
+      avatar: avatarToSave,
+      displayName: this.resolveDisplayNameForSave(),
+    });
+  }
+
+  private finishContinue(): void {
     this.isLoading = false;
     void this.router.navigateByUrl('/home');
   }

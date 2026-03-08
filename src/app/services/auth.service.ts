@@ -91,11 +91,7 @@ export class AuthService implements OnDestroy {
     loginWithEmailAndPassword(email: string, password: string): Promise<void> {
         return this.runAuthAction(
             async () => {
-                const credential = await signInWithEmailAndPassword(
-                    this.getRequiredAuth(),
-                    email,
-                    password,
-                );
+                const credential = await this.signInWithEmail(email, password);
                 this.emitCurrentUser(credential.user);
             },
             'User logged in successfully',
@@ -104,21 +100,33 @@ export class AuthService implements OnDestroy {
         );
     }
 
+    private signInWithEmail(email: string, password: string) {
+        return signInWithEmailAndPassword(this.getRequiredAuth(), email, password);
+    }
+
     async loginWithGoogle(): Promise<{ email: string | null }> {
-        const activeUser = this.getCurrentUser();
-        if (activeUser?.isAnonymous) {
-            await signOut(this.getRequiredAuth());
-            this.emitCurrentUser(null);
-        }
-
+        await this.resetAnonymousSessionIfNeeded();
         const credential = await signInWithPopup(this.getRequiredAuth(), this.createGoogleProvider());
-        if (credential.user.isAnonymous) {
-            throw new Error('Google login failed: anonymous session still active.');
-        }
-
+        this.ensureNotAnonymous(credential.user.isAnonymous);
         this.emitCurrentUser(credential.user);
         console.log('User logged in with Google successfully');
         return { email: this.resolveUserEmail(credential.user) };
+    }
+
+    private async resetAnonymousSessionIfNeeded(): Promise<void> {
+        const activeUser = this.getCurrentUser();
+        if (!activeUser?.isAnonymous) {
+            return;
+        }
+
+        await signOut(this.getRequiredAuth());
+        this.emitCurrentUser(null);
+    }
+
+    private ensureNotAnonymous(isAnonymous: boolean): void {
+        if (isAnonymous) {
+            throw new Error('Google login failed: anonymous session still active.');
+        }
     }
 
     loginAsGuest(): Promise<void> {
@@ -219,10 +227,15 @@ export class AuthService implements OnDestroy {
             return direct;
         }
 
-        const fromProvider = user.providerData.find(
+        return this.resolveProviderEmail(user.providerData);
+    }
+
+    private resolveProviderEmail(
+        providers: Array<{ email: string | null }>,
+    ): string | null {
+        const fromProvider = providers.find(
             (provider) => (provider.email ?? '').trim().length > 0,
         )?.email;
-
         return (fromProvider ?? '').trim() || null;
     }
 

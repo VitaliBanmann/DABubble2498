@@ -96,24 +96,30 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     private subscribeToRouteMessages(): void {
         this.subscription.add(
-            combineLatest([this.authService.currentUser$, this.route.paramMap])
-                .pipe(
-                    switchMap(([user, params]) => {
-                        if (!user) {
-                            return of([] as Message[]);
-                        }
-
-                        return this.loadMessagesForRoute(params);
-                    }),
-                    distinctUntilChanged(),
-                )
-                .subscribe({
-                    next: (messages) => this.handleMessagesLoaded(messages),
-                    error: () =>
-                        (this.errorMessage =
-                            'Nachrichten konnten nicht geladen werden.'),
-                }),
+            this.createRouteMessagesStream().subscribe({
+                next: (messages) => this.handleMessagesLoaded(messages),
+                error: () => this.handleRouteMessageError(),
+            }),
         );
+    }
+
+    private createRouteMessagesStream(): Observable<Message[]> {
+        return combineLatest([this.authService.currentUser$, this.route.paramMap]).pipe(
+            switchMap(([user, params]) => this.resolveRouteMessages(user, params)),
+            distinctUntilChanged(),
+        );
+    }
+
+    private resolveRouteMessages(user: unknown, params: any): Observable<Message[]> {
+        if (!user) {
+            return of([] as Message[]);
+        }
+
+        return this.loadMessagesForRoute(params);
+    }
+
+    private handleRouteMessageError(): void {
+        this.errorMessage = 'Nachrichten konnten nicht geladen werden.';
     }
 
     private loadMessagesForRoute(params: any): Observable<Message[]> {
@@ -160,62 +166,94 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     sendMessage(): void {
-        const text = this.messageControl.value.trim();
-        if (!text) {
+        const request$ = this.prepareSendRequest();
+        if (!request$) {
             return;
         }
+        this.subscribeToSendRequest(request$);
+    }
 
+    private prepareSendRequest(): Observable<string> | null {
+        const text = this.readMessageText();
+        if (!text || !this.validateSender()) {
+            return null;
+        }
+
+        this.prepareSending();
+        return this.buildSendRequest(text);
+    }
+
+    private readMessageText(): string {
+        return this.messageControl.value.trim();
+    }
+
+    private subscribeToSendRequest(request$: Observable<string>): void {
+        request$.subscribe({
+            next: () => this.onSendSuccess(),
+            error: (error) => this.onSendError(error),
+        });
+    }
+
+    private validateSender(): boolean {
         const currentUser = this.authService.getCurrentUser();
         if (!currentUser) {
-            this.errorMessage =
-                'Du bist nicht angemeldet. Bitte melde dich erneut an.';
-            return;
+            this.errorMessage = 'Du bist nicht angemeldet. Bitte melde dich erneut an.';
+            return false;
         }
 
         if (currentUser.isAnonymous) {
-            this.errorMessage =
-                'Als Gast kannst du keine Nachrichten senden.';
-            return;
+            this.errorMessage = 'Als Gast kannst du keine Nachrichten senden.';
+            return false;
         }
 
+        return true;
+    }
+
+    private prepareSending(): void {
         this.isSending = true;
         this.errorMessage = '';
+    }
 
-        let request$: Observable<string>;
+    private buildSendRequest(text: string): Observable<string> | null {
         try {
-            request$ = this.isDirectMessage
-                ? this.messageService.sendDirectMessage(
-                      this.currentDirectUserId,
-                      text,
-                  )
-                : this.messageService.sendMessage({
-                      text,
-                      channelId: this.currentChannelId || 'allgemein',
-                      senderId: this.currentUserId ?? '',
-                      timestamp: new Date(),
-                  });
-        } catch (error) {
-            this.errorMessage =
-                error instanceof Error
-                    ? `Nachricht konnte nicht gesendet werden: ${error.message}`
-                    : 'Nachricht konnte nicht gesendet werden.';
-            this.isSending = false;
-            return;
-        }
+            if (this.isDirectMessage) {
+                return this.buildDirectSendRequest(text);
+            }
 
-        request$.subscribe({
-            next: () => {
-                this.messageControl.setValue('');
-                this.isSending = false;
-            },
-            error: (error) => {
-                this.errorMessage =
-                    error instanceof Error
-                        ? `Nachricht konnte nicht gesendet werden: ${error.message}`
-                        : 'Nachricht konnte nicht gesendet werden.';
-                this.isSending = false;
-            },
+            return this.buildChannelSendRequest(text);
+        } catch (error) {
+            this.onSendError(error);
+            return null;
+        }
+    }
+
+    private buildDirectSendRequest(text: string): Observable<string> {
+        return this.messageService.sendDirectMessage(this.currentDirectUserId, text);
+    }
+
+    private buildChannelSendRequest(text: string): Observable<string> {
+        return this.messageService.sendMessage({
+            text,
+            channelId: this.currentChannelId || 'allgemein',
+            senderId: this.currentUserId ?? '',
+            timestamp: new Date(),
         });
+    }
+
+    private onSendSuccess(): void {
+        this.messageControl.setValue('');
+        this.isSending = false;
+    }
+
+    private onSendError(error: unknown): void {
+        this.errorMessage = this.resolveSendError(error);
+        this.isSending = false;
+    }
+
+    private resolveSendError(error: unknown): string {
+        return error instanceof Error
+            ? `Nachricht konnte nicht gesendet werden: ${error.message}`
+            : 'Nachricht konnte nicht gesendet werden.';
     }
 
     get currentChannelName(): string {

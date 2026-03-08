@@ -188,18 +188,16 @@
         private loadMembers(): void {
             this.subscription.add(
                 this.userService.getAllUsersRealtime().subscribe({
-                    next: (members) => {
-                        this.availableMembers = this.getUniqueMembers(members).sort(
-                            (left, right) =>
-                                left.displayName.localeCompare(
-                                    right.displayName,
-                                    'de',
-                                ),
-                        );
-                        this.buildDirectMessages();
-                    },
+                    next: (members) => this.applyMembers(members),
                 }),
             );
+        }
+
+        private applyMembers(members: User[]): void {
+            this.availableMembers = this.getUniqueMembers(members).sort(
+                (left, right) => left.displayName.localeCompare(right.displayName, 'de'),
+            );
+            this.buildDirectMessages();
         }
 
         private getUniqueMembers(members: User[]): User[] {

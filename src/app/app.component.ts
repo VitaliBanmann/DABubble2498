@@ -11,6 +11,26 @@ import { AuthFlowService } from './services/auth-flow.service';
 import { AuthService } from './services/auth.service';
 import { PresenceService } from './services/presence.service';
 
+const AUTH_ERROR_MESSAGES: Record<string, string> = {
+    'auth/popup-closed-by-user':
+        'Google-Popup wurde geschlossen. Bitte erneut versuchen.',
+    'auth/popup-blocked':
+        'Popup wurde blockiert. Bitte Popup-Blocker deaktivieren und erneut versuchen.',
+    'auth/unauthorized-domain':
+        'Domain nicht autorisiert. Bitte Firebase Authorized Domains prüfen.',
+    'auth/operation-not-allowed':
+        'Anmeldemethode ist in Firebase nicht aktiviert.',
+    'auth/admin-restricted-operation':
+        'Diese Anmeldung ist aktuell eingeschränkt. Firebase-Konfiguration prüfen.',
+    'auth/invalid-email':
+        'Ungültige E-Mail-Adresse. Bitte überprüfe deine Eingabe.',
+    'auth/wrong-password': 'Falsches Passwort. Bitte versuche es erneut.',
+    'auth/user-not-found': 'Kein Konto mit dieser E-Mail gefunden.',
+    'auth/email-already-in-use': 'Diese E-Mail ist bereits registriert.',
+    'auth/network-request-failed':
+        'Netzwerkfehler. Bitte Internet/Firebase-Setup prüfen.',
+};
+
 @Component({
     selector: 'app-root',
     standalone: true,
@@ -85,54 +105,89 @@ export class AppComponent {
 
     async onSubmit(mode: 'login' | 'register'): Promise<void> {
         this.isRegisterMode = mode === 'register';
-
-        // Hinweis: dein aktuelles Template nutzt onSubmit('register') für "Konto erstellen".
-        // Solange ihr noch keinen separaten Register-Form habt, behandeln wir register wie login,
-        // oder du deaktivierst den Button später.
-        if (this.loginForm.invalid) {
-            this.loginForm.markAllAsTouched();
+        if (!this.ensureValidLoginForm()) {
             return;
         }
 
-        this.isSubmitting = true;
-        this.errorMessage = '';
-        this.successMessage = '';
+        const { email, password } = this.readLoginCredentials();
+        this.startSubmitting();
+        await this.runSubmit(mode, email, password);
+    }
 
-        const email = (this.loginForm.value.email ?? '').trim();
-        const password = this.loginForm.value.password ?? '';
-
+    private async runSubmit(
+        mode: 'login' | 'register',
+        email: string,
+        password: string,
+    ): Promise<void> {
         try {
-            if (mode === 'login') {
-                await this.authService.loginWithEmailAndPassword(
-                    email,
-                    password,
-                );
-                this.successMessage = 'Angemeldet.';
-                await this.authFlow.syncEmailFromAuth(email);
-                await this.authFlow.navigateAfterLogin();
-            } else {
-                await this.authService.registerWithEmailAndPassword(
-                    email,
-                    password,
-                );
-                this.successMessage = 'Konto erfolgreich erstellt.';
-                await this.authFlow.syncEmailFromAuth(email);
-                await this.authFlow.navigateAfterLogin();
-            }
+            await this.authenticate(mode, email, password);
         } catch (error) {
-            this.errorMessage =
-                mode === 'login'
-                    ? this.getAuthErrorMessage(
-                          error,
-                          'Anmeldung fehlgeschlagen. Bitte überprüfe E-Mail und Passwort.',
-                      )
-                    : this.getAuthErrorMessage(
-                          error,
-                          'Registrierung fehlgeschlagen. Bitte versuche es erneut.',
-                      );
+            this.errorMessage = this.resolveSubmitError(mode, error);
         } finally {
             this.isSubmitting = false;
         }
+    }
+
+    private ensureValidLoginForm(): boolean {
+        if (this.loginForm.invalid) {
+            this.loginForm.markAllAsTouched();
+            return false;
+        }
+        return true;
+    }
+
+    private startSubmitting(): void {
+        this.isSubmitting = true;
+        this.errorMessage = '';
+        this.successMessage = '';
+    }
+
+    private readLoginCredentials(): { email: string; password: string } {
+        return {
+            email: (this.loginForm.value.email ?? '').trim(),
+            password: this.loginForm.value.password ?? '',
+        };
+    }
+
+    private async authenticate(
+        mode: 'login' | 'register',
+        email: string,
+        password: string,
+    ): Promise<void> {
+        if (mode === 'login') {
+            await this.loginUser(email, password);
+            return;
+        }
+
+        await this.registerUser(email, password);
+    }
+
+    private async loginUser(email: string, password: string): Promise<void> {
+        await this.authService.loginWithEmailAndPassword(email, password);
+        this.successMessage = 'Angemeldet.';
+        await this.authFlow.syncEmailFromAuth(email);
+        await this.authFlow.navigateAfterLogin();
+    }
+
+    private async registerUser(email: string, password: string): Promise<void> {
+        await this.authService.registerWithEmailAndPassword(email, password);
+        this.successMessage = 'Konto erfolgreich erstellt.';
+        await this.authFlow.syncEmailFromAuth(email);
+        await this.authFlow.navigateAfterLogin();
+    }
+
+    private resolveSubmitError(mode: 'login' | 'register', error: unknown): string {
+        if (mode === 'login') {
+            return this.getAuthErrorMessage(
+                error,
+                'Anmeldung fehlgeschlagen. Bitte überprüfe E-Mail und Passwort.',
+            );
+        }
+
+        return this.getAuthErrorMessage(
+            error,
+            'Registrierung fehlgeschlagen. Bitte versuche es erneut.',
+        );
     }
 
     get emailControl() {
@@ -157,23 +212,29 @@ export class AppComponent {
     }
 
     async onGoogleLogin(): Promise<void> {
-        this.isSubmitting = true;
-        this.errorMessage = '';
-        this.successMessage = '';
+        this.startSubmitting();
 
         try {
-            const result = await this.authService.loginWithGoogle();
-            this.successMessage = 'Erfolgreich mit Google angemeldet.';
-            await this.authFlow.syncEmailFromAuth(result.email ?? '');
-            await this.authFlow.navigateAfterLogin();
+            await this.loginWithGoogleAndNavigate();
         } catch (error) {
-            this.errorMessage = this.getAuthErrorMessage(
-                error,
-                'Google-Anmeldung fehlgeschlagen. Bitte versuche es erneut.',
-            );
+            this.errorMessage = this.resolveGoogleError(error);
         } finally {
             this.isSubmitting = false;
         }
+    }
+
+    private async loginWithGoogleAndNavigate(): Promise<void> {
+        const result = await this.authService.loginWithGoogle();
+        this.successMessage = 'Erfolgreich mit Google angemeldet.';
+        await this.authFlow.syncEmailFromAuth(result.email ?? '');
+        await this.authFlow.navigateAfterLogin();
+    }
+
+    private resolveGoogleError(error: unknown): string {
+        return this.getAuthErrorMessage(
+            error,
+            'Google-Anmeldung fehlgeschlagen. Bitte versuche es erneut.',
+        );
     }
 
     async onGuestLogin(): Promise<void> {
@@ -212,32 +273,50 @@ export class AppComponent {
     }
 
     async sendPasswordResetEmail(): Promise<void> {
-        if (this.forgotPasswordForm.invalid) {
-            this.forgotPasswordForm.markAllAsTouched();
+        if (!this.ensureValidResetForm()) {
             return;
         }
 
+        this.startResetSubmitting();
+        await this.executeResetRequest();
+    }
+
+    private ensureValidResetForm(): boolean {
+        if (this.forgotPasswordForm.invalid) {
+            this.forgotPasswordForm.markAllAsTouched();
+            return false;
+        }
+        return true;
+    }
+
+    private startResetSubmitting(): void {
         this.isSubmitting = true;
         this.forgotPasswordMessage = '';
         this.forgotPasswordError = '';
+    }
 
+    private async executeResetRequest(): Promise<void> {
         const email = (this.forgotPasswordForm.value.email ?? '').trim();
-
         try {
             await this.authService.sendPasswordResetEmail(email);
-            this.forgotPasswordMessage = 'E-Mail gesendet. Bitte überprüfe dein Postfach.';
-            // Overlay nach 3 Sekunden schließen
-            setTimeout(() => {
-                this.closeForgotPasswordOverlay();
-            }, 3000);
+            this.handleResetSuccess();
         } catch (error) {
-            this.forgotPasswordError = this.getAuthErrorMessage(
-                error,
-                'Fehler beim Senden der E-Mail. Bitte versuche es erneut.',
-            );
+            this.forgotPasswordError = this.resolveResetError(error);
         } finally {
             this.isSubmitting = false;
         }
+    }
+
+    private handleResetSuccess(): void {
+        this.forgotPasswordMessage = 'E-Mail gesendet. Bitte überprüfe dein Postfach.';
+        setTimeout(() => this.closeForgotPasswordOverlay(), 3000);
+    }
+
+    private resolveResetError(error: unknown): string {
+        return this.getAuthErrorMessage(
+            error,
+            'Fehler beim Senden der E-Mail. Bitte versuche es erneut.',
+        );
     }
 
     get forgotPasswordEmailControl() {
@@ -245,43 +324,31 @@ export class AppComponent {
     }
 
     private getAuthErrorMessage(error: unknown, fallback: string): string {
-        const firebaseError = error as {
-            code?: string;
-            message?: string;
-        } | null;
-        const code = firebaseError?.code ?? '';
-        const message = firebaseError?.message ?? '';
-
+        const { code, message } = this.parseFirebaseError(error);
         if (!code) {
             return message ? `${fallback} (${message})` : fallback;
         }
 
-        switch (code) {
-            case 'auth/popup-closed-by-user':
-                return 'Google-Popup wurde geschlossen. Bitte erneut versuchen.';
-            case 'auth/popup-blocked':
-                return 'Popup wurde blockiert. Bitte Popup-Blocker deaktivieren und erneut versuchen.';
-            case 'auth/unauthorized-domain':
-                return 'Domain nicht autorisiert. Bitte Firebase Authorized Domains prüfen.';
-            case 'auth/operation-not-allowed':
-                return 'Anmeldemethode ist in Firebase nicht aktiviert.';
-            case 'auth/admin-restricted-operation':
-                return 'Diese Anmeldung ist aktuell eingeschränkt. Firebase-Konfiguration prüfen.';
-            case 'auth/invalid-email':
-                return 'Ungültige E-Mail-Adresse. Bitte überprüfe deine Eingabe.';
-            case 'auth/wrong-password':
-                return 'Falsches Passwort. Bitte versuche es erneut.';
-            case 'auth/user-not-found':
-                return 'Kein Konto mit dieser E-Mail gefunden.';
-            case 'auth/email-already-in-use':
-                return 'Diese E-Mail ist bereits registriert.';
-            case 'auth/network-request-failed':
-                return 'Netzwerkfehler. Bitte Internet/Firebase-Setup prüfen.';
-            default:
-                return message
-                    ? `${fallback} (${code}: ${message})`
-                    : `${fallback} (${code})`;
+        const mapped = AUTH_ERROR_MESSAGES[code];
+        if (mapped) {
+            return mapped;
         }
+
+        return message
+            ? `${fallback} (${code}: ${message})`
+            : `${fallback} (${code})`;
+    }
+
+    private parseFirebaseError(error: unknown): { code: string; message: string } {
+        const firebaseError = error as {
+            code?: string;
+            message?: string;
+        } | null;
+
+        return {
+            code: firebaseError?.code ?? '',
+            message: firebaseError?.message ?? '',
+        };
     }
 
 }
