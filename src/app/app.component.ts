@@ -334,9 +334,11 @@ export class AppComponent {
             return mapped;
         }
 
-        return message
-            ? `${fallback} (${code}: ${message})`
-            : `${fallback} (${code})`;
+        return this.formatFallbackError(fallback, code, message);
+    }
+
+    private formatFallbackError(fallback: string, code: string, message: string): string {
+        return message ? `${fallback} (${code}: ${message})` : `${fallback} (${code})`;
     }
 
     private parseFirebaseError(error: unknown): { code: string; message: string } {
