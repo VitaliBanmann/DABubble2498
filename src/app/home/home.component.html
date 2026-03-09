@@ -11,7 +11,6 @@
                               : "# " + currentConversationTitle
                     }}
                 </h1>
-                
             </div>
 
             @if (isComposeMode) {
@@ -23,140 +22,193 @@
                         type="text"
                         [formControl]="composeTargetControl"
                         placeholder="An: #channel, @jemand oder E-Mail-Adresse"
+                        autocomplete="off"
+                        (input)="onComposeTargetInput()"
+                        (keydown)="onComposeTargetKeydown($event)"
+                        (blur)="onComposeTargetBlur()"
                     />
-                    <button type="submit">Öffnen</button>
+
+                    @if (showComposeTargetSuggestions) {
+                        <div class="compose-target-suggestions">
+                            @for (
+                                item of composeTargetSuggestions;
+                                track item.kind + "-" + item.id
+                            ) {
+                                <button
+                                    type="button"
+                                    class="compose-target-option"
+                                    [class.active]="
+                                        composeTargetActiveIndex === $index
+                                    "
+                                    (mouseenter)="
+                                        composeTargetActiveIndex = $index
+                                    "
+                                    (mousedown)="
+                                        onComposeTargetOptionMouseDown(
+                                            item,
+                                            $event
+                                        )
+                                    "
+                                >
+                                    <span
+                                        class="compose-target-option__label"
+                                        >{{ item.label }}</span
+                                    >
+                                    @if (item.subtitle) {
+                                        <span
+                                            class="compose-target-option__sub"
+                                            >{{ item.subtitle }}</span
+                                        >
+                                    }
+                                </button>
+                            }
+                        </div>
+                    }
                 </form>
             }
         </header>
-@if (!isComposeMode) {
-        <section class="message-list" aria-label="Nachrichtenliste">
-            @if (hasMoreMessages) {
-                <button
-                    type="button"
-                    class="load-older-btn"
-                    (click)="loadOlderMessages()"
-                    [disabled]="isLoadingMoreMessages"
-                >
-                    {{
-                        isLoadingMoreMessages
-                            ? "Lade ältere Nachrichten..."
-                            : "Ältere Nachrichten laden"
-                    }}
-                </button>
-            }
+        @if (!isComposeMode) {
+            <section class="message-list" aria-label="Nachrichtenliste">
+                @if (hasMoreMessages) {
+                    <button
+                        type="button"
+                        class="load-older-btn"
+                        (click)="loadOlderMessages()"
+                        [disabled]="isLoadingMoreMessages"
+                    >
+                        {{
+                            isLoadingMoreMessages
+                                ? "Lade ältere Nachrichten..."
+                                : "Ältere Nachrichten laden"
+                        }}
+                    </button>
+                }
 
-            @if (!messages.length) {
-                <p class="empty-state">
-                    Noch keine Nachrichten in diesem Channel.
-                </p>
-            }
+                @if (!messages.length) {
+                    <p class="empty-state">
+                        Noch keine Nachrichten in diesem Channel.
+                    </p>
+                }
 
-            @for (message of messages; track trackMessage($index, message)) {
-                <article
-                    class="message"
-                    [class.own]="isOwnMessage(message)"
-                    [class.active-thread-parent]="isThreadParent(message)"
-                >
-                    <div class="message__meta">
-                        <span>{{ getSenderLabel(message) }}</span>
-                        <span>{{ formatTimestamp(message.timestamp) }}</span>
-                    </div>
-                    <p>{{ message.text }}</p>
+                @for (
+                    message of messages;
+                    track trackMessage($index, message)
+                ) {
+                    <article
+                        class="message"
+                        [class.own]="isOwnMessage(message)"
+                        [class.active-thread-parent]="isThreadParent(message)"
+                    >
+                        <div class="message__meta">
+                            <span>{{ getSenderLabel(message) }}</span>
+                            <span>{{
+                                formatTimestamp(message.timestamp)
+                            }}</span>
+                        </div>
+                        <p>{{ message.text }}</p>
 
-                    @if (hasMentionForCurrentUser(message)) {
-                        <span class="mention-pill">Erwähnt dich</span>
-                    }
+                        @if (hasMentionForCurrentUser(message)) {
+                            <span class="mention-pill">Erwähnt dich</span>
+                        }
 
-                    @if (message.attachments?.length) {
-                        <div class="message-attachments">
-                            @for (
-                                attachment of message.attachments;
-                                track attachment.path
-                            ) {
-                                <a
-                                    class="attachment-item"
-                                    [href]="attachment.url"
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                >
-                                    @if (attachment.isImage) {
-                                        <img
-                                            class="attachment-image"
-                                            [src]="attachment.url"
-                                            [alt]="attachment.name"
-                                            loading="lazy"
-                                        />
-                                    }
-                                    <span class="attachment-name">{{
-                                        attachment.name
-                                    }}</span>
-                                    <span class="attachment-download"
-                                        >Download</span
+                        @if (message.attachments?.length) {
+                            <div class="message-attachments">
+                                @for (
+                                    attachment of message.attachments;
+                                    track attachment.path
+                                ) {
+                                    <a
+                                        class="attachment-item"
+                                        [href]="attachment.url"
+                                        target="_blank"
+                                        rel="noopener noreferrer"
                                     >
-                                </a>
-                            }
-                        </div>
-                    }
+                                        @if (attachment.isImage) {
+                                            <img
+                                                class="attachment-image"
+                                                [src]="attachment.url"
+                                                [alt]="attachment.name"
+                                                loading="lazy"
+                                            />
+                                        }
+                                        <span class="attachment-name">{{
+                                            attachment.name
+                                        }}</span>
+                                        <span class="attachment-download"
+                                            >Download</span
+                                        >
+                                    </a>
+                                }
+                            </div>
+                        }
 
-                    @if (!isDirectMessage) {
-                        <div class="message__actions">
-                            <button
-                                type="button"
-                                class="thread-link"
-                                (click)="openThreadForMessage(message)"
-                            >
-                                Thread öffnen
-                            </button>
-                        </div>
-                    }
-
-                    @if (message.reactions?.length) {
-                        @let visibleReactions = getVisibleReactions(message);
-                        @let hiddenCount = getHiddenReactionCount(message);
-
-                        <div class="message__reactions">
-                            @for (
-                                reaction of visibleReactions;
-                                track reaction.emoji
-                            ) {
+                        @if (!isDirectMessage) {
+                            <div class="message__actions">
                                 <button
                                     type="button"
-                                    class="reaction"
-                                    [class.active]="
-                                        hasCurrentUserReacted(reaction)
-                                    "
-                                    (click)="
-                                        toggleReaction(message, reaction.emoji)
-                                    "
+                                    class="thread-link"
+                                    (click)="openThreadForMessage(message)"
                                 >
-                                    <span>{{ reaction.emoji }}</span>
-                                    <span>{{ reaction.userIds.length }}</span>
+                                    Thread öffnen
                                 </button>
-                            }
+                            </div>
+                        }
 
-                            @if (hiddenCount > 0) {
-                                <button
-                                    type="button"
-                                    class="reaction more"
-                                    (click)="toggleReactionList(message)"
-                                >
-                                    +{{ hiddenCount }} weitere
-                                </button>
-                            } @else if ((message.reactions?.length ?? 0) > 20) {
-                                <button
-                                    type="button"
-                                    class="reaction more"
-                                    (click)="toggleReactionList(message)"
-                                >
-                                    weniger anzeigen
-                                </button>
-                            }
-                        </div>
-                    }
-                </article>
-            }
-        </section>
-    }
+                        @if (message.reactions?.length) {
+                            @let visibleReactions =
+                                getVisibleReactions(message);
+                            @let hiddenCount = getHiddenReactionCount(message);
+
+                            <div class="message__reactions">
+                                @for (
+                                    reaction of visibleReactions;
+                                    track reaction.emoji
+                                ) {
+                                    <button
+                                        type="button"
+                                        class="reaction"
+                                        [class.active]="
+                                            hasCurrentUserReacted(reaction)
+                                        "
+                                        (click)="
+                                            toggleReaction(
+                                                message,
+                                                reaction.emoji
+                                            )
+                                        "
+                                    >
+                                        <span>{{ reaction.emoji }}</span>
+                                        <span>{{
+                                            reaction.userIds.length
+                                        }}</span>
+                                    </button>
+                                }
+
+                                @if (hiddenCount > 0) {
+                                    <button
+                                        type="button"
+                                        class="reaction more"
+                                        (click)="toggleReactionList(message)"
+                                    >
+                                        +{{ hiddenCount }} weitere
+                                    </button>
+                                } @else if (
+                                    (message.reactions?.length ?? 0) > 20
+                                ) {
+                                    <button
+                                        type="button"
+                                        class="reaction more"
+                                        (click)="toggleReactionList(message)"
+                                    >
+                                        weniger anzeigen
+                                    </button>
+                                }
+                            </div>
+                        }
+                    </article>
+                }
+            </section>
+        }
         <form class="composer" novalidate (ngSubmit)="sendMessage()">
             <div class="composer-tools">
                 <label class="attach-btn" for="message-attachment-input">

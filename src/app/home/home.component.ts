@@ -29,6 +29,13 @@ interface MentionCandidate {
     id: string;
     label: string;
 }
+interface ComposeTargetSuggestion {
+    kind: 'channel' | 'user';
+    id: string;
+    label: string;
+    value: string;
+    subtitle: string;
+}
 
 @Component({
     selector: 'app-home',
@@ -49,7 +56,13 @@ export class HomeComponent implements OnInit, OnDestroy {
     get isComposeMode(): boolean {
         return this.ui.isNewMessageOpen();
     }
-
+    private composeResolvedTarget:
+        | { kind: 'channel'; channelId: string }
+        | { kind: 'user'; userId: string }
+        | null = null;
+    composeTargetSuggestions: ComposeTargetSuggestion[] = [];
+    composeTargetActiveIndex = -1;
+    showComposeTargetSuggestions = false;
     currentChannelId = 'allgemein';
     currentDirectUserId = '';
     currentDirectUserName = '';
@@ -140,6 +153,151 @@ export class HomeComponent implements OnInit, OnDestroy {
         });
     }
 
+    onComposeTargetInput(): void {
+        this.composeTargetActiveIndex = -1;
+        this.errorMessage = '';
+        this.updateComposeTargetSuggestions();
+    }
+
+    selectComposeTargetSuggestion(suggestion: ComposeTargetSuggestion): void {
+        this.composeTargetControl.setValue(suggestion.value);
+        this.hideComposeTargetSuggestions();
+    }
+
+    private updateComposeTargetSuggestions(): void {
+        const raw = this.composeTargetControl.value.trim();
+        if (!raw) return this.hideComposeTargetSuggestions();
+
+        const query = raw.slice(1).trim().toLowerCase();
+        if (raw.startsWith('#')) return this.setChannelSuggestions(query);
+        if (raw.startsWith('@')) return this.setUserSuggestions(query);
+
+        this.hideComposeTargetSuggestions();
+    }
+
+    private setChannelSuggestions(query: string): void {
+        const entries = Object.entries(this.channelNames)
+            .filter(([id, label]) => this.matchesQuery(query, id, label))
+            .slice(0, 6)
+            .map(([id, label]) => this.toChannelSuggestion(id, label));
+
+        this.applyComposeSuggestions(entries);
+    }
+
+    onComposeTargetKeydown(event: KeyboardEvent): void {
+        if (!this.showComposeTargetSuggestions) {
+            if (event.key === 'Enter') this.onComposeTargetSubmit();
+            return;
+        }
+        if (event.key === 'ArrowDown') return this.focusNextSuggestion(event);
+        if (event.key === 'ArrowUp') return this.focusPreviousSuggestion(event);
+        if (event.key === 'Enter') return this.confirmActiveSuggestion(event);
+        if (event.key === 'Escape') this.hideComposeTargetSuggestions();
+    }
+
+    onComposeTargetBlur(): void {
+        setTimeout(() => this.hideComposeTargetSuggestions(), 100);
+    }
+
+    onComposeTargetOptionMouseDown(
+        suggestion: ComposeTargetSuggestion,
+        event: MouseEvent,
+    ): void {
+        event.preventDefault();
+        this.selectComposeTargetSuggestion(suggestion);
+    }
+
+    private focusNextSuggestion(event: KeyboardEvent): void {
+        event.preventDefault();
+        this.moveComposeSelection(1);
+    }
+
+    private focusPreviousSuggestion(event: KeyboardEvent): void {
+        event.preventDefault();
+        this.moveComposeSelection(-1);
+    }
+
+    private confirmActiveSuggestion(event: KeyboardEvent): void {
+        event.preventDefault();
+        const item =
+            this.composeTargetSuggestions[this.composeTargetActiveIndex];
+        if (item) this.selectComposeTargetSuggestion(item);
+        else this.onComposeTargetSubmit();
+    }
+
+    private moveComposeSelection(step: number): void {
+        const len = this.composeTargetSuggestions.length;
+        if (!len) return;
+        const start =
+            this.composeTargetActiveIndex < 0
+                ? step > 0
+                    ? -1
+                    : 0
+                : this.composeTargetActiveIndex;
+        this.composeTargetActiveIndex = (start + step + len) % len;
+    }
+
+    private setUserSuggestions(query: string): void {
+        const entries = Object.values(this.usersById)
+            .filter((user) => this.isValidSuggestionUser(user))
+            .filter((user) =>
+                this.matchesQuery(query, user.displayName, user.email ?? ''),
+            )
+            .slice(0, 6)
+            .map((user) => this.toUserSuggestion(user));
+
+        this.applyComposeSuggestions(entries);
+    }
+
+    private matchesQuery(
+        query: string,
+        primary: string,
+        secondary: string,
+    ): boolean {
+        if (!query) return true;
+        const left = primary.trim().toLowerCase();
+        const right = secondary.trim().toLowerCase();
+        return left.includes(query) || right.includes(query);
+    }
+
+    private isValidSuggestionUser(user: User): boolean {
+        return !!user.id && user.id !== this.currentUserId;
+    }
+
+    private toChannelSuggestion(
+        id: string,
+        label: string,
+    ): ComposeTargetSuggestion {
+        return {
+            kind: 'channel',
+            id,
+            label: `#${label}`,
+            value: `#${id}`,
+            subtitle: `Channel: #${id}`,
+        };
+    }
+
+    private toUserSuggestion(user: User): ComposeTargetSuggestion {
+        return {
+            kind: 'user',
+            id: user.id as string,
+            label: `@${user.displayName}`,
+            value: `@${user.displayName}`,
+            subtitle: user.email ?? '',
+        };
+    }
+
+    private applyComposeSuggestions(entries: ComposeTargetSuggestion[]): void {
+        this.composeTargetSuggestions = entries;
+        this.showComposeTargetSuggestions = entries.length > 0;
+        this.composeTargetActiveIndex = entries.length ? 0 : -1;
+    }
+
+    private hideComposeTargetSuggestions(): void {
+        this.composeTargetSuggestions = [];
+        this.showComposeTargetSuggestions = false;
+        this.composeTargetActiveIndex = -1;
+    }
     private resolveStableAuthUser(
         incomingUser: FirebaseUser | null,
     ): FirebaseUser | null {
@@ -234,78 +392,80 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     async onComposeTargetSubmit(): Promise<void> {
-    const raw = this.composeTargetControl.value.trim();
-    if (!raw) {
-        this.errorMessage = 'Bitte gib ein Ziel ein (#channel, @user oder E-Mail).';
-        return;
-    }
-
-    const channelId = this.resolveChannelTarget(raw);
-    if (channelId) {
-        this.ui.closeNewMessage();
-        this.composeTargetControl.setValue('');
-        await this.router.navigate(['/app/channel', channelId]);
-        return;
-    }
-
-    const user = this.resolveDirectTarget(raw);
-    if (user?.id) {
-        if (user.id === this.currentUserId) {
-            this.errorMessage = 'Direktnachricht an dich selbst ist nicht nötig.';
+        const raw = this.composeTargetControl.value.trim();
+        if (!raw) {
+            this.errorMessage =
+                'Bitte gib ein Ziel ein (#channel, @user oder E-Mail).';
+            this.composeResolvedTarget = null;
             return;
         }
 
-        this.ui.closeNewMessage();
-        this.composeTargetControl.setValue('');
-        await this.router.navigate(['/app/dm', user.id], {
-            queryParams: { name: user.displayName },
-        });
-        return;
+        this.hideComposeTargetSuggestions();
+
+        const channelId = this.resolveChannelTarget(raw);
+        if (channelId) {
+            this.composeResolvedTarget = { kind: 'channel', channelId };
+            this.errorMessage = '';
+            return;
+        }
+
+        const user = this.resolveDirectTarget(raw);
+        if (user?.id) {
+            if (user.id === this.currentUserId) {
+                this.errorMessage =
+                    'Direktnachricht an dich selbst ist nicht noetig.';
+                this.composeResolvedTarget = null;
+                return;
+            }
+
+            this.composeResolvedTarget = { kind: 'user', userId: user.id };
+            this.errorMessage = '';
+            return;
+        }
+
+        this.errorMessage =
+            'Ziel nicht gefunden. Nutze #channel, @Name oder E-Mail.';
+        this.composeResolvedTarget = null;
     }
 
-    this.errorMessage = 'Ziel nicht gefunden. Nutze #channel, @Name oder E-Mail.';
-    
-}
+    private resolveChannelTarget(input: string): string | null {
+        const token = input.replace(/^#/, '').trim().toLowerCase();
+        if (!token) return null;
 
-private resolveChannelTarget(input: string): string | null {
-    const token = input.replace(/^#/, '').trim().toLowerCase();
-    if (!token) return null;
+        const channelById = Object.keys(this.channelNames).find(
+            (id) => id.toLowerCase() === token,
+        );
+        if (channelById) return channelById;
 
-    const channelById = Object.keys(this.channelNames).find(
-        (id) => id.toLowerCase() === token,
-    );
-    if (channelById) return channelById;
+        const channelByLabel = Object.entries(this.channelNames).find(
+            ([, label]) => label.toLowerCase() === token,
+        );
+        return channelByLabel?.[0] ?? null;
+    }
 
-    const channelByLabel = Object.entries(this.channelNames).find(
-        ([, label]) => label.toLowerCase() === token,
-    );
-    return channelByLabel?.[0] ?? null;
-}
+    private resolveDirectTarget(input: string): User | null {
+        const token = input.replace(/^@/, '').trim().toLowerCase();
+        if (!token) return null;
 
-private resolveDirectTarget(input: string): User | null {
-    const token = input.replace(/^@/, '').trim().toLowerCase();
-    if (!token) return null;
+        const allUsers = Object.values(this.usersById);
 
-    const allUsers = Object.values(this.usersById);
+        const byEmail = allUsers.find(
+            (u) => (u.email ?? '').trim().toLowerCase() === token,
+        );
+        if (byEmail) return byEmail;
 
-    const byEmail = allUsers.find(
-        (u) => (u.email ?? '').trim().toLowerCase() === token,
-    );
-    if (byEmail) return byEmail;
+        const byExactName = allUsers.find(
+            (u) => (u.displayName ?? '').trim().toLowerCase() === token,
+        );
+        if (byExactName) return byExactName;
 
-    const byExactName = allUsers.find(
-        (u) => (u.displayName ?? '').trim().toLowerCase() === token,
-    );
-    if (byExactName) return byExactName;
-
-    const byPartialName = allUsers.find((u) =>
-        (u.displayName ?? '').trim().toLowerCase().includes(token),
-    );
-    return byPartialName ?? null;
-}
+        const byPartialName = allUsers.find((u) =>
+            (u.displayName ?? '').trim().toLowerCase().includes(token),
+        );
+        return byPartialName ?? null;
+    }
 
     private setupDirectMessages(userId: string, name: string): void {
-        this.ui.closeNewMessage();
         this.applyDirectSnapshot(userId, name);
         this.prepareMessageStreamSwitch();
         this.liveMessagesSubscription = this.createDirectLiveStream(
@@ -318,7 +478,6 @@ private resolveDirectTarget(input: string): User | null {
     }
 
     private setupChannelMessages(params: ParamMap): void {
-        this.ui.closeNewMessage();
         this.applyChannelSnapshot(params.get('channelId') ?? 'allgemein');
         this.prepareMessageStreamSwitch();
         this.liveMessagesSubscription = this.createChannelLiveStream(
@@ -424,6 +583,20 @@ private resolveDirectTarget(input: string): User | null {
     }
 
     sendMessage(): void {
+        if (this.isComposeMode) {
+            void this.onComposeTargetSubmit().then(() => {
+                if (!this.composeResolvedTarget) {
+                    this.errorMessage =
+                        'Bitte zuerst einen gueltigen Empfaenger ueber #channel oder @name auswaehlen.';
+                    return;
+                }
+
+                const request$ = this.prepareSendRequest();
+                if (!request$) return;
+                this.subscribeToSendRequest(request$);
+            });
+            return;
+        }
         console.log('[SEND CLICKED]', {
             disabled: this.messageControl.disabled,
             value: this.messageControl.value,
@@ -538,6 +711,10 @@ private resolveDirectTarget(input: string): User | null {
 
     private buildSendRequest(text: string): Observable<string> | null {
         try {
+            if (this.isComposeMode) {
+                return this.buildComposeSendRequest(text);
+            }
+
             if (this.isDirectMessage) {
                 return this.buildDirectSendRequest(text);
             }
@@ -547,6 +724,46 @@ private resolveDirectTarget(input: string): User | null {
             this.onSendError(error);
             return null;
         }
+    }
+
+    private buildComposeSendRequest(text: string): Observable<string> {
+        const target = this.composeResolvedTarget;
+        if (!target) {
+            throw new Error('Compose target missing');
+        }
+
+        const messageId = this.messageService.createMessageId();
+        const mentions = this.collectMentionIdsForText(text);
+
+        if (target.kind === 'user') {
+            return this.uploadAttachmentsForMessage(messageId).pipe(
+                switchMap((attachments) =>
+                    this.messageService.sendDirectMessageWithId(
+                        messageId,
+                        target.userId,
+                        text,
+                        this.currentUserId ?? '',
+                        mentions,
+                        attachments,
+                    ),
+                ),
+            );
+        }
+
+        const payload = this.createChannelMessagePayload(
+            text,
+            mentions,
+            target.channelId,
+        );
+
+        return this.uploadAttachmentsForMessage(messageId).pipe(
+            switchMap((attachments) =>
+                this.messageService.sendMessageWithId(messageId, {
+                    ...payload,
+                    attachments,
+                }),
+            ),
+        );
     }
 
     private buildDirectSendRequest(text: string): Observable<string> {
@@ -602,6 +819,11 @@ private resolveDirectTarget(input: string): User | null {
         this.attachmentError = '';
         this.isSending = false;
         this.syncComposerState();
+        if (this.isComposeMode) {
+            this.ui.closeNewMessage();
+            this.composeTargetControl.setValue('');
+            this.composeResolvedTarget = null;
+        }
     }
 
     private onSendError(error: unknown): void {
@@ -1101,10 +1323,14 @@ private resolveDirectTarget(input: string): User | null {
         return false;
     }
 
-    private createChannelMessagePayload(text: string, mentions: string[]) {
+    private createChannelMessagePayload(
+        text: string,
+        mentions: string[],
+        targetChannelId?: string,
+    ) {
         return {
             text,
-            channelId: this.currentChannelId || 'allgemein',
+            channelId: targetChannelId || this.currentChannelId || 'allgemein',
             senderId: this.currentUserId ?? '',
             mentions,
             timestamp: new Date(),
