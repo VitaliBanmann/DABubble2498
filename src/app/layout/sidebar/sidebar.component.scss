@@ -1,4 +1,4 @@
-$purple__hover: #535AF1;
+$purple__hover: #535af1;
 
 .sidebar {
     height: 100%;
@@ -50,7 +50,7 @@ $purple__hover: #535AF1;
     cursor: pointer;
     user-select: none;
     color: inherit; // oder deine Default-Textfarbe
-    transition: color .15s ease;
+    transition: color 0.15s ease;
 
     &:hover {
         color: $purple__hover;
@@ -96,7 +96,7 @@ $purple__hover: #535AF1;
     }
 
     &:disabled {
-        opacity: .5;
+        opacity: 0.5;
         cursor: not-allowed;
     }
 }
@@ -164,11 +164,11 @@ $purple__hover: #535AF1;
     &:hover {
         color: $purple__hover;
     }
-}
 
-.direct-link[data-active='true'] {
-    background: #eef0ff;
-    color: #444df2;
+    &.active {
+        background: #eef0ff;
+        color: #444df2;
+    }
 }
 
 .direct-link__avatar {

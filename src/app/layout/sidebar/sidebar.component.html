@@ -160,20 +160,18 @@
                 class="channel__selection"
                 [class.is-collapsed]="!isDirectMessagesSectionOpen"
             >
-                @for (member of directMessages; track member.id) {
+                @for (member of directMessages$ | async; track member.id) {
                     <button
                         type="button"
                         class="direct-link"
-                        [attr.data-active]="
-                            activeDirectMessageId === member.id ? 'true' : null
-                        "
+                        [class.active]="member.isActive"
                         (click)="openDirectMessage(member)"
                     >
                         <span
                             class="direct-link__avatar"
-                            [class.has-image]="!!member.avatar"
+                            [class.has-image]="member.hasAvatar"
                         >
-                            @if (member.avatar) {
+                            @if (member.hasAvatar) {
                                 <img
                                     class="direct-link__avatar-img"
                                     [src]="member.avatar"
@@ -182,7 +180,7 @@
                                         ' Avatar'
                                     "
                                     loading="eager"
-                                    (error)="onAvatarError(member)"
+                                    
                                 />
                             } @else {
                                 {{
@@ -209,7 +207,7 @@
 
                         <span
                             class="direct-link__status"
-                            [class.online]="!!member.isOnline"
+                            [class.online]="member.isOnline"
                         ></span>
                     </button>
                 }
@@ -253,7 +251,7 @@
                 <div class="member-box">
                     <div class="member-box__title">Mitglieder</div>
                     <ul>
-                        @for (member of availableMembers; track member.id) {
+                        @for (member of (availableMembers$ | async); track member.id) {
                             <li>
                                 <button
                                     type="button"
