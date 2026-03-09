@@ -555,28 +555,46 @@ export class SidebarComponent implements OnInit, OnDestroy {
     private refreshUnreadTracking(): void {
         this.unreadSubscription?.unsubscribe();
         if (!this.currentUserId || !this.canCreateChannel) {
-            this.unreadByChannelId = {};
-            this.unreadByDirectId = {};
-            this.mentionByChannelId = {};
-            this.mentionByDirectId = {};
-            this.applyUnreadFlags();
+            this.resetUnreadMaps();
             return;
         }
 
-        const channelIds = this.channels.map((channel) => channel.id).filter(Boolean);
-        const dmUserIds = this.directMessages
-            .filter((member) => !member.isSelf && !!member.id)
-            .map((member) => member.id);
-
+        const channelIds = this.collectChannelIds();
+        const dmUserIds = this.collectDirectUserIds();
         this.unreadSubscription = this.unreadStateService
             .watchUnreadFlags(this.currentUserId, channelIds, dmUserIds)
-            .subscribe((flags) => {
-                this.unreadByChannelId = flags.channels;
-                this.unreadByDirectId = flags.direct;
-                this.mentionByChannelId = flags.channelMentions;
-                this.mentionByDirectId = flags.directMentions;
-                this.applyUnreadFlags();
-            });
+            .subscribe((flags) => this.applyUnreadFlagState(flags));
+    }
+
+    private collectChannelIds(): string[] {
+        return this.channels.map((channel) => channel.id).filter(Boolean);
+    }
+
+    private collectDirectUserIds(): string[] {
+        return this.directMessages
+            .filter((member) => !member.isSelf && !!member.id)
+            .map((member) => member.id);
+    }
+
+    private applyUnreadFlagState(flags: {
+        channels: Record<string, boolean>;
+        direct: Record<string, boolean>;
+        channelMentions: Record<string, boolean>;
+        directMentions: Record<string, boolean>;
+    }): void {
+        this.unreadByChannelId = flags.channels;
+        this.unreadByDirectId = flags.direct;
+        this.mentionByChannelId = flags.channelMentions;
+        this.mentionByDirectId = flags.directMentions;
+        this.applyUnreadFlags();
+    }
+
+    private resetUnreadMaps(): void {
+        this.unreadByChannelId = {};
+        this.unreadByDirectId = {};
+        this.mentionByChannelId = {};
+        this.mentionByDirectId = {};
+        this.applyUnreadFlags();
     }
 
     private applyUnreadFlags(): void {

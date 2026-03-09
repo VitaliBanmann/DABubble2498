@@ -77,78 +77,8 @@ export class TopbarComponent implements OnInit, OnDestroy {
     ) {}
 
     ngOnInit(): void {
-        this.subscription.add(
-            this.authService.authReady$
-                .pipe(observeOn(asyncScheduler))
-                .subscribe((ready) => {
-                    if (!ready) {
-                        return;
-                    }
-                }),
-        );
-
-        this.subscription.add(
-            combineLatest([
-                this.authService.authReady$,
-                this.authService.currentUser$,
-            ])
-                .pipe(
-                    observeOn(asyncScheduler),
-                    filter(([ready]) => ready),
-                    switchMap(([, user]) => {
-                        if (!user || user.isAnonymous) {
-                            this.clearSearchResults();
-                            this.clearProfileFallback();
-                            return of(null);
-                        }
-
-                        this.beginProfileFallback(user.uid, user);
-
-                        return this.userService
-                            .getUserProfileRealtime(user.uid, user.email ?? '')
-                            .pipe(
-                                catchError(() => of(null)),
-                                map((profile) => ({ user, profile })),
-                            );
-                    }),
-                )
-                .subscribe({
-                    next: (data) => {
-                        if (!data) {
-                            return;
-                        }
-
-                        const { user, profile } = data;
-
-                        if (profile) {
-                            const resolvedName =
-                                profile.displayName?.trim() ||
-                                user.displayName?.trim() ||
-                                user.email?.split('@')[0] ||
-                                'Gast';
-
-                            const resolvedEmail =
-                                this.resolveProfileEmail(profile) ||
-                                user.email ||
-                                '';
-
-                            const resolvedAvatar =
-                                profile.avatar || user.photoURL || null;
-                            const resolvedPresence =
-                                profile.presenceStatus ?? 'online';
-
-                            this.deferUiUpdate(() => {
-                                this.profileResolved = true;
-                                this.clearProfileFallback();
-                                this.displayName = resolvedName;
-                                this.email = resolvedEmail;
-                                this.applyAvatar(resolvedAvatar);
-                                this.presenceStatus = resolvedPresence;
-                            });
-                        }
-                    },
-                }),
-        );
+        this.trackAuthReady();
+        this.trackUserProfile();
     }
 
     get initials(): string {
@@ -187,11 +117,11 @@ export class TopbarComponent implements OnInit, OnDestroy {
     }
 
     private deferUiUpdate(update: () => void): void {
-    setTimeout(() => {
-        update();
-        this.cdr.detectChanges();
-    }, 0);
-}
+        setTimeout(() => {
+            update();
+            this.cdr.detectChanges();
+        }, 0);
+    }
 
     private resolveProfileEmail(profile: Record<string, unknown>): string {
         const candidates = [
@@ -305,47 +235,11 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
     private runIndexedSearch(rawQuery: string): void {
         const token = normalizeSearchToken(rawQuery);
-        if (!token) {
-            this.clearSearchResults();
-            return;
-        }
-
+        if (!token) return this.clearSearchResults();
         this.searchSubscription?.unsubscribe();
-        this.searchSubscription = combineLatest([
-            this.channelService.searchChannelsByToken(token).pipe(catchError(() => of([]))),
-            this.userService.searchUsersByToken(token).pipe(catchError(() => of([]))),
-            this.messageService.searchMessagesByToken(token).pipe(catchError(() => of([]))),
-        ])
+        this.searchSubscription = this.createSearchStream(token)
             .pipe(take(1))
-            .subscribe(([channels, users, messages]) => {
-                this.channelResults = channels
-                    .filter((channel) => !!channel.id)
-                    .map((channel) => ({ id: channel.id as string, name: channel.name }))
-                    .slice(0, 5);
-
-                this.userResults = users
-                    .filter((user) => !!user.id)
-                    .map((user) => ({
-                        id: user.id as string,
-                        name: user.displayName,
-                        email: user.email,
-                    }))
-                    .slice(0, 5);
-
-                this.messageResults = messages
-                    .filter((message) => !!message.id && typeof message.channelId === 'string')
-                    .map((message) => ({
-                        id: message.id as string,
-                        text: message.text,
-                        channelId: message.channelId as string,
-                    }))
-                    .slice(0, 5);
-
-                this.showSearchResults =
-                    this.channelResults.length > 0 ||
-                    this.userResults.length > 0 ||
-                    this.messageResults.length > 0;
-            });
+            .subscribe(([channels, users, messages]) => this.applySearchResults(channels, users, messages));
     }
 
     private clearSearchResults(): void {
@@ -364,27 +258,9 @@ export class TopbarComponent implements OnInit, OnDestroy {
             photoURL?: string | null;
         },
     ): void {
-        if (this.profileUid !== uid) {
-            this.profileUid = uid;
-            this.profileResolved = false;
-        }
-
+        if (this.profileUid !== uid) this.resetProfileResolution(uid);
         this.clearProfileFallback();
-        this.profileFallbackTimer = setTimeout(() => {
-            if (this.profileUid !== uid || this.profileResolved) {
-                return;
-            }
-
-            this.deferUiUpdate(() => {
-                this.displayName =
-                    user.displayName?.trim() ||
-                    user.email?.split('@')[0] ||
-                    'Gast';
-                this.email = user.email ?? '';
-                this.applyAvatar(user.photoURL);
-                this.presenceStatus = 'online';
-            });
-        }, 1200);
+        this.profileFallbackTimer = setTimeout(() => this.applyProfileFallback(uid, user), 1200);
     }
 
     private clearProfileFallback(): void {
@@ -392,5 +268,87 @@ export class TopbarComponent implements OnInit, OnDestroy {
             clearTimeout(this.profileFallbackTimer);
             this.profileFallbackTimer = null;
         }
+    }
+
+    private resetProfileResolution(uid: string): void {
+        this.profileUid = uid;
+        this.profileResolved = false;
+    }
+
+    private applyProfileFallback(
+        uid: string,
+        user: { displayName?: string | null; email?: string | null; photoURL?: string | null },
+    ): void {
+        if (this.profileUid !== uid || this.profileResolved) return;
+        this.deferUiUpdate(() => {
+            this.displayName = user.displayName?.trim() || user.email?.split('@')[0] || 'Gast';
+            this.email = user.email ?? '';
+            this.applyAvatar(user.photoURL);
+            this.presenceStatus = 'online';
+        });
+    }
+
+    private trackAuthReady(): void {
+        this.subscription.add(
+            this.authService.authReady$.pipe(observeOn(asyncScheduler)).subscribe(),
+        );
+    }
+
+    private trackUserProfile(): void {
+        this.subscription.add(
+            combineLatest([this.authService.authReady$, this.authService.currentUser$])
+                .pipe(observeOn(asyncScheduler), filter(([ready]) => ready), switchMap(([, user]) => this.loadProfileState(user)))
+                .subscribe({ next: (data) => this.applyProfileState(data) }),
+        );
+    }
+
+    private loadProfileState(user: { uid: string; isAnonymous: boolean; email: string | null } | null) {
+        if (!user || user.isAnonymous) {
+            this.clearSearchResults();
+            this.clearProfileFallback();
+            return of(null);
+        }
+        this.beginProfileFallback(user.uid, user);
+        return this.userService
+            .getUserProfileRealtime(user.uid, user.email ?? '')
+            .pipe(catchError(() => of(null)), map((profile) => ({ user, profile })));
+    }
+
+    private applyProfileState(data: { user: any; profile: any } | null): void {
+        if (!data?.profile) return;
+        const profile = data.profile;
+        const user = data.user;
+        const resolvedName = profile.displayName?.trim() || user.displayName?.trim() || user.email?.split('@')[0] || 'Gast';
+        const resolvedEmail = this.resolveProfileEmail(profile) || user.email || '';
+        const resolvedAvatar = profile.avatar || user.photoURL || null;
+        const resolvedPresence = profile.presenceStatus ?? 'online';
+        this.deferUiUpdate(() => this.applyResolvedProfile(resolvedName, resolvedEmail, resolvedAvatar, resolvedPresence));
+    }
+
+    private applyResolvedProfile(name: string, email: string, avatar: string | null, presence: PresenceStatus): void {
+        this.profileResolved = true;
+        this.clearProfileFallback();
+        this.displayName = name;
+        this.email = email;
+        this.applyAvatar(avatar);
+        this.presenceStatus = presence;
+    }
+
+    private createSearchStream(token: string) {
+        return combineLatest([
+            this.channelService.searchChannelsByToken(token).pipe(catchError(() => of([]))),
+            this.userService.searchUsersByToken(token).pipe(catchError(() => of([]))),
+            this.messageService.searchMessagesByToken(token).pipe(catchError(() => of([]))),
+        ]);
+    }
+
+    private applySearchResults(channels: any[], users: any[], messages: any[]): void {
+        this.channelResults = channels.filter((channel) => !!channel.id).map((channel) => ({ id: channel.id as string, name: channel.name })).slice(0, 5);
+        this.userResults = users.filter((user) => !!user.id).map((user) => ({ id: user.id as string, name: user.displayName, email: user.email })).slice(0, 5);
+        this.messageResults = messages
+            .filter((message) => !!message.id && typeof message.channelId === 'string')
+            .map((message) => ({ id: message.id as string, text: message.text, channelId: message.channelId as string }))
+            .slice(0, 5);
+        this.showSearchResults = this.channelResults.length > 0 || this.userResults.length > 0 || this.messageResults.length > 0;
     }
 }

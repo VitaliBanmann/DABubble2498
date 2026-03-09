@@ -33,12 +33,7 @@ export class AttachmentService {
     ): Promise<MessageAttachment> {
         const safeName = this.safeFileName(file.name, index);
         const path = `attachments/${messageId}/${safeName}`;
-        const fileRef = ref(this.storage, path);
-        const snapshot = await uploadBytes(fileRef, file, {
-            contentType: file.type || undefined,
-        });
-        const url = await getDownloadURL(snapshot.ref);
-
+        const url = await this.uploadAndResolveUrl(path, file);
         return {
             name: file.name,
             path,
@@ -47,6 +42,14 @@ export class AttachmentService {
             contentType: file.type || 'application/octet-stream',
             isImage: file.type.startsWith('image/'),
         };
+    }
+
+    private async uploadAndResolveUrl(path: string, file: File): Promise<string> {
+        const fileRef = ref(this.storage, path);
+        const snapshot = await uploadBytes(fileRef, file, {
+            contentType: file.type || undefined,
+        });
+        return getDownloadURL(snapshot.ref);
     }
 
     private safeFileName(name: string, index: number): string {

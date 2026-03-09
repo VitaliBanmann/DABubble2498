@@ -108,50 +108,17 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.syncComposerState();
     }
 
-private initializeConversationFromSnapshot(): void {
-    const params = this.route.snapshot.paramMap;
-    const directUserId = params.get('userId') ?? '';
-    const directUserName =
-        this.route.snapshot.queryParamMap.get('name')?.trim() ?? '';
-
-    if (directUserId) {
-        this.isDirectMessage = true;
-        this.currentDirectUserId = directUserId;
-        this.currentDirectUserName = directUserName || directUserId;
-        return;
+    private initializeConversationFromSnapshot(): void {
+        const params = this.route.snapshot.paramMap;
+        const directUserId = params.get('userId') ?? '';
+        const directUserName = this.route.snapshot.queryParamMap.get('name')?.trim() ?? '';
+        if (directUserId) return this.applyDirectSnapshot(directUserId, directUserName);
+        this.applyChannelSnapshot(params.get('channelId') ?? 'allgemein');
     }
-
-    this.isDirectMessage = false;
-    this.currentDirectUserId = '';
-    this.currentDirectUserName = '';
-    this.currentChannelId = params.get('channelId') ?? 'allgemein';
-}
 
     private subscribeToAuth(): void {
         this.subscription.add(
-            this.authService.currentUser$.subscribe((incomingUser) => {
-                const stableUser = this.resolveStableAuthUser(incomingUser);
-
-                this.deferUiUpdate(() => {
-                    this.authResolved = true;
-                    this.activeAuthUser = stableUser;
-                    this.currentUserId = stableUser?.uid ?? null;
-                    this.canWrite =
-                        !!stableUser &&
-                        !stableUser.isAnonymous &&
-                        !!stableUser.uid;
-                    this.syncComposerState();
-                    this.markCurrentContextAsRead();
-                });
-
-                console.log('[AUTH EVENT]', {
-                    uid: incomingUser?.uid ?? null,
-                    anon: incomingUser?.isAnonymous ?? null,
-                    stableUid: stableUser?.uid ?? null,
-                    stableAnon: stableUser?.isAnonymous ?? null,
-                    ts: Date.now(),
-                });
-            }),
+            this.authService.currentUser$.subscribe((incomingUser) => this.handleAuthUserChange(incomingUser)),
         );
     }
 
@@ -168,34 +135,10 @@ private initializeConversationFromSnapshot(): void {
         incomingUser: FirebaseUser | null,
     ): FirebaseUser | null {
         const inAppArea = this.router.url.startsWith('/app');
-
-        if (!incomingUser) {
-            if (
-                inAppArea &&
-                this.lastStableUser &&
-                !this.lastStableUser.isAnonymous
-            ) {
-                return this.lastStableUser;
-            }
-            this.lastStableUser = null;
-            return null;
-        }
-
-        if (!incomingUser.isAnonymous) {
-            this.lastStableUser = incomingUser;
-            return incomingUser;
-        }
-
-        if (
-            inAppArea &&
-            this.lastStableUser &&
-            !this.lastStableUser.isAnonymous
-        ) {
-            return this.lastStableUser;
-        }
-
-        this.lastStableUser = incomingUser;
-        return incomingUser;
+        if (!incomingUser) return this.resolveWhenIncomingMissing(inAppArea);
+        if (!incomingUser.isAnonymous) return this.storeAndReturnUser(incomingUser);
+        if (this.shouldReuseLastRegularUser(inAppArea)) return this.lastStableUser;
+        return this.storeAndReturnUser(incomingUser);
     }
 
     private deferUiUpdate(update: () => void): void {
@@ -261,35 +204,22 @@ private initializeConversationFromSnapshot(): void {
     }
 
     private setupDirectMessages(userId: string, name: string): void {
-        this.isDirectMessage = true;
-        this.currentDirectUserId = userId;
-        this.resolveCurrentDirectUserName(name);
-        this.resetMessageStreams();
-        this.resetThreadPanel();
-
-        this.liveMessagesSubscription = this.messageService
-            .streamLatestDirectMessages(userId, this.pageSize)
-            .subscribe({
-                next: (messages) => this.applyLiveMessages(messages),
-                error: (error) => this.handleRouteMessageError(error),
-            });
+        this.applyDirectSnapshot(userId, name);
+        this.prepareMessageStreamSwitch();
+        this.liveMessagesSubscription = this.createDirectLiveStream(userId).subscribe({
+            next: (messages) => this.applyLiveMessages(messages),
+            error: (error) => this.handleRouteMessageError(error),
+        });
         this.markCurrentContextAsRead();
     }
 
     private setupChannelMessages(params: ParamMap): void {
-        this.isDirectMessage = false;
-        this.currentDirectUserId = '';
-        this.currentDirectUserName = '';
-        this.currentChannelId = params.get('channelId') ?? 'allgemein';
-        this.resetMessageStreams();
-        this.resetThreadPanel();
-
-        this.liveMessagesSubscription = this.messageService
-            .streamLatestChannelMessages(this.currentChannelId, this.pageSize)
-            .subscribe({
-                next: (messages) => this.applyLiveMessages(messages),
-                error: (error) => this.handleRouteMessageError(error),
-            });
+        this.applyChannelSnapshot(params.get('channelId') ?? 'allgemein');
+        this.prepareMessageStreamSwitch();
+        this.liveMessagesSubscription = this.createChannelLiveStream(this.currentChannelId).subscribe({
+            next: (messages) => this.applyLiveMessages(messages),
+            error: (error) => this.handleRouteMessageError(error),
+        });
         this.markCurrentContextAsRead();
     }
 
@@ -344,44 +274,13 @@ private initializeConversationFromSnapshot(): void {
     }
 
     loadOlderMessages(): void {
-        if (this.isLoadingMoreMessages || !this.hasMoreMessages) {
-            return;
-        }
-
+        if (!this.canLoadOlderMessages()) return;
         const oldestLoaded = this.messages[0];
-        if (!oldestLoaded?.timestamp) {
-            this.hasMoreMessages = false;
-            return;
-        }
-
+        if (!oldestLoaded?.timestamp) return this.stopOlderLoading();
         this.isLoadingMoreMessages = true;
-        const loader$ = this.isDirectMessage
-            ? this.messageService.loadOlderDirectMessages(
-                  this.currentDirectUserId,
-                  oldestLoaded.timestamp,
-                  this.pageSize,
-              )
-            : this.messageService.loadOlderChannelMessages(
-                  this.currentChannelId,
-                  oldestLoaded.timestamp,
-                  this.pageSize,
-              );
-
-        loader$.subscribe({
-            next: (older) => {
-                const normalized = this.sortMessagesByTimestamp(older);
-                this.olderMessages = this.mergeUniqueMessages(
-                    this.olderMessages,
-                    normalized,
-                );
-                this.hasMoreMessages = older.length >= this.pageSize;
-                this.isLoadingMoreMessages = false;
-                this.rebuildMessageList();
-            },
-            error: (error) => {
-                this.isLoadingMoreMessages = false;
-                this.handleRouteMessageError(error);
-            },
+        this.createOlderLoader(oldestLoaded.timestamp).subscribe({
+            next: (older) => this.applyOlderMessages(older),
+            error: (error) => this.handleOlderLoadError(error),
         });
     }
 
@@ -397,32 +296,13 @@ private initializeConversationFromSnapshot(): void {
     }
 
     sendThreadMessage(): void {
-        if (!this.canWrite || this.isDirectMessage || !this.activeThreadParent?.id) {
-            return;
-        }
-
+        if (!this.canSendThreadMessage()) return;
         const text = this.threadMessageControl.value.trim();
-        if (!text) {
-            return;
-        }
-
+        if (!text) return;
         this.isThreadSending = true;
         this.messageService
-            .sendChannelThreadMessage(
-                this.activeThreadParent.id,
-                text,
-                this.currentUserId ?? '',
-            )
-            .subscribe({
-                next: () => {
-                    this.threadMessageControl.setValue('');
-                    this.isThreadSending = false;
-                },
-                error: (error) => {
-                    this.errorMessage = this.resolveSendError(error);
-                    this.isThreadSending = false;
-                },
-            });
+            .sendChannelThreadMessage(this.activeThreadParent!.id!, text, this.currentUserId ?? '')
+            .subscribe({ next: () => this.onThreadSendSuccess(), error: (error) => this.onThreadSendError(error) });
     }
 
     async logout(): Promise<void> {
@@ -483,18 +363,8 @@ private initializeConversationFromSnapshot(): void {
     }
 
     private addAttachmentIfValid(file: File): void {
-        if (!this.isAllowedAttachmentType(file)) {
-            this.attachmentError =
-                'Erlaubt sind Bilder sowie PDF, DOCX und TXT.';
-            return;
-        }
-
-        if (file.size > this.maxAttachmentSizeBytes) {
-            this.attachmentError =
-                'Eine Datei ist zu groß (max. 10 MB pro Datei).';
-            return;
-        }
-
+        if (!this.isAllowedAttachmentType(file)) return this.setAttachmentError('Erlaubt sind Bilder sowie PDF, DOCX und TXT.');
+        if (file.size > this.maxAttachmentSizeBytes) return this.setAttachmentError('Eine Datei ist zu groß (max. 10 MB pro Datei).');
         this.selectedAttachments = [...this.selectedAttachments, file];
     }
 
@@ -525,19 +395,10 @@ private initializeConversationFromSnapshot(): void {
             canWrite: this.canWrite,
             ts: Date.now(),
         });
-        const user = this.activeAuthUser;
-
-        if (!user) {
-            this.errorMessage =
-                'Du bist nicht angemeldet. Bitte melde dich erneut an.';
-            return false;
+        if (!this.activeAuthUser) return this.rejectSender('Du bist nicht angemeldet. Bitte melde dich erneut an.');
+        if (this.activeAuthUser.isAnonymous || !this.currentUserId) {
+            return this.rejectSender('Als Gast kannst du keine Nachrichten senden.');
         }
-
-        if (user.isAnonymous || !this.currentUserId) {
-            this.errorMessage = 'Als Gast kannst du keine Nachrichten senden.';
-            return false;
-        }
-
         return true;
     }
 
@@ -565,14 +426,7 @@ private initializeConversationFromSnapshot(): void {
         const mentions = this.collectMentionIdsForText(text);
         return this.uploadAttachmentsForMessage(messageId).pipe(
             switchMap((attachments) =>
-                this.messageService.sendDirectMessageWithId(
-                    messageId,
-                    this.currentDirectUserId,
-                    text,
-                    this.currentUserId ?? '',
-                    mentions,
-                    attachments,
-                ),
+                this.messageService.sendDirectMessageWithId(messageId, this.currentDirectUserId, text, this.currentUserId ?? '', mentions, attachments),
             ),
         );
     }
@@ -580,24 +434,11 @@ private initializeConversationFromSnapshot(): void {
     private buildChannelSendRequest(text: string): Observable<string> {
         const messageId = this.messageService.createMessageId();
         const mentions = this.collectMentionIdsForText(text);
-        console.log('[SEND PAYLOAD]', {
-            text,
-            channelId: this.currentChannelId,
-            senderId: this.currentUserId,
-            mentionsCount: mentions.length,
-            attachmentsCount: this.selectedAttachments.length,
-            canWrite: this.canWrite,
-        });
+        this.logChannelSendPayload(text, mentions.length);
+        const channelPayload = this.createChannelMessagePayload(text, mentions);
         return this.uploadAttachmentsForMessage(messageId).pipe(
             switchMap((attachments) =>
-                this.messageService.sendMessageWithId(messageId, {
-                    text,
-                    channelId: this.currentChannelId || 'allgemein',
-                    senderId: this.currentUserId ?? '',
-                    mentions,
-                    attachments,
-                    timestamp: new Date(),
-                }),
+                this.messageService.sendMessageWithId(messageId, { ...channelPayload, attachments }),
             ),
         );
     }
@@ -670,25 +511,9 @@ private initializeConversationFromSnapshot(): void {
     }
 
     formatTimestamp(timestamp: Message['timestamp']): string {
-        if (!timestamp) {
-            return '';
-        }
-
-        if (timestamp instanceof Date) {
-            return timestamp.toLocaleTimeString('de-DE', {
-                hour: '2-digit',
-                minute: '2-digit',
-            });
-        }
-
-        if ('toDate' in timestamp && typeof timestamp.toDate === 'function') {
-            return timestamp.toDate().toLocaleTimeString('de-DE', {
-                hour: '2-digit',
-                minute: '2-digit',
-            });
-        }
-
-        return '';
+        if (!timestamp) return '';
+        const date = timestamp instanceof Date ? timestamp : this.tryToDate(timestamp);
+        return date ? this.formatTime(date) : '';
     }
 
     isOwnMessage(message: Message): boolean {
@@ -716,17 +541,12 @@ private initializeConversationFromSnapshot(): void {
     selectMention(candidate: MentionCandidate): void {
         const value = this.messageControl.value;
         const mentionStart = value.lastIndexOf('@');
-        if (mentionStart < 0) {
-            return;
-        }
-
+        if (mentionStart < 0) return;
         const before = value.slice(0, mentionStart);
         const mentionToken = `@${candidate.label} `;
-        const nextValue = `${before}${mentionToken}`;
-        this.messageControl.setValue(nextValue);
+        this.messageControl.setValue(`${before}${mentionToken}`);
         this.selectedMentions.set(candidate.id, candidate);
-        this.showMentionSuggestions = false;
-        this.mentionSuggestions = [];
+        this.hideMentionSuggestions();
     }
 
     removeMention(candidateId: string): void {
@@ -738,18 +558,8 @@ private initializeConversationFromSnapshot(): void {
     }
 
     trackMessage(index: number, message: Message): string {
-        if (message.id) {
-            return message.id;
-        }
-
-        const timestamp =
-            message.timestamp instanceof Date
-                ? message.timestamp.getTime()
-                : 'toMillis' in message.timestamp &&
-                    typeof message.timestamp.toMillis === 'function'
-                  ? message.timestamp.toMillis()
-                  : index;
-
+        if (message.id) return message.id;
+        const timestamp = this.resolveTrackTimestamp(message.timestamp, index);
         return `${message.senderId}-${timestamp}-${message.text}`;
     }
 
@@ -846,14 +656,8 @@ private initializeConversationFromSnapshot(): void {
             .getUser(this.currentDirectUserId)
             .pipe(take(1))
             .subscribe({
-                next: (user) =>
-                    (this.currentDirectUserName =
-                        user?.displayName ??
-                        preferredName ??
-                        this.currentDirectUserId),
-                error: () =>
-                    (this.currentDirectUserName =
-                        preferredName || this.currentDirectUserId),
+                next: (user) => this.applyFetchedDirectUserName(user, preferredName),
+                error: () => this.applyDirectUserFallbackName(preferredName),
             });
     }
 
@@ -907,6 +711,10 @@ private initializeConversationFromSnapshot(): void {
 
     private clearMentionSelection(): void {
         this.selectedMentions.clear();
+        this.hideMentionSuggestions();
+    }
+
+    private hideMentionSuggestions(): void {
         this.mentionSuggestions = [];
         this.showMentionSuggestions = false;
     }
@@ -958,41 +766,185 @@ private initializeConversationFromSnapshot(): void {
     }
 
     private toTimestampMillis(timestamp: Message['timestamp']): number {
-        if (timestamp instanceof Date) {
-            return timestamp.getTime();
-        }
-
-        if ('toMillis' in timestamp && typeof timestamp.toMillis === 'function') {
-            return timestamp.toMillis();
-        }
-
-        if ('toDate' in timestamp && typeof timestamp.toDate === 'function') {
-            return timestamp.toDate().getTime();
-        }
-
+        if (timestamp instanceof Date) return timestamp.getTime();
+        if ('toMillis' in timestamp && typeof timestamp.toMillis === 'function') return timestamp.toMillis();
+        if ('toDate' in timestamp && typeof timestamp.toDate === 'function') return timestamp.toDate().getTime();
         return 0;
     }
 
     private markCurrentContextAsRead(): void {
-        if (!this.currentUserId || !this.canWrite) {
-            return;
-        }
+        if (!this.currentUserId || !this.canWrite) return;
+        this.createReadMarkRequest()
+            .pipe(take(1))
+            .subscribe({ error: (error) => console.error('[READ MARK ERROR]', error) });
+    }
 
-        const request$ = this.isDirectMessage
-            ? this.unreadStateService.markDirectAsRead(
-                  this.currentUserId,
-                  this.currentDirectUserId,
-              )
-            : this.unreadStateService.markChannelAsRead(
-                  this.currentUserId,
-                  this.currentChannelId,
-              );
+    private applyDirectSnapshot(userId: string, directUserName: string): void {
+        this.isDirectMessage = true;
+        this.currentDirectUserId = userId;
+        this.currentDirectUserName = directUserName || userId;
+    }
 
-        request$.pipe(take(1)).subscribe({
-            error: (error) => {
-                console.error('[READ MARK ERROR]', error);
-            },
+    private applyChannelSnapshot(channelId: string): void {
+        this.isDirectMessage = false;
+        this.currentDirectUserId = '';
+        this.currentDirectUserName = '';
+        this.currentChannelId = channelId;
+    }
+
+    private handleAuthUserChange(incomingUser: FirebaseUser | null): void {
+        const stableUser = this.resolveStableAuthUser(incomingUser);
+        this.deferUiUpdate(() => this.applyStableAuthUser(stableUser));
+        this.logAuthEvent(incomingUser, stableUser);
+    }
+
+    private applyStableAuthUser(stableUser: FirebaseUser | null): void {
+        this.authResolved = true;
+        this.activeAuthUser = stableUser;
+        this.currentUserId = stableUser?.uid ?? null;
+        this.canWrite = !!stableUser && !stableUser.isAnonymous && !!stableUser.uid;
+        this.syncComposerState();
+        this.markCurrentContextAsRead();
+    }
+
+    private logAuthEvent(incomingUser: FirebaseUser | null, stableUser: FirebaseUser | null): void {
+        console.log('[AUTH EVENT]', {
+            uid: incomingUser?.uid ?? null,
+            anon: incomingUser?.isAnonymous ?? null,
+            stableUid: stableUser?.uid ?? null,
+            stableAnon: stableUser?.isAnonymous ?? null,
+            ts: Date.now(),
         });
+    }
+
+    private prepareMessageStreamSwitch(): void {
+        this.resetMessageStreams();
+        this.resetThreadPanel();
+    }
+
+    private createDirectLiveStream(userId: string): Observable<Message[]> {
+        return this.messageService.streamLatestDirectMessages(userId, this.pageSize);
+    }
+
+    private createChannelLiveStream(channelId: string): Observable<Message[]> {
+        return this.messageService.streamLatestChannelMessages(channelId, this.pageSize);
+    }
+
+    private canLoadOlderMessages(): boolean {
+        return !this.isLoadingMoreMessages && this.hasMoreMessages;
+    }
+
+    private stopOlderLoading(): void {
+        this.hasMoreMessages = false;
+    }
+
+    private createOlderLoader(timestamp: Message['timestamp']): Observable<Message[]> {
+        return this.isDirectMessage
+            ? this.messageService.loadOlderDirectMessages(this.currentDirectUserId, timestamp, this.pageSize)
+            : this.messageService.loadOlderChannelMessages(this.currentChannelId, timestamp, this.pageSize);
+    }
+
+    private applyOlderMessages(older: Message[]): void {
+        const normalized = this.sortMessagesByTimestamp(older);
+        this.olderMessages = this.mergeUniqueMessages(this.olderMessages, normalized);
+        this.hasMoreMessages = older.length >= this.pageSize;
+        this.isLoadingMoreMessages = false;
+        this.rebuildMessageList();
+    }
+
+    private handleOlderLoadError(error: unknown): void {
+        this.isLoadingMoreMessages = false;
+        this.handleRouteMessageError(error);
+    }
+
+    private canSendThreadMessage(): boolean {
+        return this.canWrite && !this.isDirectMessage && !!this.activeThreadParent?.id;
+    }
+
+    private onThreadSendSuccess(): void {
+        this.threadMessageControl.setValue('');
+        this.isThreadSending = false;
+    }
+
+    private onThreadSendError(error: unknown): void {
+        this.errorMessage = this.resolveSendError(error);
+        this.isThreadSending = false;
+    }
+
+    private setAttachmentError(message: string): void {
+        this.attachmentError = message;
+    }
+
+    private logChannelSendPayload(text: string, mentionsCount: number): void {
+        console.log('[SEND PAYLOAD]', {
+            text,
+            channelId: this.currentChannelId,
+            senderId: this.currentUserId,
+            mentionsCount,
+            attachmentsCount: this.selectedAttachments.length,
+            canWrite: this.canWrite,
+        });
+    }
+
+    private createReadMarkRequest(): Observable<void> {
+        return this.isDirectMessage
+            ? this.unreadStateService.markDirectAsRead(this.currentUserId!, this.currentDirectUserId)
+            : this.unreadStateService.markChannelAsRead(this.currentUserId!, this.currentChannelId);
+    }
+
+    private resolveWhenIncomingMissing(inAppArea: boolean): FirebaseUser | null {
+        if (this.shouldReuseLastRegularUser(inAppArea)) return this.lastStableUser;
+        this.lastStableUser = null;
+        return null;
+    }
+
+    private storeAndReturnUser(user: FirebaseUser): FirebaseUser {
+        this.lastStableUser = user;
+        return user;
+    }
+
+    private shouldReuseLastRegularUser(inAppArea: boolean): boolean {
+        return !!(inAppArea && this.lastStableUser && !this.lastStableUser.isAnonymous);
+    }
+
+    private rejectSender(message: string): boolean {
+        this.errorMessage = message;
+        return false;
+    }
+
+    private createChannelMessagePayload(text: string, mentions: string[]) {
+        return {
+            text,
+            channelId: this.currentChannelId || 'allgemein',
+            senderId: this.currentUserId ?? '',
+            mentions,
+            timestamp: new Date(),
+        };
+    }
+
+    private tryToDate(timestamp: Message['timestamp']): Date | null {
+        if ('toDate' in timestamp && typeof timestamp.toDate === 'function') {
+            return timestamp.toDate();
+        }
+        return null;
+    }
+
+    private formatTime(date: Date): string {
+        return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    }
+
+    private resolveTrackTimestamp(timestamp: Message['timestamp'], fallback: number): number {
+        if (timestamp instanceof Date) return timestamp.getTime();
+        if ('toMillis' in timestamp && typeof timestamp.toMillis === 'function') return timestamp.toMillis();
+        return fallback;
+    }
+
+    private applyFetchedDirectUserName(user: User | null, preferredName: string): void {
+        this.currentDirectUserName = user?.displayName ?? preferredName ?? this.currentDirectUserId;
+    }
+
+    private applyDirectUserFallbackName(preferredName: string): void {
+        this.currentDirectUserName = preferredName || this.currentDirectUserId;
     }
 
     private resetThreadPanel(): void {
