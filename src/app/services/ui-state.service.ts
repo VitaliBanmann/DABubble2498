@@ -11,6 +11,16 @@ export class UiStateService {
     // Optional: store selected thread context later (messageId, channelId)
     // readonly activeThread = signal<{ channelId: string; messageId: string } | null>(null);
 
+    readonly isNewMessageOpen = signal(false);
+
+    openNewMessage(): void {
+        this.isNewMessageOpen.set(true);
+    }
+
+    closeNewMessage(): void {
+        this.isNewMessageOpen.set(false);
+    }
+
     toggleSidebar(): void {
         this.isSidebarOpen.update((v) => !v);
     }

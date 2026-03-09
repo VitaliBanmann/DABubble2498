@@ -10,6 +10,36 @@ $purple__hover: #535af1;
     pointer-events: none;
 }
 
+.sidebar__new-chat-btn {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    padding: 0;
+    margin: 0;
+    width: 28px;
+    height: 28px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    border-radius: 6px;
+
+    &:hover {
+        background: rgba(68, 77, 242, 0.08);
+    }
+
+    &:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+    }
+}
+
+.sidebar__new-chat-icon {
+    width: 20px;
+    height: 20px;
+    display: block;
+}
+
 .sidebar__section,
 .sidebar__topsection {
     margin-top: 18px;

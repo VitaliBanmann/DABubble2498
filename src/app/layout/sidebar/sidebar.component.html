@@ -7,12 +7,17 @@
             </div>
             <button
                 type="button"
-                class="sidebar__headsection__right sidebar__new-chat-btn"
+                class="sidebar__new-chat-btn"
                 (click)="onNewMessageClick()"
                 [disabled]="!(canStartNewMessage$ | async)"
                 aria-label="Neue Nachricht"
+                title="Neue Nachricht"
             >
-                <img src="assets/pictures/new_chat.svg" alt="" />
+                <img
+                    class="sidebar__new-chat-icon"
+                    src="assets/pictures/new_chat.svg"
+                    alt=""
+                />
             </button>
         </div>
         <!-- später: Workspace Selector / Edit icon -->

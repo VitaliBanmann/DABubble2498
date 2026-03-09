@@ -20,6 +20,7 @@ import { AuthService } from '../../services/auth.service';
 import { Channel, ChannelService } from '../../services/channel.service';
 import { UnreadStateService } from '../../services/unread-state.service';
 import { User, UserService } from '../../services/user.service';
+import { UiStateService } from '../../services/ui-state.service';
 
 interface SidebarChannel {
     id: string;
@@ -86,6 +87,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
     private unreadByDirectId: Record<string, boolean> = {};
     private mentionByChannelId: Record<string, boolean> = {};
     private mentionByDirectId: Record<string, boolean> = {};
+    
 
     isChannelsSectionOpen = true;
     isDirectMessagesSectionOpen = true;
@@ -104,6 +106,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         private readonly unreadStateService: UnreadStateService,
         private readonly userService: UserService,
         private readonly router: Router,
+        private readonly ui: UiStateService,
     ) {}
 
     ngOnInit(): void {
@@ -146,14 +149,12 @@ export class SidebarComponent implements OnInit, OnDestroy {
                 .pipe(
                     withLatestFrom(this.canStartNewMessage$),
                     filter(([, canStart]) => canStart),
-                    switchMap(() =>
-                        from(
-                            this.router.navigate(['/app/channel/allgemein'], {
-                                queryParams: { compose: '1' },
-                                queryParamsHandling: 'merge',
-                            }),
-                        ),
-                    ),
+                    switchMap(() => {
+                        this.ui.openNewMessage();
+                        return from(
+                            this.router.navigate(['/app/channel/allgemein']),
+                        );
+                    }),
                 )
                 .subscribe(),
         );
@@ -282,12 +283,17 @@ export class SidebarComponent implements OnInit, OnDestroy {
     }
 
     openChannel(channelId: string): void {
+        this.ui.closeNewMessage();
         this.activeChannelId = channelId;
         this.activeDirectMessageId = null;
-        void this.router.navigateByUrl(`/app/channel/${channelId}`);
+        void this.router.navigate(['/app/channel', channelId], {
+            queryParams: { compose: null },
+            queryParamsHandling: 'merge',
+        });
     }
 
     openDirectMessage(member: SidebarDirectMessage): void {
+        this.ui.closeNewMessage();
         const userId = member.id;
         if (!userId) {
             return;
@@ -299,7 +305,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
         void this.router.navigate(['/app/dm', userId], {
             queryParams: {
                 name: this.normalizeDirectMessageLabel(member.label),
+                compose: null,
             },
+            queryParamsHandling: 'merge',
         });
     }
 

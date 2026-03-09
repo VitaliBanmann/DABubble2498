@@ -44,6 +44,11 @@ export class HomeComponent implements OnInit, OnDestroy {
         allgemein: 'Allgemein',
         entwicklerteam: 'Entwicklerteam',
     };
+    readonly composeTargetControl = new FormControl('', { nonNullable: true });
+
+    get isComposeMode(): boolean {
+        return this.ui.isNewMessageOpen();
+    }
 
     currentChannelId = 'allgemein';
     currentDirectUserId = '';
@@ -111,14 +116,18 @@ export class HomeComponent implements OnInit, OnDestroy {
     private initializeConversationFromSnapshot(): void {
         const params = this.route.snapshot.paramMap;
         const directUserId = params.get('userId') ?? '';
-        const directUserName = this.route.snapshot.queryParamMap.get('name')?.trim() ?? '';
-        if (directUserId) return this.applyDirectSnapshot(directUserId, directUserName);
+        const directUserName =
+            this.route.snapshot.queryParamMap.get('name')?.trim() ?? '';
+        if (directUserId)
+            return this.applyDirectSnapshot(directUserId, directUserName);
         this.applyChannelSnapshot(params.get('channelId') ?? 'allgemein');
     }
 
     private subscribeToAuth(): void {
         this.subscription.add(
-            this.authService.currentUser$.subscribe((incomingUser) => this.handleAuthUserChange(incomingUser)),
+            this.authService.currentUser$.subscribe((incomingUser) =>
+                this.handleAuthUserChange(incomingUser),
+            ),
         );
     }
 
@@ -136,8 +145,10 @@ export class HomeComponent implements OnInit, OnDestroy {
     ): FirebaseUser | null {
         const inAppArea = this.router.url.startsWith('/app');
         if (!incomingUser) return this.resolveWhenIncomingMissing(inAppArea);
-        if (!incomingUser.isAnonymous) return this.storeAndReturnUser(incomingUser);
-        if (this.shouldReuseLastRegularUser(inAppArea)) return this.lastStableUser;
+        if (!incomingUser.isAnonymous)
+            return this.storeAndReturnUser(incomingUser);
+        if (this.shouldReuseLastRegularUser(inAppArea))
+            return this.lastStableUser;
         return this.storeAndReturnUser(incomingUser);
     }
 
@@ -165,8 +176,12 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     private subscribeToRouteMessages(): void {
         this.subscription.add(
-            combineLatest([this.authService.currentUser$, this.route.paramMap]).subscribe({
-                next: ([user, params]) => this.handleRouteMessageContext(user, params),
+            combineLatest([
+                this.authService.currentUser$,
+                this.route.paramMap,
+            ]).subscribe({
+                next: ([user, params]) =>
+                    this.handleRouteMessageContext(user, params),
                 error: (error) => this.handleRouteMessageError(error),
             }),
         );
@@ -179,8 +194,10 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     private resolveLoadErrorMessage(error: unknown): string {
         const code = this.extractFirebaseErrorCode(error);
-        if (code === 'permission-denied') return 'Nachrichten konnten nicht geladen werden (Rechteproblem).';
-        if (code === 'failed-precondition') return 'Nachrichten konnten nicht geladen werden (Index fehlt/noch im Aufbau).';
+        if (code === 'permission-denied')
+            return 'Nachrichten konnten nicht geladen werden (Rechteproblem).';
+        if (code === 'failed-precondition')
+            return 'Nachrichten konnten nicht geladen werden (Index fehlt/noch im Aufbau).';
         return 'Nachrichten konnten nicht geladen werden.';
     }
 
@@ -216,10 +233,84 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.setupChannelMessages(params);
     }
 
+    async onComposeTargetSubmit(): Promise<void> {
+    const raw = this.composeTargetControl.value.trim();
+    if (!raw) {
+        this.errorMessage = 'Bitte gib ein Ziel ein (#channel, @user oder E-Mail).';
+        return;
+    }
+
+    const channelId = this.resolveChannelTarget(raw);
+    if (channelId) {
+        this.ui.closeNewMessage();
+        this.composeTargetControl.setValue('');
+        await this.router.navigate(['/app/channel', channelId]);
+        return;
+    }
+
+    const user = this.resolveDirectTarget(raw);
+    if (user?.id) {
+        if (user.id === this.currentUserId) {
+            this.errorMessage = 'Direktnachricht an dich selbst ist nicht nötig.';
+            return;
+        }
+
+        this.ui.closeNewMessage();
+        this.composeTargetControl.setValue('');
+        await this.router.navigate(['/app/dm', user.id], {
+            queryParams: { name: user.displayName },
+        });
+        return;
+    }
+
+    this.errorMessage = 'Ziel nicht gefunden. Nutze #channel, @Name oder E-Mail.';
+    
+}
+
+private resolveChannelTarget(input: string): string | null {
+    const token = input.replace(/^#/, '').trim().toLowerCase();
+    if (!token) return null;
+
+    const channelById = Object.keys(this.channelNames).find(
+        (id) => id.toLowerCase() === token,
+    );
+    if (channelById) return channelById;
+
+    const channelByLabel = Object.entries(this.channelNames).find(
+        ([, label]) => label.toLowerCase() === token,
+    );
+    return channelByLabel?.[0] ?? null;
+}
+
+private resolveDirectTarget(input: string): User | null {
+    const token = input.replace(/^@/, '').trim().toLowerCase();
+    if (!token) return null;
+
+    const allUsers = Object.values(this.usersById);
+
+    const byEmail = allUsers.find(
+        (u) => (u.email ?? '').trim().toLowerCase() === token,
+    );
+    if (byEmail) return byEmail;
+
+    const byExactName = allUsers.find(
+        (u) => (u.displayName ?? '').trim().toLowerCase() === token,
+    );
+    if (byExactName) return byExactName;
+
+    const byPartialName = allUsers.find((u) =>
+        (u.displayName ?? '').trim().toLowerCase().includes(token),
+    );
+    return byPartialName ?? null;
+}
+
     private setupDirectMessages(userId: string, name: string): void {
+        this.ui.closeNewMessage();
         this.applyDirectSnapshot(userId, name);
         this.prepareMessageStreamSwitch();
-        this.liveMessagesSubscription = this.createDirectLiveStream(userId).subscribe({
+        this.liveMessagesSubscription = this.createDirectLiveStream(
+            userId,
+        ).subscribe({
             next: (messages) => this.applyLiveMessages(messages),
             error: (error) => this.handleRouteMessageError(error),
         });
@@ -227,9 +318,12 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     private setupChannelMessages(params: ParamMap): void {
+        this.ui.closeNewMessage();
         this.applyChannelSnapshot(params.get('channelId') ?? 'allgemein');
         this.prepareMessageStreamSwitch();
-        this.liveMessagesSubscription = this.createChannelLiveStream(this.currentChannelId).subscribe({
+        this.liveMessagesSubscription = this.createChannelLiveStream(
+            this.currentChannelId,
+        ).subscribe({
             next: (messages) => this.applyLiveMessages(messages),
             error: (error) => this.handleRouteMessageError(error),
         });
@@ -314,8 +408,15 @@ export class HomeComponent implements OnInit, OnDestroy {
         if (!text) return;
         this.isThreadSending = true;
         this.messageService
-            .sendChannelThreadMessage(this.activeThreadParent!.id!, text, this.currentUserId ?? '')
-            .subscribe({ next: () => this.onThreadSendSuccess(), error: (error) => this.onThreadSendError(error) });
+            .sendChannelThreadMessage(
+                this.activeThreadParent!.id!,
+                text,
+                this.currentUserId ?? '',
+            )
+            .subscribe({
+                next: () => this.onThreadSendSuccess(),
+                error: (error) => this.onThreadSendError(error),
+            });
     }
 
     async logout(): Promise<void> {
@@ -338,7 +439,10 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     private prepareSendRequest(): Observable<string> | null {
         const text = this.readMessageText();
-        if ((!text && !this.selectedAttachments.length) || !this.validateSender()) {
+        if (
+            (!text && !this.selectedAttachments.length) ||
+            !this.validateSender()
+        ) {
             return null;
         }
 
@@ -376,8 +480,14 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     private addAttachmentIfValid(file: File): void {
-        if (!this.isAllowedAttachmentType(file)) return this.setAttachmentError('Erlaubt sind Bilder sowie PDF, DOCX und TXT.');
-        if (file.size > this.maxAttachmentSizeBytes) return this.setAttachmentError('Eine Datei ist zu groß (max. 10 MB pro Datei).');
+        if (!this.isAllowedAttachmentType(file))
+            return this.setAttachmentError(
+                'Erlaubt sind Bilder sowie PDF, DOCX und TXT.',
+            );
+        if (file.size > this.maxAttachmentSizeBytes)
+            return this.setAttachmentError(
+                'Eine Datei ist zu groß (max. 10 MB pro Datei).',
+            );
         this.selectedAttachments = [...this.selectedAttachments, file];
     }
 
@@ -408,9 +518,14 @@ export class HomeComponent implements OnInit, OnDestroy {
             canWrite: this.canWrite,
             ts: Date.now(),
         });
-        if (!this.activeAuthUser) return this.rejectSender('Du bist nicht angemeldet. Bitte melde dich erneut an.');
+        if (!this.activeAuthUser)
+            return this.rejectSender(
+                'Du bist nicht angemeldet. Bitte melde dich erneut an.',
+            );
         if (this.activeAuthUser.isAnonymous || !this.currentUserId) {
-            return this.rejectSender('Als Gast kannst du keine Nachrichten senden.');
+            return this.rejectSender(
+                'Als Gast kannst du keine Nachrichten senden.',
+            );
         }
         return true;
     }
@@ -439,7 +554,14 @@ export class HomeComponent implements OnInit, OnDestroy {
         const mentions = this.collectMentionIdsForText(text);
         return this.uploadAttachmentsForMessage(messageId).pipe(
             switchMap((attachments) =>
-                this.messageService.sendDirectMessageWithId(messageId, this.currentDirectUserId, text, this.currentUserId ?? '', mentions, attachments),
+                this.messageService.sendDirectMessageWithId(
+                    messageId,
+                    this.currentDirectUserId,
+                    text,
+                    this.currentUserId ?? '',
+                    mentions,
+                    attachments,
+                ),
             ),
         );
     }
@@ -451,7 +573,10 @@ export class HomeComponent implements OnInit, OnDestroy {
         const channelPayload = this.createChannelMessagePayload(text, mentions);
         return this.uploadAttachmentsForMessage(messageId).pipe(
             switchMap((attachments) =>
-                this.messageService.sendMessageWithId(messageId, { ...channelPayload, attachments }),
+                this.messageService.sendMessageWithId(messageId, {
+                    ...channelPayload,
+                    attachments,
+                }),
             ),
         );
     }
@@ -525,7 +650,8 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     formatTimestamp(timestamp: Message['timestamp']): string {
         if (!timestamp) return '';
-        const date = timestamp instanceof Date ? timestamp : this.tryToDate(timestamp);
+        const date =
+            timestamp instanceof Date ? timestamp : this.tryToDate(timestamp);
         return date ? this.formatTime(date) : '';
     }
 
@@ -669,7 +795,8 @@ export class HomeComponent implements OnInit, OnDestroy {
             .getUser(this.currentDirectUserId)
             .pipe(take(1))
             .subscribe({
-                next: (user) => this.applyFetchedDirectUserName(user, preferredName),
+                next: (user) =>
+                    this.applyFetchedDirectUserName(user, preferredName),
                 error: () => this.applyDirectUserFallbackName(preferredName),
             });
     }
@@ -735,14 +862,16 @@ export class HomeComponent implements OnInit, OnDestroy {
     private subscribeToThreadMessages(parentMessageId: string): void {
         this.threadSubscription?.unsubscribe();
         this.threadMessages = [];
-        this.threadSubscription =
-            this.messageService.getChannelThreadMessages(parentMessageId).subscribe({
+        this.threadSubscription = this.messageService
+            .getChannelThreadMessages(parentMessageId)
+            .subscribe({
                 next: (messages) => {
                     this.threadMessages = messages;
                 },
                 error: (error) => {
                     console.error('[THREAD READ ERROR]', error);
-                    this.errorMessage = 'Thread-Nachrichten konnten nicht geladen werden.';
+                    this.errorMessage =
+                        'Thread-Nachrichten konnten nicht geladen werden.';
                 },
             });
     }
@@ -760,7 +889,10 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.attachmentError = '';
     }
 
-    private mergeUniqueMessages(first: Message[], second: Message[]): Message[] {
+    private mergeUniqueMessages(
+        first: Message[],
+        second: Message[],
+    ): Message[] {
         const merged = new Map<string, Message>();
         [...first, ...second].forEach((message, index) => {
             const key = message.id ?? this.trackMessage(index, message);
@@ -780,8 +912,10 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     private toTimestampMillis(timestamp: Message['timestamp']): number {
         if (timestamp instanceof Date) return timestamp.getTime();
-        if ('toMillis' in timestamp && typeof timestamp.toMillis === 'function') return timestamp.toMillis();
-        if ('toDate' in timestamp && typeof timestamp.toDate === 'function') return timestamp.toDate().getTime();
+        if ('toMillis' in timestamp && typeof timestamp.toMillis === 'function')
+            return timestamp.toMillis();
+        if ('toDate' in timestamp && typeof timestamp.toDate === 'function')
+            return timestamp.toDate().getTime();
         return 0;
     }
 
@@ -789,7 +923,9 @@ export class HomeComponent implements OnInit, OnDestroy {
         if (!this.currentUserId || !this.canWrite) return;
         this.createReadMarkRequest()
             .pipe(take(1))
-            .subscribe({ error: (error) => console.error('[READ MARK ERROR]', error) });
+            .subscribe({
+                error: (error) => console.error('[READ MARK ERROR]', error),
+            });
     }
 
     private applyDirectSnapshot(userId: string, directUserName: string): void {
@@ -815,12 +951,16 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.authResolved = true;
         this.activeAuthUser = stableUser;
         this.currentUserId = stableUser?.uid ?? null;
-        this.canWrite = !!stableUser && !stableUser.isAnonymous && !!stableUser.uid;
+        this.canWrite =
+            !!stableUser && !stableUser.isAnonymous && !!stableUser.uid;
         this.syncComposerState();
         this.markCurrentContextAsRead();
     }
 
-    private logAuthEvent(incomingUser: FirebaseUser | null, stableUser: FirebaseUser | null): void {
+    private logAuthEvent(
+        incomingUser: FirebaseUser | null,
+        stableUser: FirebaseUser | null,
+    ): void {
         console.log('[AUTH EVENT]', {
             uid: incomingUser?.uid ?? null,
             anon: incomingUser?.isAnonymous ?? null,
@@ -836,11 +976,17 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     private createDirectLiveStream(userId: string): Observable<Message[]> {
-        return this.messageService.streamLatestDirectMessages(userId, this.pageSize);
+        return this.messageService.streamLatestDirectMessages(
+            userId,
+            this.pageSize,
+        );
     }
 
     private createChannelLiveStream(channelId: string): Observable<Message[]> {
-        return this.messageService.streamLatestChannelMessages(channelId, this.pageSize);
+        return this.messageService.streamLatestChannelMessages(
+            channelId,
+            this.pageSize,
+        );
     }
 
     private canLoadOlderMessages(): boolean {
@@ -851,15 +997,28 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.hasMoreMessages = false;
     }
 
-    private createOlderLoader(timestamp: Message['timestamp']): Observable<Message[]> {
+    private createOlderLoader(
+        timestamp: Message['timestamp'],
+    ): Observable<Message[]> {
         return this.isDirectMessage
-            ? this.messageService.loadOlderDirectMessages(this.currentDirectUserId, timestamp, this.pageSize)
-            : this.messageService.loadOlderChannelMessages(this.currentChannelId, timestamp, this.pageSize);
+            ? this.messageService.loadOlderDirectMessages(
+                  this.currentDirectUserId,
+                  timestamp,
+                  this.pageSize,
+              )
+            : this.messageService.loadOlderChannelMessages(
+                  this.currentChannelId,
+                  timestamp,
+                  this.pageSize,
+              );
     }
 
     private applyOlderMessages(older: Message[]): void {
         const normalized = this.sortMessagesByTimestamp(older);
-        this.olderMessages = this.mergeUniqueMessages(this.olderMessages, normalized);
+        this.olderMessages = this.mergeUniqueMessages(
+            this.olderMessages,
+            normalized,
+        );
         this.hasMoreMessages = older.length >= this.pageSize;
         this.isLoadingMoreMessages = false;
         this.rebuildMessageList();
@@ -871,7 +1030,11 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     private canSendThreadMessage(): boolean {
-        return this.canWrite && !this.isDirectMessage && !!this.activeThreadParent?.id;
+        return (
+            this.canWrite &&
+            !this.isDirectMessage &&
+            !!this.activeThreadParent?.id
+        );
     }
 
     private onThreadSendSuccess(): void {
@@ -901,12 +1064,21 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     private createReadMarkRequest(): Observable<void> {
         return this.isDirectMessage
-            ? this.unreadStateService.markDirectAsRead(this.currentUserId!, this.currentDirectUserId)
-            : this.unreadStateService.markChannelAsRead(this.currentUserId!, this.currentChannelId);
+            ? this.unreadStateService.markDirectAsRead(
+                  this.currentUserId!,
+                  this.currentDirectUserId,
+              )
+            : this.unreadStateService.markChannelAsRead(
+                  this.currentUserId!,
+                  this.currentChannelId,
+              );
     }
 
-    private resolveWhenIncomingMissing(inAppArea: boolean): FirebaseUser | null {
-        if (this.shouldReuseLastRegularUser(inAppArea)) return this.lastStableUser;
+    private resolveWhenIncomingMissing(
+        inAppArea: boolean,
+    ): FirebaseUser | null {
+        if (this.shouldReuseLastRegularUser(inAppArea))
+            return this.lastStableUser;
         this.lastStableUser = null;
         return null;
     }
@@ -917,7 +1089,11 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     private shouldReuseLastRegularUser(inAppArea: boolean): boolean {
-        return !!(inAppArea && this.lastStableUser && !this.lastStableUser.isAnonymous);
+        return !!(
+            inAppArea &&
+            this.lastStableUser &&
+            !this.lastStableUser.isAnonymous
+        );
     }
 
     private rejectSender(message: string): boolean {
@@ -943,17 +1119,28 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     private formatTime(date: Date): string {
-        return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+        return date.toLocaleTimeString('de-DE', {
+            hour: '2-digit',
+            minute: '2-digit',
+        });
     }
 
-    private resolveTrackTimestamp(timestamp: Message['timestamp'], fallback: number): number {
+    private resolveTrackTimestamp(
+        timestamp: Message['timestamp'],
+        fallback: number,
+    ): number {
         if (timestamp instanceof Date) return timestamp.getTime();
-        if ('toMillis' in timestamp && typeof timestamp.toMillis === 'function') return timestamp.toMillis();
+        if ('toMillis' in timestamp && typeof timestamp.toMillis === 'function')
+            return timestamp.toMillis();
         return fallback;
     }
 
-    private applyFetchedDirectUserName(user: User | null, preferredName: string): void {
-        this.currentDirectUserName = user?.displayName ?? preferredName ?? this.currentDirectUserId;
+    private applyFetchedDirectUserName(
+        user: User | null,
+        preferredName: string,
+    ): void {
+        this.currentDirectUserName =
+            user?.displayName ?? preferredName ?? this.currentDirectUserId;
     }
 
     private applyDirectUserFallbackName(preferredName: string): void {

@@ -4,17 +4,31 @@
             <div>
                 <h1>
                     {{
-                        isDirectMessage
-                            ? "@ " + currentConversationTitle
-                            : "# " + currentConversationTitle
+                        isComposeMode
+                            ? "Neue Nachricht"
+                            : isDirectMessage
+                              ? "@ " + currentConversationTitle
+                              : "# " + currentConversationTitle
                     }}
                 </h1>
-                <p>
-                    {{ isDirectMessage ? "Direktnachricht" : "Channel" }}
-                </p>
+                
             </div>
-        </header>
 
+            @if (isComposeMode) {
+                <form
+                    class="compose-target"
+                    (ngSubmit)="onComposeTargetSubmit()"
+                >
+                    <input
+                        type="text"
+                        [formControl]="composeTargetControl"
+                        placeholder="An: #channel, @jemand oder E-Mail-Adresse"
+                    />
+                    <button type="submit">Öffnen</button>
+                </form>
+            }
+        </header>
+@if (!isComposeMode) {
         <section class="message-list" aria-label="Nachrichtenliste">
             @if (hasMoreMessages) {
                 <button
@@ -32,7 +46,9 @@
             }
 
             @if (!messages.length) {
-                <p class="empty-state">Noch keine Nachrichten in diesem Channel.</p>
+                <p class="empty-state">
+                    Noch keine Nachrichten in diesem Channel.
+                </p>
             }
 
             @for (message of messages; track trackMessage($index, message)) {
@@ -53,7 +69,10 @@
 
                     @if (message.attachments?.length) {
                         <div class="message-attachments">
-                            @for (attachment of message.attachments; track attachment.path) {
+                            @for (
+                                attachment of message.attachments;
+                                track attachment.path
+                            ) {
                                 <a
                                     class="attachment-item"
                                     [href]="attachment.url"
@@ -68,8 +87,12 @@
                                             loading="lazy"
                                         />
                                     }
-                                    <span class="attachment-name">{{ attachment.name }}</span>
-                                    <span class="attachment-download">Download</span>
+                                    <span class="attachment-name">{{
+                                        attachment.name
+                                    }}</span>
+                                    <span class="attachment-download"
+                                        >Download</span
+                                    >
                                 </a>
                             }
                         </div>
@@ -99,7 +122,9 @@
                                 <button
                                     type="button"
                                     class="reaction"
-                                    [class.active]="hasCurrentUserReacted(reaction)"
+                                    [class.active]="
+                                        hasCurrentUserReacted(reaction)
+                                    "
                                     (click)="
                                         toggleReaction(message, reaction.emoji)
                                     "
@@ -131,7 +156,7 @@
                 </article>
             }
         </section>
-
+    }
         <form class="composer" novalidate (ngSubmit)="sendMessage()">
             <div class="composer-tools">
                 <label class="attach-btn" for="message-attachment-input">
@@ -148,7 +173,10 @@
 
             @if (selectedMentionsList().length) {
                 <div class="mention-chip-list">
-                    @for (candidate of selectedMentionsList(); track candidate.id) {
+                    @for (
+                        candidate of selectedMentionsList();
+                        track candidate.id
+                    ) {
                         <button
                             type="button"
                             class="mention-chip"
@@ -162,7 +190,10 @@
 
             @if (selectedAttachments.length) {
                 <div class="attachment-chip-list">
-                    @for (attachment of selectedAttachments; track attachment.name + '-' + $index) {
+                    @for (
+                        attachment of selectedAttachments;
+                        track attachment.name + "-" + $index
+                    ) {
                         <button
                             type="button"
                             class="attachment-chip"
@@ -230,7 +261,11 @@
                     <h2>Thread</h2>
                     <p>{{ activeThreadTitle }}</p>
                 </div>
-                <button type="button" class="thread-panel__close" (click)="closeThread()">
+                <button
+                    type="button"
+                    class="thread-panel__close"
+                    (click)="closeThread()"
+                >
                     Schließen
                 </button>
             </header>
@@ -240,11 +275,18 @@
                     <p class="empty-state">Noch keine Antworten im Thread.</p>
                 }
 
-                @for (threadMessage of threadMessages; track trackThreadMessage($index, threadMessage)) {
+                @for (
+                    threadMessage of threadMessages;
+                    track trackThreadMessage($index, threadMessage)
+                ) {
                     <article class="thread-message">
                         <div class="message__meta">
-                            <span>{{ getThreadSenderLabel(threadMessage) }}</span>
-                            <span>{{ formatTimestamp(threadMessage.timestamp) }}</span>
+                            <span>{{
+                                getThreadSenderLabel(threadMessage)
+                            }}</span>
+                            <span>{{
+                                formatTimestamp(threadMessage.timestamp)
+                            }}</span>
                         </div>
                         <p>{{ threadMessage.text }}</p>
                     </article>
@@ -264,7 +306,11 @@
                 <button
                     type="button"
                     (click)="sendThreadMessage()"
-                    [disabled]="isThreadSending || !threadMessageControl.value.trim() || !canWrite"
+                    [disabled]="
+                        isThreadSending ||
+                        !threadMessageControl.value.trim() ||
+                        !canWrite
+                    "
                 >
                     {{ isThreadSending ? "Sende..." : "Antworten" }}
                 </button>
