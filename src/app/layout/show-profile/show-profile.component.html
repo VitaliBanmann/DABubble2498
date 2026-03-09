@@ -3,15 +3,15 @@
         <h2 class="show-profile__title">
             @if (isEditing) { Dein Profil bearbeiten } @else { Profil }
         </h2>
-        <button
-            type="button"
-            class="show-profile__close"
-            aria-label="Profil schließen"
-            (click)="onClose()"
-        >
-            <img src="assets/pictures/close.svg" alt="" />
-        </button>
-    </header>
+	        <button
+	            type="button"
+	            class="show-profile__close"
+	            aria-label="Profil schließen"
+	            (click)="requestClose()"
+	        >
+	            <img src="assets/pictures/close.svg" alt="" />
+	        </button>
+	    </header>
 
     <div class="show-profile__avatar">
         @if (avatarUrl) {
@@ -25,16 +25,16 @@
 
     @if (!isEditing) {
         <div class="show-profile__changes_container">
-            <div class="show-profile__name-row">
-                <h3 class="show-profile__name">{{ displayName }}</h3>
-                <button
-                    type="button"
-                    class="show-profile__edit"
-                    (click)="startEdit()"
-                >
-                    Bearbeiten
-                </button>
-            </div>
+	            <div class="show-profile__name-row">
+	                <h3 class="show-profile__name">{{ displayName }}</h3>
+	                <button
+	                    type="button"
+	                    class="show-profile__edit"
+	                    (click)="enterEditMode()"
+	                >
+	                    Bearbeiten
+	                </button>
+	            </div>
 
             <div class="show-profile__status">
                 <img
@@ -72,33 +72,33 @@
             </div>
 
             <div class="show-profile__edit-input">
-                <input
-                    type="text"
-                    [value]="editDisplayName"
-                    (input)="onEditNameInput(($any($event.target)).value)"
-                    autocomplete="name"
-                    [disabled]="isSaving"
-                />
-            </div>
+	                <input
+	                    type="text"
+	                    [value]="editDisplayName"
+	                    (input)="updateEditNameDraft(($any($event.target)).value)"
+	                    autocomplete="name"
+	                    [disabled]="isSaving"
+	                />
+	            </div>
 
             <div class="show-profile__edit-actions">
-                <button
-                    class="show-profile__action show-profile__action--cancel"
-                    type="button"
-                    (click)="cancelEdit()"
-                    [disabled]="isSaving"
-                >
-                    Abbrechen
-                </button>
-                <button
-                    class="show-profile__action show-profile__action--save"
-                    type="button"
-                    (click)="saveEdit()"
-                    [disabled]="isSaving || !editDisplayName.trim()"
-                >
-                    Speichern
-                </button>
-            </div>
-        </form>
-    }
+	                <button
+	                    class="show-profile__action show-profile__action--cancel"
+	                    type="button"
+	                    (click)="exitEditMode()"
+	                    [disabled]="isSaving"
+	                >
+	                    Abbrechen
+	                </button>
+	                <button
+	                    class="show-profile__action show-profile__action--save"
+	                    type="button"
+	                    (click)="saveDisplayNameEdit()"
+	                    [disabled]="isSaving || !editDisplayName.trim()"
+	                >
+	                    Speichern
+	                </button>
+	            </div>
+	        </form>
+	    }
 </section>

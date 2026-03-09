@@ -11,6 +11,12 @@ import { Subscription, catchError, map, of, startWith, switchMap } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { UserService } from '../../services/user.service';
 
+interface ResolvedProfileView {
+    displayName: string;
+    email: string;
+    avatarUrl: string | null;
+}
+
 @Component({
     selector: 'app-show-profile',
     standalone: true,
@@ -31,6 +37,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
     isSaving = false;
 
     private readonly subscription = new Subscription();
+    private readonly profileEmailKeys = ['email', 'mail', 'emailAddress', 'eMail'] as const;
 
     constructor(
         private readonly authService: AuthService,
@@ -39,110 +46,36 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
     ) {}
 
     ngOnInit(): void {
-        this.applyInitialValues();
-
-        this.subscription.add(
-            this.authService.currentUser$
-                .pipe(
-                    switchMap((user) => {
-                        if (!user || user.isAnonymous) {
-                            this.displayName = 'Gast';
-                            this.email = '';
-                            this.avatarUrl = null;
-                            return of(null);
-                        }
-
-                        return this.userService
-                            .getUserProfileRealtime(user.uid, user.email ?? '')
-                            .pipe(
-                                startWith(null),
-                                catchError(() => of(null)),
-                                map((profile) => ({ user, profile })),
-                            );
-                    }),
-                )
-                .subscribe((data) => {
-                    if (!data) {
-                        return;
-                    }
-
-                    const { user, profile } = data;
-
-                    const seededName = this.initialDisplayName.trim();
-                    const resolvedName =
-                        profile?.displayName?.trim() ||
-                        seededName ||
-                        user.displayName?.trim() ||
-                        user.email?.split('@')[0] ||
-                        'Gast';
-
-                    const seededEmail = this.initialEmail.trim();
-                    const resolvedEmail =
-                        this.resolveProfileEmail(profile ?? {}) ||
-                        seededEmail ||
-                        user.email ||
-                        '';
-
-                    const resolvedAvatar =
-                        this.resolveAvatarUrl(profile?.avatar ?? '') ||
-                        this.resolveAvatarUrl(this.initialAvatarUrl ?? '') ||
-                        this.resolveAvatarUrl(user.photoURL ?? '');
-
-                    this.displayName = resolvedName;
-                    this.email = resolvedEmail;
-                    this.avatarUrl = resolvedAvatar;
-                }),
-        );
+        this.seedViewFromInputs();
+        this.subscribeToProfileUpdates();
     }
 
     ngOnDestroy(): void {
         this.subscription.unsubscribe();
     }
 
-    onClose(): void {
+    requestClose(): void {
         this.close.emit();
     }
 
-    startEdit(): void {
+    enterEditMode(): void {
         this.isEditing = true;
         this.editDisplayName = this.displayName;
     }
 
-    cancelEdit(): void {
+    exitEditMode(): void {
         this.isEditing = false;
     }
 
-    async saveEdit(): Promise<void> {
+    async saveDisplayNameEdit(): Promise<void> {
         const nextName = this.editDisplayName.trim();
-        if (!nextName || this.isSaving) {
-            return;
-        }
-
-        // UI sofort zurück zur normalen Ansicht schalten (Saving machen wir im Hintergrund).
-        this.zone.run(() => {
-            this.displayName = nextName;
-            this.isEditing = false;
-            this.isSaving = true;
-        });
-
-        try {
-            await this.userService.updateCurrentUserProfile({
-                displayName: nextName,
-            });
-        } catch (error) {
-            console.error('Profil speichern fehlgeschlagen:', error);
-            // Optional: zurück in den Bearbeiten-Modus, wenn Speichern fehlschlägt
-            this.zone.run(() => {
-                this.isEditing = true;
-            });
-        } finally {
-            this.zone.run(() => {
-                this.isSaving = false;
-            });
-        }
+        if (!this.isSaveAllowed(nextName)) return;
+        this.applyOptimisticNameAndStartSaving(nextName);
+        await this.persistDisplayNameOrRestoreEdit(nextName);
+        this.setSavingFlag(false);
     }
 
-    onEditNameInput(value: string): void {
+    updateEditNameDraft(value: string): void {
         this.editDisplayName = value;
     }
 
@@ -160,54 +93,152 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         return parts[0][0].toUpperCase();
     }
 
-    private applyInitialValues(): void {
-        const seededName = this.initialDisplayName.trim();
-        const seededEmail = this.initialEmail.trim();
-        const seededAvatar = this.resolveAvatarUrl(this.initialAvatarUrl ?? '');
-
-        if (seededName) {
-            this.displayName = seededName;
-        }
-
-        if (seededEmail) {
-            this.email = seededEmail;
-        }
-
-        if (seededAvatar) {
-            this.avatarUrl = seededAvatar;
-        }
-    }
-
-    private resolveProfileEmail(profile: Record<string, unknown>): string {
-        const candidates = [
-            profile['email'],
-            profile['mail'],
-            profile['emailAddress'],
-            profile['eMail'],
-        ];
-
-        const firstEmail = candidates.find(
-            (value) => typeof value === 'string' && value.trim().length > 0,
+    private subscribeToProfileUpdates(): void {
+        const stream$ = this.authService.currentUser$.pipe(
+            switchMap((user) => this.buildViewStreamForUser(user)),
         );
-
-        return typeof firstEmail === 'string' ? firstEmail.trim() : '';
+        this.subscription.add(stream$.subscribe((view) => this.applyResolvedView(view)));
     }
 
-    private resolveAvatarUrl(avatar: string): string | null {
-        const trimmed = avatar.trim();
-        if (!trimmed) {
-            return null;
-        }
+    private buildViewStreamForUser(user: any) {
+        if (!user || user.isAnonymous) return of(this.createGuestView());
+        return this.userService.getUserProfileRealtime(user.uid, user.email ?? '').pipe(
+            startWith(null),
+            catchError(() => of(null)),
+            map((profile) => this.resolveViewFromProfile(user, profile)),
+        );
+    }
 
-        if (
-            trimmed.startsWith('data:image/') ||
-            trimmed.startsWith('http://') ||
-            trimmed.startsWith('https://') ||
-            trimmed.startsWith('assets/')
-        ) {
-            return trimmed;
-        }
+    private applyResolvedView(view: ResolvedProfileView): void {
+        this.displayName = view.displayName;
+        this.email = view.email;
+        this.avatarUrl = view.avatarUrl;
+    }
 
+    private resolveViewFromProfile(user: any, profile: any): ResolvedProfileView {
+        return {
+            displayName: this.resolveDisplayName(user, profile),
+            email: this.resolveEmail(user, profile),
+            avatarUrl: this.resolveAvatar(user, profile),
+        };
+    }
+
+    private resolveDisplayName(user: any, profile: any): string {
+        return this.firstNonEmptyString(
+            profile?.displayName,
+            this.initialDisplayName,
+            user?.displayName,
+            user?.email?.split('@')[0],
+            'Gast',
+        );
+    }
+
+    private resolveEmail(user: any, profile: any): string {
+        return this.firstNonEmptyString(
+            this.extractProfileEmail(profile),
+            this.initialEmail,
+            user?.email,
+            '',
+        );
+    }
+
+    private resolveAvatar(user: any, profile: any): string | null {
+        return (
+            this.normalizeAvatarUrl(profile?.avatar) ||
+            this.normalizeAvatarUrl(this.initialAvatarUrl) ||
+            this.normalizeAvatarUrl(user?.photoURL)
+        );
+    }
+
+    private seedViewFromInputs(): void {
+        this.applySeededDisplayName(this.initialDisplayName);
+        this.applySeededEmail(this.initialEmail);
+        this.applySeededAvatar(this.initialAvatarUrl);
+    }
+
+    private applySeededDisplayName(value: string): void {
+        const next = value.trim();
+        if (next) this.displayName = next;
+    }
+
+    private applySeededEmail(value: string): void {
+        const next = value.trim();
+        if (next) this.email = next;
+    }
+
+    private applySeededAvatar(value: string | null): void {
+        const next = this.normalizeAvatarUrl(value);
+        if (next) this.avatarUrl = next;
+    }
+
+    private extractProfileEmail(profile: Record<string, unknown> | null): string {
+        if (!profile) return '';
+        for (const key of this.profileEmailKeys) {
+            const value = profile[key];
+            const email = typeof value === 'string' ? value.trim() : '';
+            if (email) return email;
+        }
+        return '';
+    }
+
+    private firstNonEmptyString(...values: Array<string | null | undefined>): string {
+        for (const value of values) {
+            const next = (value ?? '').trim();
+            if (next) return next;
+        }
+        return '';
+    }
+
+    private normalizeAvatarUrl(avatar: string | null | undefined): string | null {
+        const trimmed = (avatar ?? '').trim();
+        if (!trimmed) return null;
+        if (this.isDirectAvatarUrl(trimmed)) return trimmed;
         return `assets/pictures/${trimmed.replace(/^\/+/, '')}`;
+    }
+
+    private isDirectAvatarUrl(value: string): boolean {
+        return (
+            value.startsWith('data:image/') ||
+            value.startsWith('http://') ||
+            value.startsWith('https://') ||
+            value.startsWith('assets/')
+        );
+    }
+
+    private createGuestView(): ResolvedProfileView {
+        return { displayName: 'Gast', email: '', avatarUrl: null };
+    }
+
+    private isSaveAllowed(nextName: string): boolean {
+        return !!nextName && !this.isSaving;
+    }
+
+    private applyOptimisticNameAndStartSaving(nextName: string): void {
+        this.zone.run(() => {
+            this.displayName = nextName;
+            this.isEditing = false;
+            this.isSaving = true;
+        });
+    }
+
+    private async persistDisplayNameOrRestoreEdit(nextName: string): Promise<void> {
+        try {
+            await this.userService.updateCurrentUserProfile({ displayName: nextName });
+        } catch (error) {
+            console.error('Profil speichern fehlgeschlagen:', error);
+            this.setEditingFlag(true);
+        }
+    }
+
+    private setSavingFlag(value: boolean): void {
+        this.zone.run(() => {
+            this.isSaving = value;
+        });
+    }
+
+    private setEditingFlag(value: boolean): void {
+        this.zone.run(() => {
+            this.isEditing = value;
+        });
     }
 }
