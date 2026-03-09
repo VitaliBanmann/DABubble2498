@@ -5,9 +5,15 @@
                 <img src="assets/pictures/workspace_logo.svg" alt="" />
                 <h1>Devspace</h1>
             </div>
-            <div class="sidebar__headsection__right">
+            <button
+                type="button"
+                class="sidebar__headsection__right sidebar__new-chat-btn"
+                (click)="onNewMessageClick()"
+                [disabled]="!(canStartNewMessage$ | async)"
+                aria-label="Neue Nachricht"
+            >
                 <img src="assets/pictures/new_chat.svg" alt="" />
-            </div>
+            </button>
         </div>
         <!-- später: Workspace Selector / Edit icon -->
     </div>
@@ -180,7 +186,6 @@
                                         ' Avatar'
                                     "
                                     loading="eager"
-                                    
                                 />
                             } @else {
                                 {{
@@ -251,7 +256,10 @@
                 <div class="member-box">
                     <div class="member-box__title">Mitglieder</div>
                     <ul>
-                        @for (member of (availableMembers$ | async); track member.id) {
+                        @for (
+                            member of availableMembers$ | async;
+                            track member.id
+                        ) {
                             <li>
                                 <button
                                     type="button"

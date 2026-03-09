@@ -11,7 +11,16 @@ import {
     of,
     startWith,
     Subscription,
+    Subject,
+    from,
 } from 'rxjs';
+import {
+    filter,
+    map,
+    startWith,
+    switchMap,
+    withLatestFrom,
+} from 'rxjs/operators';
 import { AuthService } from '../../services/auth.service';
 import { Channel, ChannelService } from '../../services/channel.service';
 import { UnreadStateService } from '../../services/unread-state.service';
@@ -50,6 +59,12 @@ export class SidebarComponent implements OnInit, OnDestroy {
         { id: 'allgemein', label: 'Allgemein' },
         { id: 'entwicklerteam', label: 'Entwicklerteam' },
     ];
+    private readonly newMessageClick$ = new Subject<void>();
+
+    readonly canStartNewMessage$ = this.authService.currentUser$.pipe(
+        startWith(this.authService.getCurrentUser()),
+        map((user) => !!user && !user.isAnonymous),
+    );
     private readonly canonicalChannelLabels: Record<string, string> = {
         allgemein: 'Allgemein',
         entwicklerteam: 'Entwicklerteam',
@@ -100,6 +115,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.setDefaultChannels();
         this.initAuthSnapshot();
         this.loadChannels();
+        this.setupNewMessageFlow();
     }
 
     readonly availableMembers$ = this.userService.getAllUsersRealtime().pipe(
@@ -123,6 +139,29 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.unreadByDirectId = {};
         this.mentionByChannelId = {};
         this.mentionByDirectId = {};
+    }
+
+    onNewMessageClick(): void {
+        this.newMessageClick$.next();
+    }
+
+    private setupNewMessageFlow(): void {
+        this.subscription.add(
+            this.newMessageClick$
+                .pipe(
+                    withLatestFrom(this.canStartNewMessage$),
+                    filter(([, canStart]) => canStart),
+                    switchMap(() =>
+                        from(
+                            this.router.navigate(['/app/channel/allgemein'], {
+                                queryParams: { compose: '1' },
+                                queryParamsHandling: 'merge',
+                            }),
+                        ),
+                    ),
+                )
+                .subscribe(),
+        );
     }
 
     private readonly routeState$ = this.router.events.pipe(
