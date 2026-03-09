@@ -14,12 +14,15 @@ import {
 } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { Channel, ChannelService } from '../../services/channel.service';
+import { UnreadStateService } from '../../services/unread-state.service';
 import { User, UserService } from '../../services/user.service';
 
 interface SidebarChannel {
     id: string;
     label: string;
     description?: string;
+    hasUnread?: boolean;
+    hasMention?: boolean;
 }
 
 interface SidebarDirectMessage {
@@ -28,6 +31,8 @@ interface SidebarDirectMessage {
     isOnline: boolean;
     isSelf: boolean;
     avatar?: string | null;
+    hasUnread?: boolean;
+    hasMention?: boolean;
 }
 
 @Component({
@@ -65,7 +70,12 @@ export class SidebarComponent implements OnInit, OnDestroy {
     activeChannelId = 'entwicklerteam';
     activeDirectMessageId = '';
     private readonly subscription = new Subscription();
+    private unreadSubscription: Subscription | null = null;
     currentUserId = '';
+    private unreadByChannelId: Record<string, boolean> = {};
+    private unreadByDirectId: Record<string, boolean> = {};
+    private mentionByChannelId: Record<string, boolean> = {};
+    private mentionByDirectId: Record<string, boolean> = {};
 
     isChannelsSectionOpen = true;
     isDirectMessagesSectionOpen = true;
@@ -81,6 +91,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
     constructor(
         private readonly authService: AuthService,
         private readonly channelService: ChannelService,
+        private readonly unreadStateService: UnreadStateService,
         private readonly userService: UserService,
         private readonly router: Router,
     ) {}
@@ -98,9 +109,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
         const user = this.authService.getCurrentUser();
         this.currentUserId = user?.uid ?? '';
         this.canCreateChannel = !!user && !user.isAnonymous;
+        this.refreshUnreadTracking();
     }
 
     ngOnDestroy(): void {
+        this.unreadSubscription?.unsubscribe();
         this.subscription.unsubscribe();
     }
 
@@ -226,6 +239,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
                 left.displayName.localeCompare(right.displayName, 'de'),
         );
         this.buildDirectMessages();
+        this.refreshUnreadTracking();
     }
 
     private getUniqueMembers(members: User[]): User[] {
@@ -271,6 +285,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
                     this.currentUserId = user?.uid ?? '';
                     this.canCreateChannel = !!user && !user.isAnonymous;
                     this.buildDirectMessages();
+                    this.refreshUnreadTracking();
                 }),
         );
     }
@@ -334,10 +349,12 @@ export class SidebarComponent implements OnInit, OnDestroy {
     private createChannelPayload(channelName: string): Channel {
         const memberIds = new Set<string>(this.selectedMemberIds);
         memberIds.add(this.currentUserId);
+        const adminIds = [this.currentUserId];
         return {
             name: channelName,
             description: this.channelDescriptionControl.value.trim(),
             members: Array.from(memberIds),
+            admins: adminIds,
             createdBy: this.currentUserId,
         };
     }
@@ -388,6 +405,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         );
         this.channels.splice(0, this.channels.length, ...merged);
         this.sortChannels();
+        this.refreshUnreadTracking();
     }
 
     private mergeChannel(
@@ -428,6 +446,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
             label:
                 this.canonicalChannelLabels[channel.id ?? ''] ?? channel.name,
             description: channel.description,
+            hasUnread: !!this.unreadByChannelId[channel.id ?? ''],
+            hasMention: !!this.mentionByChannelId[channel.id ?? ''],
         };
     }
 
@@ -453,12 +473,15 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
     private toDirectMessage(member: User): SidebarDirectMessage {
         const isSelf = member.id === this.currentUserId;
+        const directId = member.id ?? '';
         return {
-            id: member.id ?? '',
+            id: directId,
             label: isSelf ? `${member.displayName} (Du)` : member.displayName,
             isOnline: !!(member.presenceStatus === 'online'),
             isSelf,
             avatar: member.avatar ?? null,
+            hasUnread: !isSelf && !!this.unreadByDirectId[directId],
+            hasMention: !isSelf && !!this.mentionByDirectId[directId],
         };
     }
 
@@ -527,5 +550,45 @@ export class SidebarComponent implements OnInit, OnDestroy {
                 directMessageMatch[1],
             );
         }
+    }
+
+    private refreshUnreadTracking(): void {
+        this.unreadSubscription?.unsubscribe();
+        if (!this.currentUserId || !this.canCreateChannel) {
+            this.unreadByChannelId = {};
+            this.unreadByDirectId = {};
+            this.mentionByChannelId = {};
+            this.mentionByDirectId = {};
+            this.applyUnreadFlags();
+            return;
+        }
+
+        const channelIds = this.channels.map((channel) => channel.id).filter(Boolean);
+        const dmUserIds = this.directMessages
+            .filter((member) => !member.isSelf && !!member.id)
+            .map((member) => member.id);
+
+        this.unreadSubscription = this.unreadStateService
+            .watchUnreadFlags(this.currentUserId, channelIds, dmUserIds)
+            .subscribe((flags) => {
+                this.unreadByChannelId = flags.channels;
+                this.unreadByDirectId = flags.direct;
+                this.mentionByChannelId = flags.channelMentions;
+                this.mentionByDirectId = flags.directMentions;
+                this.applyUnreadFlags();
+            });
+    }
+
+    private applyUnreadFlags(): void {
+        this.channels.forEach((channel) => {
+            channel.hasUnread = !!this.unreadByChannelId[channel.id];
+            channel.hasMention = !!this.mentionByChannelId[channel.id];
+        });
+
+        this.directMessages = this.directMessages.map((member) => ({
+            ...member,
+            hasUnread: !member.isSelf && !!this.unreadByDirectId[member.id],
+            hasMention: !member.isSelf && !!this.mentionByDirectId[member.id],
+        }));
     }
 }

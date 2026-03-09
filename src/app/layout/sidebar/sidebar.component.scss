@@ -206,6 +206,41 @@ $purple__hover: #535AF1;
     }
 }
 
+.unread-badge {
+    margin-left: auto;
+    border-radius: 999px;
+    background: #444df2;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 2px 8px;
+    line-height: 1.4;
+}
+
+.mention-badge {
+    margin-left: auto;
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: #ffb703;
+    color: #202020;
+    font-size: 13px;
+    font-weight: 800;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.direct-link .unread-badge {
+    margin-left: auto;
+    margin-right: 8px;
+}
+
+.direct-link .mention-badge {
+    margin-left: auto;
+    margin-right: 8px;
+}
+
 .overlay {
     position: fixed;
     inset: 0;

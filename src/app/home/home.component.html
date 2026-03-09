@@ -1,110 +1,274 @@
-<main class="home-page">
-    <header class="home-header">
-        <div>
-            <h1>
-                {{
-                    isDirectMessage
-                        ? "@ " + currentConversationTitle
-                        : "# " + currentConversationTitle
-                }}
-            </h1>
-            <p>
-                {{ isDirectMessage ? "Direktnachricht" : "Channel" }}
-            </p>
-        </div>
+<main class="home-page" [class.with-thread]="isThreadPanelOpen">
+    <section class="chat-pane">
+        <header class="home-header">
+            <div>
+                <h1>
+                    {{
+                        isDirectMessage
+                            ? "@ " + currentConversationTitle
+                            : "# " + currentConversationTitle
+                    }}
+                </h1>
+                <p>
+                    {{ isDirectMessage ? "Direktnachricht" : "Channel" }}
+                </p>
+            </div>
+        </header>
 
-        @if (!isDirectMessage) {
-            <button type="button" class="thread-btn" (click)="openThread()">
-                Thread öffnen
-            </button>
-        }
-    </header>
+        <section class="message-list" aria-label="Nachrichtenliste">
+            @if (hasMoreMessages) {
+                <button
+                    type="button"
+                    class="load-older-btn"
+                    (click)="loadOlderMessages()"
+                    [disabled]="isLoadingMoreMessages"
+                >
+                    {{
+                        isLoadingMoreMessages
+                            ? "Lade ältere Nachrichten..."
+                            : "Ältere Nachrichten laden"
+                    }}
+                </button>
+            }
 
-    <section class="message-list" aria-label="Nachrichtenliste">
-        @if (!messages.length) {
-            <p class="empty-state">Noch keine Nachrichten in diesem Channel.</p>
-        }
+            @if (!messages.length) {
+                <p class="empty-state">Noch keine Nachrichten in diesem Channel.</p>
+            }
 
-        @for (message of messages; track trackMessage($index, message)) {
-            <article class="message" [class.own]="isOwnMessage(message)">
-                <div class="message__meta">
-                    <span>{{ getSenderLabel(message) }}</span>
-                    <span>{{ formatTimestamp(message.timestamp) }}</span>
-                </div>
-                <p>{{ message.text }}</p>
-
-                @if (message.reactions?.length) {
-                    @let visibleReactions = getVisibleReactions(message);
-                    @let hiddenCount = getHiddenReactionCount(message);
-
-                    <div class="message__reactions">
-                        @for (
-                            reaction of visibleReactions;
-                            track reaction.emoji
-                        ) {
-                            <button
-                                type="button"
-                                class="reaction"
-                                [class.active]="hasCurrentUserReacted(reaction)"
-                                (click)="
-                                    toggleReaction(message, reaction.emoji)
-                                "
-                            >
-                                <span>{{ reaction.emoji }}</span>
-                                <span>{{ reaction.userIds.length }}</span>
-                            </button>
-                        }
-
-                        @if (hiddenCount > 0) {
-                            <button
-                                type="button"
-                                class="reaction more"
-                                (click)="toggleReactionList(message)"
-                            >
-                                +{{ hiddenCount }} weitere
-                            </button>
-                        } @else if ((message.reactions?.length ?? 0) > 20) {
-                            <button
-                                type="button"
-                                class="reaction more"
-                                (click)="toggleReactionList(message)"
-                            >
-                                weniger anzeigen
-                            </button>
-                        }
+            @for (message of messages; track trackMessage($index, message)) {
+                <article
+                    class="message"
+                    [class.own]="isOwnMessage(message)"
+                    [class.active-thread-parent]="isThreadParent(message)"
+                >
+                    <div class="message__meta">
+                        <span>{{ getSenderLabel(message) }}</span>
+                        <span>{{ formatTimestamp(message.timestamp) }}</span>
                     </div>
-                }
-            </article>
+                    <p>{{ message.text }}</p>
+
+                    @if (hasMentionForCurrentUser(message)) {
+                        <span class="mention-pill">Erwähnt dich</span>
+                    }
+
+                    @if (message.attachments?.length) {
+                        <div class="message-attachments">
+                            @for (attachment of message.attachments; track attachment.path) {
+                                <a
+                                    class="attachment-item"
+                                    [href]="attachment.url"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                >
+                                    @if (attachment.isImage) {
+                                        <img
+                                            class="attachment-image"
+                                            [src]="attachment.url"
+                                            [alt]="attachment.name"
+                                            loading="lazy"
+                                        />
+                                    }
+                                    <span class="attachment-name">{{ attachment.name }}</span>
+                                    <span class="attachment-download">Download</span>
+                                </a>
+                            }
+                        </div>
+                    }
+
+                    @if (!isDirectMessage) {
+                        <div class="message__actions">
+                            <button
+                                type="button"
+                                class="thread-link"
+                                (click)="openThreadForMessage(message)"
+                            >
+                                Thread öffnen
+                            </button>
+                        </div>
+                    }
+
+                    @if (message.reactions?.length) {
+                        @let visibleReactions = getVisibleReactions(message);
+                        @let hiddenCount = getHiddenReactionCount(message);
+
+                        <div class="message__reactions">
+                            @for (
+                                reaction of visibleReactions;
+                                track reaction.emoji
+                            ) {
+                                <button
+                                    type="button"
+                                    class="reaction"
+                                    [class.active]="hasCurrentUserReacted(reaction)"
+                                    (click)="
+                                        toggleReaction(message, reaction.emoji)
+                                    "
+                                >
+                                    <span>{{ reaction.emoji }}</span>
+                                    <span>{{ reaction.userIds.length }}</span>
+                                </button>
+                            }
+
+                            @if (hiddenCount > 0) {
+                                <button
+                                    type="button"
+                                    class="reaction more"
+                                    (click)="toggleReactionList(message)"
+                                >
+                                    +{{ hiddenCount }} weitere
+                                </button>
+                            } @else if ((message.reactions?.length ?? 0) > 20) {
+                                <button
+                                    type="button"
+                                    class="reaction more"
+                                    (click)="toggleReactionList(message)"
+                                >
+                                    weniger anzeigen
+                                </button>
+                            }
+                        </div>
+                    }
+                </article>
+            }
+        </section>
+
+        <form class="composer" novalidate (ngSubmit)="sendMessage()">
+            <div class="composer-tools">
+                <label class="attach-btn" for="message-attachment-input">
+                    Datei anhängen
+                </label>
+                <input
+                    id="message-attachment-input"
+                    type="file"
+                    multiple
+                    (change)="onAttachmentSelected($event)"
+                    accept="image/*,.pdf,.docx,.txt"
+                />
+            </div>
+
+            @if (selectedMentionsList().length) {
+                <div class="mention-chip-list">
+                    @for (candidate of selectedMentionsList(); track candidate.id) {
+                        <button
+                            type="button"
+                            class="mention-chip"
+                            (click)="removeMention(candidate.id)"
+                        >
+                            @{{ candidate.label }} x
+                        </button>
+                    }
+                </div>
+            }
+
+            @if (selectedAttachments.length) {
+                <div class="attachment-chip-list">
+                    @for (attachment of selectedAttachments; track attachment.name + '-' + $index) {
+                        <button
+                            type="button"
+                            class="attachment-chip"
+                            (click)="removeAttachment($index)"
+                        >
+                            {{ attachment.name }} x
+                        </button>
+                    }
+                </div>
+            }
+
+            <input
+                type="text"
+                [formControl]="messageControl"
+                (input)="onComposerInput()"
+                [placeholder]="
+                    isDirectMessage
+                        ? 'Nachricht an ' + currentConversationTitle
+                        : 'Nachricht schreiben...'
+                "
+            />
+
+            @if (showMentionSuggestions) {
+                <div class="mention-suggestions">
+                    @for (candidate of mentionSuggestions; track candidate.id) {
+                        <button
+                            type="button"
+                            class="mention-option"
+                            (click)="selectMention(candidate)"
+                        >
+                            @{{ candidate.label }}
+                        </button>
+                    }
+                </div>
+            }
+
+            <button
+                type="button"
+                (click)="sendMessage()"
+                [disabled]="!canSendMessage()"
+            >
+                {{ isSending ? "Sende..." : "Senden" }}
+            </button>
+        </form>
+
+        @if (attachmentError) {
+            <p class="error">{{ attachmentError }}</p>
+        }
+
+        @if (authResolved && !canWrite) {
+            <p class="hint">
+                Als Gast kannst du Nachrichten lesen, aber nicht senden.
+            </p>
+        }
+
+        @if (errorMessage) {
+            <p class="error">{{ errorMessage }}</p>
         }
     </section>
 
-    <form class="composer" (ngSubmit)="sendMessage()">
-        <input
-            type="text"
-            [formControl]="messageControl"
-            [placeholder]="
-                isDirectMessage
-                    ? 'Nachricht an ' + currentConversationTitle
-                    : 'Nachricht schreiben...'
-            "
-        />
+    @if (isThreadPanelOpen && activeThreadParent && !isDirectMessage) {
+        <aside class="thread-panel" aria-label="Thread Panel">
+            <header class="thread-panel__header">
+                <div>
+                    <h2>Thread</h2>
+                    <p>{{ activeThreadTitle }}</p>
+                </div>
+                <button type="button" class="thread-panel__close" (click)="closeThread()">
+                    Schließen
+                </button>
+            </header>
 
-        <button
-            type="button"
-            (click)="sendMessage()"
-            [disabled]="isSending || !messageControl.value.trim()"
-        >
-            {{ isSending ? "Sende..." : "Senden" }}
-        </button>
-    </form>
+            <section class="thread-list" aria-label="Thread Nachrichten">
+                @if (!threadMessages.length) {
+                    <p class="empty-state">Noch keine Antworten im Thread.</p>
+                }
 
-    @if (authResolved && !canWrite) {
-        <p class="hint">
-            Als Gast kannst du Nachrichten lesen, aber nicht senden.
-        </p>
-    }
+                @for (threadMessage of threadMessages; track trackThreadMessage($index, threadMessage)) {
+                    <article class="thread-message">
+                        <div class="message__meta">
+                            <span>{{ getThreadSenderLabel(threadMessage) }}</span>
+                            <span>{{ formatTimestamp(threadMessage.timestamp) }}</span>
+                        </div>
+                        <p>{{ threadMessage.text }}</p>
+                    </article>
+                }
+            </section>
 
-    @if (errorMessage) {
-        <p class="error">{{ errorMessage }}</p>
+            <form
+                class="thread-composer"
+                novalidate
+                (ngSubmit)="sendThreadMessage()"
+            >
+                <input
+                    type="text"
+                    [formControl]="threadMessageControl"
+                    placeholder="Antwort im Thread schreiben..."
+                />
+                <button
+                    type="button"
+                    (click)="sendThreadMessage()"
+                    [disabled]="isThreadSending || !threadMessageControl.value.trim() || !canWrite"
+                >
+                    {{ isThreadSending ? "Sende..." : "Antworten" }}
+                </button>
+            </form>
+        </aside>
     }
 </main>

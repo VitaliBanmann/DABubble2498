@@ -1,11 +1,19 @@
 .home-page {
     height: 100%;
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     background: #fff;
     padding: 20px;
     gap: 16px;
     min-height: 0;
+}
+
+.chat-pane {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
 }
 
 .home-header {
@@ -39,6 +47,24 @@
     font-weight: 600;
 }
 
+.message__actions {
+    margin-top: 8px;
+}
+
+.thread-link {
+    border: none;
+    background: transparent;
+    color: #444df2;
+    padding: 0;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.message.active-thread-parent {
+    border: 1px solid #d7dcff;
+}
+
 .message-list {
     width: 100%;
     flex: 1;
@@ -48,6 +74,23 @@
     flex-direction: column;
     gap: 10px;
     padding-right: 4px;
+}
+
+.load-older-btn {
+    align-self: center;
+    border: 1px solid #d7dcff;
+    border-radius: 999px;
+    height: 32px;
+    padding: 0 12px;
+    background: #f7f8ff;
+    color: #444df2;
+    font-weight: 600;
+    cursor: pointer;
+}
+
+.load-older-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
 }
 
 .message {
@@ -69,6 +112,51 @@
     display: flex;
     flex-wrap: wrap;
     gap: 6px;
+}
+
+.mention-pill {
+    margin-top: 8px;
+    display: inline-block;
+    border-radius: 999px;
+    background: #ffe7a3;
+    color: #4c3a00;
+    font-size: 11px;
+    font-weight: 700;
+    padding: 3px 8px;
+}
+
+.message-attachments {
+    margin-top: 10px;
+    display: grid;
+    gap: 8px;
+}
+
+.attachment-item {
+    display: grid;
+    gap: 6px;
+    text-decoration: none;
+    color: #2f3565;
+    border: 1px solid #dbe1f3;
+    border-radius: 10px;
+    padding: 8px;
+    background: #fff;
+}
+
+.attachment-image {
+    width: 100%;
+    max-height: 180px;
+    border-radius: 8px;
+    object-fit: cover;
+}
+
+.attachment-name {
+    font-size: 13px;
+    font-weight: 600;
+}
+
+.attachment-download {
+    font-size: 12px;
+    color: #444df2;
 }
 
 .reaction {
@@ -131,9 +219,69 @@
     width: 100%;
     display: grid;
     grid-template-columns: 1fr auto;
+    grid-template-rows: auto auto;
     gap: 10px;
+    position: relative;
+
+    .mention-chip-list {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .composer-tools {
+        grid-column: 1 / -1;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .attach-btn {
+        border: 1px solid #cfd6f3;
+        border-radius: 999px;
+        background: #f7f8ff;
+        color: #3645a3;
+        font-size: 12px;
+        font-weight: 600;
+        padding: 6px 12px;
+        cursor: pointer;
+    }
+
+    #message-attachment-input {
+        display: none;
+    }
+
+    .mention-chip {
+        border: 1px solid #cfd6f3;
+        border-radius: 999px;
+        background: #f5f7ff;
+        color: #3645a3;
+        font-size: 12px;
+        padding: 4px 8px;
+        cursor: pointer;
+    }
+
+    .attachment-chip-list {
+        grid-column: 1 / -1;
+        display: flex;
+        flex-wrap: wrap;
+        gap: 6px;
+    }
+
+    .attachment-chip {
+        border: 1px solid #d6dae8;
+        border-radius: 999px;
+        background: #f4f6fb;
+        color: #3a4058;
+        font-size: 12px;
+        padding: 4px 8px;
+        cursor: pointer;
+    }
 
     input {
+        grid-column: 1;
+        grid-row: 2;
         height: 44px;
         border-radius: 12px;
         border: 1px solid #dde1ee;
@@ -141,7 +289,39 @@
         outline: none;
     }
 
+    .mention-suggestions {
+        position: absolute;
+        left: 0;
+        right: 78px;
+        bottom: calc(100% + 8px);
+        background: #fff;
+        border: 1px solid #dbe1f3;
+        border-radius: 10px;
+        padding: 6px;
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+        z-index: 5;
+    }
+
+    .mention-option {
+        border: 0;
+        background: #f7f8ff;
+        border-radius: 8px;
+        height: 34px;
+        text-align: left;
+        padding: 0 10px;
+        cursor: pointer;
+        color: #2f3565;
+    }
+
+    .mention-option:hover {
+        background: #edf0ff;
+    }
+
     button {
+        grid-column: 2;
+        grid-row: 2;
         border: none;
         border-radius: 12px;
         padding: 0 16px;
@@ -171,4 +351,112 @@
 
 .error {
     color: #c03030;
+}
+
+.thread-panel {
+    width: min(360px, 42vw);
+    min-width: 280px;
+    border-left: 1px solid #e7eaf5;
+    padding-left: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.thread-panel__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 12px;
+
+    h2 {
+        margin: 0;
+        font-size: 16px;
+        color: #2b2d42;
+    }
+
+    p {
+        margin: 4px 0 0;
+        font-size: 12px;
+        color: #7c8097;
+        line-height: 1.35;
+        max-width: 220px;
+    }
+}
+
+.thread-panel__close {
+    border: none;
+    border-radius: 8px;
+    background: #eef0ff;
+    color: #444df2;
+    height: 32px;
+    padding: 0 10px;
+    cursor: pointer;
+    font-weight: 600;
+}
+
+.thread-list {
+    flex: 1;
+    min-height: 0;
+    overflow: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-right: 4px;
+}
+
+.thread-message {
+    border: 1px solid #e7eaf5;
+    border-radius: 12px;
+    padding: 10px;
+
+    p {
+        margin: 0;
+        color: #222;
+        line-height: 1.35;
+        white-space: pre-wrap;
+    }
+}
+
+.thread-composer {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 8px;
+
+    input {
+        height: 40px;
+        border-radius: 10px;
+        border: 1px solid #dde1ee;
+        padding: 0 10px;
+        outline: none;
+    }
+
+    button {
+        border: none;
+        border-radius: 10px;
+        padding: 0 12px;
+        background: #444df2;
+        color: #fff;
+        cursor: pointer;
+
+        &:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+    }
+}
+
+@media (max-width: 960px) {
+    .home-page {
+        flex-direction: column;
+    }
+
+    .thread-panel {
+        width: 100%;
+        min-width: 0;
+        border-left: none;
+        border-top: 1px solid #e7eaf5;
+        padding-left: 0;
+        padding-top: 12px;
+    }
 }

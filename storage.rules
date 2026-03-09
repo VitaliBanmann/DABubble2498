@@ -16,16 +16,30 @@ service firebase.storage {
       return isSignedIn() && !isAnonymous();
     }
 
+    function isSupportedAttachmentType() {
+      return request.resource.contentType.matches('image/.*')
+        || request.resource.contentType == 'application/pdf'
+        || request.resource.contentType == 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
+        || request.resource.contentType == 'text/plain';
+    }
+
     // User avatar uploads
     match /avatars/{userId}/{fileName} {
       allow read: if isSignedIn();
       allow write: if isRegularUser() && request.auth.uid == userId;
     }
 
+    match /attachments/{messageId}/{fileName} {
+      allow read: if isSignedIn();
+      allow write: if isRegularUser()
+        && request.resource.size < 10 * 1024 * 1024
+        && isSupportedAttachmentType();
+    }
+
     // General file storage
     match /{allPaths=**} {
       allow read: if isSignedIn();
-      allow write: if isRegularUser();
+      allow write: if false;
     }
   }
 }

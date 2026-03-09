@@ -3,6 +3,7 @@ import { FirestoreService } from './firestore.service';
 import { AuthService } from './auth.service';
 import { Observable, firstValueFrom, map, of, switchMap, take } from 'rxjs';
 import { where } from 'firebase/firestore';
+import { buildSearchTokens, normalizeSearchToken } from './search-token.util';
 
 export type PresenceStatus = 'online' | 'away' | 'offline';
 
@@ -15,6 +16,7 @@ export interface User extends Record<string, unknown> {
     lastSeen?: Date;
     createdAt?: Date;
     updatedAt?: Date;
+    searchTokens?: string[];
 }
 
 @Injectable({
@@ -32,8 +34,9 @@ export class UserService {
      * Erstelle einen neuen Benutzer in Firestore
      */
     createUser(user: User): Observable<string> {
+        const payload = this.withSearchTokens(user);
         return this.firestoreService.addDocument(this.usersCollection, {
-            ...user,
+            ...payload,
             createdAt: new Date(),
             updatedAt: new Date(),
         });
@@ -104,11 +107,23 @@ export class UserService {
      * Aktualisiere einen Benutzer
      */
     updateUser(userId: string, updates: Partial<User>): Observable<void> {
+        const payload = this.withSearchTokens(updates);
         return this.firestoreService.updateDocument(
             this.usersCollection,
             userId,
-            { ...updates, updatedAt: new Date() },
+            { ...payload, updatedAt: new Date() },
         );
+    }
+
+    searchUsersByToken(token: string): Observable<User[]> {
+        const normalized = normalizeSearchToken(token);
+        if (!normalized) {
+            return of([]);
+        }
+
+        return this.firestoreService.queryDocuments<User>(this.usersCollection, [
+            where('searchTokens', 'array-contains', normalized),
+        ]);
     }
 
     /**
@@ -232,9 +247,10 @@ export class UserService {
     }
 
     private async setUserDocument(userId: string, user: User): Promise<void> {
+        const payload = this.withSearchTokens(user);
         await firstValueFrom(
             this.firestoreService.setDocument(this.usersCollection, userId, {
-                ...user,
+                ...payload,
                 createdAt: new Date(),
                 updatedAt: new Date(),
             }),
@@ -314,5 +330,19 @@ export class UserService {
         )?.email;
 
         return (fromProvider ?? '').trim();
+    }
+
+    private withSearchTokens<T extends Partial<User>>(payload: T): T & { searchTokens?: string[] } {
+        const name = (payload.displayName ?? '').toString();
+        const email = (payload.email ?? '').toString();
+        const hasIdentity = !!name.trim() || !!email.trim();
+        if (!hasIdentity) {
+            return payload;
+        }
+
+        return {
+            ...payload,
+            searchTokens: buildSearchTokens([name, email]),
+        };
     }
 }

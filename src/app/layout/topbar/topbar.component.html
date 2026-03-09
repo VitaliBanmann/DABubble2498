@@ -38,7 +38,10 @@
                     <section>
                         <h5>Benutzer</h5>
                         @for (user of userResults; track user.id) {
-                            <button type="button" (click)="closeSearchResults()">
+                            <button
+                                type="button"
+                                (click)="navigateToUser(user)"
+                            >
                                 {{ user.name }} · {{ user.email }}
                             </button>
                         }

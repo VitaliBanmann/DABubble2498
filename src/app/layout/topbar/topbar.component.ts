@@ -20,6 +20,7 @@ import { PresenceStatus, UserService } from '../../services/user.service';
 import { ChannelService } from '../../services/channel.service';
 import { MessageService } from '../../services/message.service';
 import { ShowProfileComponent } from '../show-profile/show-profile.component';
+import { normalizeSearchToken } from '../../services/search-token.util';
 
 interface SearchChannelResult {
     id: string;
@@ -58,11 +59,8 @@ export class TopbarComponent implements OnInit, OnDestroy {
     channelResults: SearchChannelResult[] = [];
     userResults: SearchUserResult[] = [];
     messageResults: SearchMessageResult[] = [];
-    private searchableChannels: SearchChannelResult[] = [];
-    private searchableUsers: SearchUserResult[] = [];
-    private searchableMessages: SearchMessageResult[] = [];
     private readonly subscription = new Subscription();
-    private searchDataLoaded = false;
+    private searchSubscription: Subscription | null = null;
     private profileUid: string | null = null;
     private profileResolved = false;
     private profileFallbackTimer: ReturnType<typeof setTimeout> | null = null;
@@ -99,19 +97,9 @@ export class TopbarComponent implements OnInit, OnDestroy {
                     filter(([ready]) => ready),
                     switchMap(([, user]) => {
                         if (!user || user.isAnonymous) {
-                            if (this.searchDataLoaded) {
-                                this.searchDataLoaded = false;
-                                this.searchableChannels = [];
-                                this.searchableUsers = [];
-                                this.searchableMessages = [];
-                            }
+                            this.clearSearchResults();
                             this.clearProfileFallback();
                             return of(null);
-                        }
-
-                        if (!this.searchDataLoaded) {
-                            this.searchDataLoaded = true;
-                            this.loadSearchData();
                         }
 
                         this.beginProfileFallback(user.uid, user);
@@ -240,6 +228,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
     }
 
     ngOnDestroy(): void {
+        this.searchSubscription?.unsubscribe();
         this.subscription.unsubscribe();
     }
 
@@ -252,33 +241,11 @@ export class TopbarComponent implements OnInit, OnDestroy {
         const query = value.trim().toLowerCase();
 
         if (!query) {
-            this.showSearchResults = false;
-            this.channelResults = [];
-            this.userResults = [];
-            this.messageResults = [];
+            this.clearSearchResults();
             return;
         }
 
-        this.channelResults = this.searchableChannels
-            .filter((channel) => channel.name.toLowerCase().includes(query))
-            .slice(0, 5);
-
-        this.userResults = this.searchableUsers
-            .filter(
-                (user) =>
-                    user.name.toLowerCase().includes(query) ||
-                    user.email.toLowerCase().includes(query),
-            )
-            .slice(0, 5);
-
-        this.messageResults = this.searchableMessages
-            .filter((message) => message.text.toLowerCase().includes(query))
-            .slice(0, 5);
-
-        this.showSearchResults =
-            this.channelResults.length > 0 ||
-            this.userResults.length > 0 ||
-            this.messageResults.length > 0;
+        this.runIndexedSearch(query);
     }
 
     onSearchBlur(): void {
@@ -288,12 +255,15 @@ export class TopbarComponent implements OnInit, OnDestroy {
     }
 
     navigateToChannel(channelId: string): void {
-        this.showSearchResults = false;
-        this.searchTerm = '';
-        this.channelResults = [];
-        this.userResults = [];
-        this.messageResults = [];
+        this.clearSearchResults();
         void this.router.navigate(['/app/channel', channelId]);
+    }
+
+    navigateToUser(user: SearchUserResult): void {
+        this.clearSearchResults();
+        void this.router.navigate(['/app/dm', user.id], {
+            queryParams: { name: user.name },
+        });
     }
 
     navigateToMessage(channelId: string): void {
@@ -333,109 +303,57 @@ export class TopbarComponent implements OnInit, OnDestroy {
         }
     }
 
-    private buildSearchableChannelIds(
-        channels: Array<{ id?: string }>,
-    ): string[] {
-        const defaultChannelIds = ['allgemein', 'entwicklerteam'];
-        const dbChannelIds = channels
-            .map((channel) => channel.id ?? '')
-            .filter((id) => id.length > 0);
-
-        return Array.from(new Set([...defaultChannelIds, ...dbChannelIds]));
-    }
-
-    private loadSearchableMessages(channelIds: string[]): void {
-        if (!channelIds.length) {
-            this.searchableMessages = [];
+    private runIndexedSearch(rawQuery: string): void {
+        const token = normalizeSearchToken(rawQuery);
+        if (!token) {
+            this.clearSearchResults();
             return;
         }
 
-        const channelStreams = channelIds.map((channelId) =>
-            this.messageService.getChannelMessages(channelId).pipe(
-                take(1),
-                catchError(() => of([])),
-            ),
-        );
+        this.searchSubscription?.unsubscribe();
+        this.searchSubscription = combineLatest([
+            this.channelService.searchChannelsByToken(token).pipe(catchError(() => of([]))),
+            this.userService.searchUsersByToken(token).pipe(catchError(() => of([]))),
+            this.messageService.searchMessagesByToken(token).pipe(catchError(() => of([]))),
+        ])
+            .pipe(take(1))
+            .subscribe(([channels, users, messages]) => {
+                this.channelResults = channels
+                    .filter((channel) => !!channel.id)
+                    .map((channel) => ({ id: channel.id as string, name: channel.name }))
+                    .slice(0, 5);
 
-        this.subscription.add(
-            combineLatest(channelStreams).subscribe({
-                next: (messageGroups) => {
-                    this.searchableMessages = messageGroups
-                        .flat()
-                        .filter(
-                            (message) =>
-                                !!message.id &&
-                                typeof message.text === 'string' &&
-                                typeof message.channelId === 'string',
-                        )
-                        .map((message) => ({
-                            id: message.id as string,
-                            text: message.text,
-                            channelId: message.channelId as string,
-                        }));
-                },
-                error: () => {
-                    this.searchableMessages = [];
-                },
-            }),
-        );
+                this.userResults = users
+                    .filter((user) => !!user.id)
+                    .map((user) => ({
+                        id: user.id as string,
+                        name: user.displayName,
+                        email: user.email,
+                    }))
+                    .slice(0, 5);
+
+                this.messageResults = messages
+                    .filter((message) => !!message.id && typeof message.channelId === 'string')
+                    .map((message) => ({
+                        id: message.id as string,
+                        text: message.text,
+                        channelId: message.channelId as string,
+                    }))
+                    .slice(0, 5);
+
+                this.showSearchResults =
+                    this.channelResults.length > 0 ||
+                    this.userResults.length > 0 ||
+                    this.messageResults.length > 0;
+            });
     }
 
-    private loadSearchData(): void {
-        this.subscription.add(
-            combineLatest([
-                this.channelService
-                    .getAllChannels()
-                    .pipe(catchError(() => of([]))),
-                this.userService.getAllUsers().pipe(catchError(() => of([]))),
-            ])
-                .pipe(take(1))
-                .subscribe({
-                    next: ([channels, users]) => {
-                        const defaultChannels: SearchChannelResult[] = [
-                            { id: 'allgemein', name: 'Allgemein' },
-                            { id: 'entwicklerteam', name: 'Entwicklerteam' },
-                        ];
-
-                        const dbChannels = channels
-                            .filter((channel) => !!channel.id)
-                            .map((channel) => ({
-                                id: channel.id as string,
-                                name: channel.name,
-                            }));
-
-                        this.searchableChannels = [
-                            ...defaultChannels,
-                            ...dbChannels.filter(
-                                (dbChannel) =>
-                                    !defaultChannels.some(
-                                        (baseChannel) =>
-                                            baseChannel.id === dbChannel.id,
-                                    ),
-                            ),
-                        ];
-
-                        this.searchableUsers = users
-                            .filter((user) => !!user.id)
-                            .map((user) => ({
-                                id: user.id as string,
-                                name: user.displayName,
-                                email: user.email,
-                            }));
-
-                        const readableChannelIds =
-                            this.buildSearchableChannelIds(
-                                channels as Array<{ id?: string }>,
-                            );
-                        this.loadSearchableMessages(readableChannelIds);
-                    },
-                    error: () => {
-                        this.searchableChannels = [];
-                        this.searchableUsers = [];
-                        this.searchableMessages = [];
-                    },
-                }),
-        );
+    private clearSearchResults(): void {
+        this.showSearchResults = false;
+        this.searchTerm = '';
+        this.channelResults = [];
+        this.userResults = [];
+        this.messageResults = [];
     }
 
     private beginProfileFallback(

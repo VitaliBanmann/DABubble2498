@@ -103,6 +103,15 @@
                             </svg>
                         </span>
                         {{ channel.label }}
+                        @if (channel.hasMention) {
+                            <span class="mention-badge" aria-label="Erwähnung">
+                                @
+                            </span>
+                        } @else if (channel.hasUnread) {
+                            <span class="unread-badge" aria-label="Ungelesen">
+                                Neu
+                            </span>
+                        }
                     </button>
                 }
             </div>
@@ -187,6 +196,16 @@
                         <span class="direct-link__label">{{
                             member.label
                         }}</span>
+
+                        @if (member.hasMention) {
+                            <span class="mention-badge" aria-label="Erwähnung">
+                                @
+                            </span>
+                        } @else if (member.hasUnread) {
+                            <span class="unread-badge" aria-label="Ungelesen">
+                                Neu
+                            </span>
+                        }
 
                         <span
                             class="direct-link__status"

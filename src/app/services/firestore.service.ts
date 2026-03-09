@@ -42,6 +42,10 @@ export class FirestoreService {
         return defer(() => from(this.inCtx(factory)));
     }
 
+    createDocumentId(collectionName: string): string {
+        return this.inCtx(() => doc(collection(this.firestore, collectionName)).id);
+    }
+
     addDocument<T extends Record<string, unknown>>(
         collectionName: string,
         data: T,

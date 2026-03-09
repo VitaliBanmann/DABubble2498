@@ -11,16 +11,19 @@ import {
     take,
 } from 'rxjs';
 import { Timestamp, where } from 'firebase/firestore';
+import { buildSearchTokens, normalizeSearchToken } from './search-token.util';
 
 export interface Channel extends Record<string, unknown> {
     id?: string;
     name: string;
     description?: string;
     members: string[];
+    admins?: string[];
     createdBy: string;
     createdAt?: Timestamp | Date;
     updatedAt?: Date;
     avatar?: string;
+    searchTokens?: string[];
 }
 
 @Injectable({
@@ -38,17 +41,19 @@ export class ChannelService {
      * Erstelle einen neuen Kanal
      */
     createChannel(channel: Channel): Observable<string> {
+        const payload = this.normalizeChannelCreatePayload(channel);
         return this.firestoreService.addDocument(this.channelsCollection, {
-            ...channel,
+            ...payload,
             createdAt: new Date(),
             updatedAt: new Date(),
         });
     }
 
     createChannelWithId(channelId: string, channel: Channel): Observable<string> {
+        const payload = this.normalizeChannelCreatePayload(channel);
         return this.firestoreService
             .setDocument(this.channelsCollection, channelId, {
-                ...channel,
+                ...payload,
                 createdAt: new Date(),
                 updatedAt: new Date(),
             })
@@ -83,10 +88,23 @@ export class ChannelService {
         channelId: string,
         updates: Partial<Channel>,
     ): Observable<void> {
+        const payload = this.withSearchTokens(updates);
         return this.firestoreService.updateDocument(
             this.channelsCollection,
             channelId,
-            { ...updates, updatedAt: new Date() },
+            { ...payload, updatedAt: new Date() },
+        );
+    }
+
+    searchChannelsByToken(token: string): Observable<Channel[]> {
+        const normalized = normalizeSearchToken(token);
+        if (!normalized) {
+            return of([]);
+        }
+
+        return this.firestoreService.queryDocuments<Channel>(
+            this.channelsCollection,
+            [where('searchTokens', 'array-contains', normalized)],
         );
     }
 
@@ -178,7 +196,42 @@ export class ChannelService {
     private async ensureChannelExists(id: string, name: string, uid: string): Promise<void> {
         const exists = await firstValueFrom(this.getChannel(id).pipe(take(1)));
         if (exists) return;
-        const channel: Channel = { name, description: '', members: [uid], createdBy: uid };
+        const channel: Channel = {
+            name,
+            description: '',
+            members: [uid],
+            admins: [uid],
+            createdBy: uid,
+        };
         await firstValueFrom(this.createChannelWithId(id, channel));
+    }
+
+    private normalizeChannelCreatePayload(channel: Channel): Channel {
+        const members = new Set(channel.members ?? []);
+        members.add(channel.createdBy);
+
+        const admins = new Set(channel.admins ?? []);
+        admins.add(channel.createdBy);
+        admins.forEach((adminId) => members.add(adminId));
+
+        return this.withSearchTokens({
+            ...channel,
+            members: Array.from(members),
+            admins: Array.from(admins),
+        });
+    }
+
+    private withSearchTokens<T extends Partial<Channel>>(payload: T): T & { searchTokens?: string[] } {
+        const name = (payload.name ?? '').toString();
+        const description = (payload.description ?? '').toString();
+        const hasSearchableText = !!name.trim() || !!description.trim();
+        if (!hasSearchableText) {
+            return payload;
+        }
+
+        return {
+            ...payload,
+            searchTokens: buildSearchTokens([name, description]),
+        };
     }
 }
