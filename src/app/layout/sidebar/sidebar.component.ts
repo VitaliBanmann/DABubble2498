@@ -13,14 +13,9 @@ import {
     Subscription,
     Subject,
     from,
-} from 'rxjs';
-import {
-    filter,
-    map,
-    startWith,
     switchMap,
     withLatestFrom,
-} from 'rxjs/operators';
+} from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { Channel, ChannelService } from '../../services/channel.service';
 import { UnreadStateService } from '../../services/unread-state.service';
