@@ -32,7 +32,8 @@ export class AuthService implements OnDestroy {
     public currentUser$: Observable<User | null> =
         this.currentUserSubject.asObservable();
     private authReadySubject = new BehaviorSubject<boolean>(false);
-    public authReady$: Observable<boolean> = this.authReadySubject.asObservable();
+    public authReady$: Observable<boolean> =
+        this.authReadySubject.asObservable();
 
     constructor(
         @Inject(PLATFORM_ID) private readonly platformId: object,
@@ -51,23 +52,26 @@ export class AuthService implements OnDestroy {
 
         this.unsubscribeAuthState?.();
         let hasEmittedReady = false;
-        this.unsubscribeAuthState = onAuthStateChanged(this.auth, async (user) => {
-            if (user) {
-                try {
-                    await user.getIdToken();
-                } catch {
-                    // ignore: we still emit auth state, Firestore might retry
+        this.unsubscribeAuthState = onAuthStateChanged(
+            this.auth,
+            async (user) => {
+                if (user) {
+                    try {
+                        await user.getIdToken();
+                    } catch {
+                        // ignore: we still emit auth state, Firestore might retry
+                    }
                 }
-            }
 
-            this.zone.run(() => {
-                this.currentUserSubject.next(user);
-                if (!hasEmittedReady) {
-                    hasEmittedReady = true;
-                    this.authReadySubject.next(true);
-                }
-            });
-        });
+                this.zone.run(() => {
+                    this.currentUserSubject.next(user);
+                    if (!hasEmittedReady) {
+                        hasEmittedReady = true;
+                        this.authReadySubject.next(true);
+                    }
+                });
+            },
+        );
     }
 
     registerWithEmailAndPassword(
@@ -76,11 +80,13 @@ export class AuthService implements OnDestroy {
     ): Promise<void> {
         return this.runAuthAction(
             async () => {
+                await this.resetAnonymousSessionIfNeeded();
                 const credential = await createUserWithEmailAndPassword(
                     this.getRequiredAuth(),
                     email,
                     password,
                 );
+                this.ensureNotAnonymous(credential.user.isAnonymous);
                 this.emitCurrentUser(credential.user);
             },
             'User registered successfully',
@@ -91,7 +97,9 @@ export class AuthService implements OnDestroy {
     loginWithEmailAndPassword(email: string, password: string): Promise<void> {
         return this.runAuthAction(
             async () => {
+                await this.resetAnonymousSessionIfNeeded();
                 const credential = await this.signInWithEmail(email, password);
+                this.ensureNotAnonymous(credential.user.isAnonymous);
                 this.emitCurrentUser(credential.user);
             },
             'User logged in successfully',
@@ -101,12 +109,19 @@ export class AuthService implements OnDestroy {
     }
 
     private signInWithEmail(email: string, password: string) {
-        return signInWithEmailAndPassword(this.getRequiredAuth(), email, password);
+        return signInWithEmailAndPassword(
+            this.getRequiredAuth(),
+            email,
+            password,
+        );
     }
 
     async loginWithGoogle(): Promise<{ email: string | null }> {
         await this.resetAnonymousSessionIfNeeded();
-        const credential = await signInWithPopup(this.getRequiredAuth(), this.createGoogleProvider());
+        const credential = await signInWithPopup(
+            this.getRequiredAuth(),
+            this.createGoogleProvider(),
+        );
         this.ensureNotAnonymous(credential.user.isAnonymous);
         this.emitCurrentUser(credential.user);
         console.log('User logged in with Google successfully');
@@ -125,14 +140,18 @@ export class AuthService implements OnDestroy {
 
     private ensureNotAnonymous(isAnonymous: boolean): void {
         if (isAnonymous) {
-            throw new Error('Google login failed: anonymous session still active.');
+            throw new Error(
+                'Google login failed: anonymous session still active.',
+            );
         }
     }
 
     loginAsGuest(): Promise<void> {
         return this.runAuthAction(
             async () => {
-                const credential = await signInAnonymously(this.getRequiredAuth());
+                const credential = await signInAnonymously(
+                    this.getRequiredAuth(),
+                );
                 this.emitCurrentUser(credential.user);
             },
             'User logged in as guest successfully',
@@ -161,14 +180,15 @@ export class AuthService implements OnDestroy {
 
     confirmPasswordReset(code: string, newPassword: string): Promise<void> {
         return this.runAuthAction(
-            () => confirmPasswordReset(this.getRequiredAuth(), code, newPassword),
+            () =>
+                confirmPasswordReset(this.getRequiredAuth(), code, newPassword),
             'Password reset successful',
             'Password reset error:',
         );
     }
 
     getCurrentUser(): User | null {
-        return this.auth?.currentUser ?? this.currentUserSubject.value;
+        return this.currentUserSubject.value ?? this.auth?.currentUser ?? null;
     }
 
     ngOnDestroy(): void {

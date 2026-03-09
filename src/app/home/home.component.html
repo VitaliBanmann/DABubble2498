@@ -1,13 +1,15 @@
 <main class="home-page">
     <header class="home-header">
         <div>
-            <h1>{{ isDirectMessage ? '@ ' + currentConversationTitle : '# ' + currentConversationTitle }}</h1>
-            <p>
+            <h1>
                 {{
                     isDirectMessage
-                        ? 'Direktnachricht'
-                        : 'Channel'
+                        ? "@ " + currentConversationTitle
+                        : "# " + currentConversationTitle
                 }}
+            </h1>
+            <p>
+                {{ isDirectMessage ? "Direktnachricht" : "Channel" }}
             </p>
         </div>
 
@@ -23,7 +25,7 @@
             <p class="empty-state">Noch keine Nachrichten in diesem Channel.</p>
         }
 
-        @for (message of messages; track message.id ?? $index) {
+        @for (message of messages; track trackMessage($index, message)) {
             <article class="message" [class.own]="isOwnMessage(message)">
                 <div class="message__meta">
                     <span>{{ getSenderLabel(message) }}</span>
@@ -32,29 +34,34 @@
                 <p>{{ message.text }}</p>
 
                 @if (message.reactions?.length) {
+                    @let visibleReactions = getVisibleReactions(message);
+                    @let hiddenCount = getHiddenReactionCount(message);
+
                     <div class="message__reactions">
                         @for (
-                            reaction of getVisibleReactions(message);
+                            reaction of visibleReactions;
                             track reaction.emoji
                         ) {
                             <button
                                 type="button"
                                 class="reaction"
                                 [class.active]="hasCurrentUserReacted(reaction)"
-                                (click)="toggleReaction(message, reaction.emoji)"
+                                (click)="
+                                    toggleReaction(message, reaction.emoji)
+                                "
                             >
                                 <span>{{ reaction.emoji }}</span>
                                 <span>{{ reaction.userIds.length }}</span>
                             </button>
                         }
 
-                        @if (getHiddenReactionCount(message) > 0) {
+                        @if (hiddenCount > 0) {
                             <button
                                 type="button"
                                 class="reaction more"
                                 (click)="toggleReactionList(message)"
                             >
-                                +{{ getHiddenReactionCount(message) }} weitere
+                                +{{ hiddenCount }} weitere
                             </button>
                         } @else if ((message.reactions?.length ?? 0) > 20) {
                             <button
@@ -75,20 +82,26 @@
         <input
             type="text"
             [formControl]="messageControl"
-            [placeholder]="isDirectMessage ? 'Nachricht an ' + currentConversationTitle : 'Nachricht schreiben...'"
-            [disabled]="isSending || !canWrite"
+            [placeholder]="
+                isDirectMessage
+                    ? 'Nachricht an ' + currentConversationTitle
+                    : 'Nachricht schreiben...'
+            "
         />
 
         <button
-            type="submit"
-            [disabled]="isSending || !messageControl.value.trim() || !canWrite"
+            type="button"
+            (click)="sendMessage()"
+            [disabled]="isSending || !messageControl.value.trim()"
         >
-            {{ isSending ? 'Sende...' : 'Senden' }}
+            {{ isSending ? "Sende..." : "Senden" }}
         </button>
     </form>
 
-    @if (!canWrite) {
-        <p class="hint">Als Gast kannst du Nachrichten lesen, aber nicht senden.</p>
+    @if (authResolved && !canWrite) {
+        <p class="hint">
+            Als Gast kannst du Nachrichten lesen, aber nicht senden.
+        </p>
     }
 
     @if (errorMessage) {

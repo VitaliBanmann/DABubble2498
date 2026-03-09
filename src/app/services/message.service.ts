@@ -1,6 +1,13 @@
 import { Injectable } from '@angular/core';
 import { where, Timestamp } from 'firebase/firestore';
-import { Observable, catchError, combineLatest, map, of } from 'rxjs';
+import {
+    Observable,
+    catchError,
+    combineLatest,
+    map,
+    of,
+    throwError,
+} from 'rxjs';
 import { AuthService } from './auth.service';
 import { FirestoreService } from './firestore.service';
 
@@ -28,6 +35,10 @@ export interface Message extends Record<string, unknown> {
 })
 export class MessageService {
     private messagesCollection = 'messages';
+    private logReadError(scope: string, error: unknown): Observable<never> {
+        console.error(`[${scope}] Firestore read failed`, error);
+        return throwError(() => error);
+    }
 
     constructor(
         private firestoreService: FirestoreService,
@@ -35,18 +46,21 @@ export class MessageService {
     ) {}
 
     sendMessage(message: Message): Observable<string> {
-        const currentUser = this.authService.getCurrentUser();
-        if (!currentUser) {
-            throw new Error('User not authenticated');
+        const text = (message.text ?? '').trim();
+        const senderId = (message.senderId ?? '').trim();
+
+        if (!text) {
+            throw new Error('Message text is empty');
         }
 
-        if (currentUser.isAnonymous) {
-            throw new Error('Anonymous users cannot send messages');
+        if (!senderId) {
+            throw new Error('Missing senderId');
         }
 
         return this.firestoreService.addDocument(this.messagesCollection, {
             ...message,
-            senderId: currentUser.uid,
+            text,
+            senderId,
             timestamp: new Date(),
             read: false,
         });
@@ -58,8 +72,8 @@ export class MessageService {
                 where('channelId', '==', channelId),
             ])
             .pipe(
-                catchError(() => of([])),
                 map((messages) => this.mergeAndSortMessages(messages)),
+                catchError((error) => this.logReadError('CHANNEL', error)),
             );
     }
 
@@ -68,47 +82,89 @@ export class MessageService {
     }
 
     getDirectMessages(otherUserId: string): Observable<Message[]> {
-        const currentUser = this.authService.getCurrentUser();
-        if (!currentUser) return of([]);
-        const sent$ = this.querySentMessages(currentUser.uid, otherUserId);
-        const received$ = this.queryReceivedMessages(currentUser.uid, otherUserId);
-        return combineLatest([sent$, received$]).pipe(
-            map(([sent, received]) => this.mergeAndSortMessages([...sent, ...received])),
-        );
+    const currentUser = this.authService.getCurrentUser();
+    if (!currentUser || !otherUserId) {
+        return of([]);
     }
 
-    private querySentMessages(senderId: string, receiverId: string): Observable<Message[]> {
-        return this.firestoreService.queryDocumentsRealtime<Message>(this.messagesCollection, [
-            where('senderId', '==', senderId),
-            where('receiverId', '==', receiverId),
-        ]).pipe(catchError(() => of([])));
+    const conversationId = this.createConversationId(
+        currentUser.uid,
+        otherUserId,
+    );
+
+    const sent$ = this.querySentMessages(
+        currentUser.uid,
+        otherUserId,
+        conversationId,
+    );
+
+    const received$ = this.queryReceivedMessages(
+        currentUser.uid,
+        otherUserId,
+        conversationId,
+    );
+
+    return combineLatest([sent$, received$]).pipe(
+        map(([sent, received]) =>
+            this.mergeAndSortMessages([...sent, ...received]),
+        ),
+    );
+}
+
+    private querySentMessages(
+        senderId: string,
+        receiverId: string,
+        conversationId: string,
+    ): Observable<Message[]> {
+        return this.firestoreService
+            .queryDocumentsRealtime<Message>(this.messagesCollection, [
+                where('senderId', '==', senderId),
+                where('receiverId', '==', receiverId),
+                where('conversationId', '==', conversationId),
+            ])
+            .pipe(catchError((error) => this.logReadError('DM_SENT', error)));
     }
 
-    private queryReceivedMessages(receiverId: string, senderId: string): Observable<Message[]> {
-        return this.firestoreService.queryDocumentsRealtime<Message>(this.messagesCollection, [
-            where('senderId', '==', senderId),
-            where('receiverId', '==', receiverId),
-        ]).pipe(catchError(() => of([])));
+    private queryReceivedMessages(
+        receiverId: string,
+        senderId: string,
+        conversationId: string,
+    ): Observable<Message[]> {
+        return this.firestoreService
+            .queryDocumentsRealtime<Message>(this.messagesCollection, [
+                where('senderId', '==', senderId),
+                where('receiverId', '==', receiverId),
+                where('conversationId', '==', conversationId),
+            ])
+            .pipe(
+                catchError((error) => this.logReadError('DM_RECEIVED', error)),
+            );
     }
 
-    sendDirectMessage(otherUserId: string, text: string): Observable<string> {
-        const currentUser = this.authService.getCurrentUser();
-        if (!currentUser) {
-            throw new Error('User not authenticated');
+    sendDirectMessage(
+        otherUserId: string,
+        text: string,
+        senderId: string,
+    ): Observable<string> {
+        const cleanText = (text ?? '').trim();
+        const cleanSenderId = (senderId ?? '').trim();
+
+        if (!cleanSenderId) {
+            throw new Error('Missing senderId');
         }
 
-        if (currentUser.isAnonymous) {
-            throw new Error('Anonymous users cannot send messages');
+        if (!cleanText) {
+            throw new Error('Message text is empty');
         }
 
         const conversationId = this.createConversationId(
-            currentUser.uid,
+            cleanSenderId,
             otherUserId,
         );
 
         return this.firestoreService.addDocument(this.messagesCollection, {
-            text,
-            senderId: currentUser.uid,
+            text: cleanText,
+            senderId: cleanSenderId,
             receiverId: otherUserId,
             conversationId,
             timestamp: new Date(),
@@ -143,7 +199,9 @@ export class MessageService {
     }
 
     getAllMessages(): Observable<Message[]> {
-        return this.firestoreService.getDocuments<Message>(this.messagesCollection);
+        return this.firestoreService.getDocuments<Message>(
+            this.messagesCollection,
+        );
     }
 
     toggleReaction(messageId: string, emoji: string): Observable<void> {
@@ -162,17 +220,21 @@ export class MessageService {
                             return;
                         }
 
-                        const existing = (message.reactions ?? []).map((reaction) => ({
-                            ...reaction,
-                            userIds: [...reaction.userIds],
-                        }));
+                        const existing = (message.reactions ?? []).map(
+                            (reaction) => ({
+                                ...reaction,
+                                userIds: [...reaction.userIds],
+                            }),
+                        );
                         const reactionIndex = existing.findIndex(
                             (reaction) => reaction.emoji === emoji,
                         );
 
                         if (reactionIndex >= 0) {
                             const target = existing[reactionIndex];
-                            const hasReacted = target.userIds.includes(currentUser.uid);
+                            const hasReacted = target.userIds.includes(
+                                currentUser.uid,
+                            );
 
                             if (hasReacted) {
                                 target.userIds = target.userIds.filter(
@@ -185,13 +247,20 @@ export class MessageService {
                                 target.userIds.push(currentUser.uid);
                             }
                         } else {
-                            existing.push({ emoji, userIds: [currentUser.uid] });
+                            existing.push({
+                                emoji,
+                                userIds: [currentUser.uid],
+                            });
                         }
 
                         this.firestoreService
-                            .updateDocument(this.messagesCollection, messageId, {
-                                reactions: existing,
-                            })
+                            .updateDocument(
+                                this.messagesCollection,
+                                messageId,
+                                {
+                                    reactions: existing,
+                                },
+                            )
                             .subscribe({
                                 next: () => {
                                     observer.next();
@@ -205,7 +274,10 @@ export class MessageService {
         });
     }
 
-    private createConversationId(firstUserId: string, secondUserId: string): string {
+    private createConversationId(
+        firstUserId: string,
+        secondUserId: string,
+    ): string {
         return [firstUserId, secondUserId].sort().join('__');
     }
 
@@ -229,7 +301,8 @@ export class MessageService {
         const deduplicated = new Map<string, Message>();
 
         messages.forEach((message, index) => {
-            const key = message.id ?? `${message.senderId}-${message.text}-${index}`;
+            const key =
+                message.id ?? `${message.senderId}-${message.text}-${index}`;
             deduplicated.set(key, message);
         });
 

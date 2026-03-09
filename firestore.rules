@@ -59,10 +59,22 @@ service cloud.firestore {
         && !hasField(data, 'conversationId');
     }
 
+    function canReadDirectMessage(data) {
+    return hasField(data, 'senderId')
+    && hasField(data, 'receiverId')
+    && (
+      request.auth.uid == data.senderId
+      || request.auth.uid == data.receiverId
+    );
+    }
+
+    function canReadChannelMessage(data) {
+    return hasField(data, 'channelId')
+    && canReadChannel(data.channelId);
+    }
+
     function canReadMessage(data) {
-      return isDirectMessage(data)
-        ? (request.auth.uid == data.senderId || request.auth.uid == data.receiverId)
-        : (isChannelMessage(data) && canReadChannel(data.channelId));
+    return canReadDirectMessage(data) || canReadChannelMessage(data);
     }
 
     function canCreateDirectMessage(data) {

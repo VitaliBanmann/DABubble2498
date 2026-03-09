@@ -5,6 +5,11 @@ $purple__hover: #535AF1;
     padding: 16px;
 }
 
+.sidebar__add[aria-disabled="true"] {
+    opacity: 0.5;
+    pointer-events: none;
+}
+
 .sidebar__section,
 .sidebar__topsection {
     margin-top: 18px;
@@ -159,11 +164,11 @@ $purple__hover: #535AF1;
     &:hover {
         color: $purple__hover;
     }
+}
 
-    &.active {
-        background: #eef0ff;
-        color: #444df2;
-    }
+.direct-link[data-active='true'] {
+    background: #eef0ff;
+    color: #444df2;
 }
 
 .direct-link__avatar {

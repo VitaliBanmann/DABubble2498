@@ -1,4 +1,9 @@
-import { Injectable, NgZone } from '@angular/core';
+import {
+    Injectable,
+    NgZone,
+    EnvironmentInjector,
+    runInInjectionContext,
+} from '@angular/core';
 import {
     Firestore,
     collection,
@@ -15,7 +20,7 @@ import {
     DocumentData,
     Query,
 } from '@angular/fire/firestore';
-import { Observable, from, retry, timer } from 'rxjs';
+import { Observable, from, retry, timer, defer } from 'rxjs';
 
 type WithId = { id: string };
 
@@ -26,7 +31,16 @@ export class FirestoreService {
     constructor(
         private readonly firestore: Firestore,
         private readonly zone: NgZone,
+        private readonly injector: EnvironmentInjector,
     ) {}
+
+    private inCtx<T>(fn: () => T): T {
+        return runInInjectionContext(this.injector, fn);
+    }
+
+    private fromCtxPromise<T>(factory: () => Promise<T>): Observable<T> {
+        return defer(() => from(this.inCtx(factory)));
+    }
 
     addDocument<T extends Record<string, unknown>>(
         collectionName: string,
@@ -35,7 +49,7 @@ export class FirestoreService {
         // Firestore expects DocumentData-like objects
         const payload = data as unknown as DocumentData;
 
-        return from(
+        return this.fromCtxPromise(() =>
             addDoc(collection(this.firestore, collectionName), payload).then(
                 (ref) => ref.id,
             ),
@@ -48,7 +62,7 @@ export class FirestoreService {
         data: T,
     ): Observable<void> {
         const payload = data as unknown as DocumentData;
-        return from(
+        return this.fromCtxPromise(() =>
             setDoc(doc(this.firestore, collectionName, docId), payload),
         );
     }
@@ -56,7 +70,7 @@ export class FirestoreService {
     getDocuments<T extends Record<string, unknown>>(
         collectionName: string,
     ): Observable<(T & WithId)[]> {
-        return from(
+        return this.fromCtxPromise(() =>
             getDocs(collection(this.firestore, collectionName)).then((snap) =>
                 snap.docs.map((d) => {
                     const data = d.data() as unknown as T;
@@ -70,7 +84,7 @@ export class FirestoreService {
         collectionName: string,
         docId: string,
     ): Observable<(T & WithId) | null> {
-        return from(
+        return this.fromCtxPromise(() =>
             getDoc(doc(this.firestore, collectionName, docId)).then((snap) => {
                 if (!snap.exists()) return null;
                 const data = snap.data() as unknown as T;
@@ -84,31 +98,34 @@ export class FirestoreService {
         docId: string,
     ): Observable<(T & WithId) | null> {
         return new Observable<(T & WithId) | null>((subscriber) => {
-            const docRef = doc(this.firestore, collectionName, docId);
-            const unsubscribe = onSnapshot(
-                docRef,
-                (snap) => {
-                    this.zone.run(() => {
-                        if (subscriber.closed) {
-                            return;
-                        }
-                        if (!snap.exists()) {
-                            subscriber.next(null);
-                            return;
-                        }
-                        const data = snap.data() as unknown as T;
-                        subscriber.next({ id: snap.id, ...data });
-                    });
-                },
-                (error) => {
-                    this.zone.run(() => {
-                        if (subscriber.closed) {
-                            return;
-                        }
-                        subscriber.error(error);
-                    });
-                },
-            );
+            const unsubscribe = this.inCtx(() => {
+                const docRef = doc(this.firestore, collectionName, docId);
+
+                return onSnapshot(
+                    docRef,
+                    (snap) => {
+                        this.zone.run(() => {
+                            if (subscriber.closed) {
+                                return;
+                            }
+                            if (!snap.exists()) {
+                                subscriber.next(null);
+                                return;
+                            }
+                            const data = snap.data() as unknown as T;
+                            subscriber.next({ id: snap.id, ...data });
+                        });
+                    },
+                    (error) => {
+                        this.zone.run(() => {
+                            if (!subscriber.closed) {
+                                subscriber.error(error);
+                            }
+                        });
+                    },
+                );
+            });
+
             return () => unsubscribe();
         }).pipe(this.retryOnAuthNotReady());
     }
@@ -118,20 +135,22 @@ export class FirestoreService {
         docId: string,
         data: Partial<T>,
     ): Observable<void> {
-        return from(
+        return this.fromCtxPromise(() =>
             updateDoc(doc(this.firestore, collectionName, docId), data as any),
         );
     }
 
     deleteDocument(collectionName: string, docId: string): Observable<void> {
-        return from(deleteDoc(doc(this.firestore, collectionName, docId)));
+        return this.fromCtxPromise(() =>
+            deleteDoc(doc(this.firestore, collectionName, docId)),
+        );
     }
 
     queryDocuments<T extends Record<string, unknown>>(
         collectionName: string,
         constraints: QueryConstraint[],
     ): Observable<(T & WithId)[]> {
-        return from(
+        return this.fromCtxPromise(() =>
             getDocs(
                 query(
                     collection(this.firestore, collectionName),
@@ -151,33 +170,41 @@ export class FirestoreService {
         constraints: QueryConstraint[],
     ): Observable<(T & WithId)[]> {
         return new Observable<(T & WithId)[]>((subscriber) => {
-            const baseCollection = collection(this.firestore, collectionName);
-            const queryRef = query(baseCollection, ...constraints) as Query<DocumentData>;
+            const unsubscribe = this.inCtx(() => {
+                const baseCollection = collection(
+                    this.firestore,
+                    collectionName,
+                );
+                const queryRef = query(
+                    baseCollection,
+                    ...constraints,
+                ) as Query<DocumentData>;
 
-            const unsubscribe = onSnapshot(
-                queryRef,
-                (snap) => {
-                    this.zone.run(() => {
-                        if (subscriber.closed) {
-                            return;
-                        }
-                        subscriber.next(
-                            snap.docs.map((docSnapshot) => {
-                                const data = docSnapshot.data() as unknown as T;
-                                return { id: docSnapshot.id, ...data };
-                            }),
-                        );
-                    });
-                },
-                (error) => {
-                    this.zone.run(() => {
-                        if (subscriber.closed) {
-                            return;
-                        }
-                        subscriber.error(error);
-                    });
-                },
-            );
+                return onSnapshot(
+                    queryRef,
+                    (snap) => {
+                        this.zone.run(() => {
+                            if (subscriber.closed) {
+                                return;
+                            }
+                            subscriber.next(
+                                snap.docs.map((docSnapshot) => {
+                                    const data =
+                                        docSnapshot.data() as unknown as T;
+                                    return { id: docSnapshot.id, ...data };
+                                }),
+                            );
+                        });
+                    },
+                    (error) => {
+                        this.zone.run(() => {
+                            if (!subscriber.closed) {
+                                subscriber.error(error);
+                            }
+                        });
+                    },
+                );
+            });
 
             return () => unsubscribe();
         }).pipe(this.retryOnAuthNotReady());
@@ -190,11 +217,14 @@ export class FirestoreService {
                     count: 5,
                     delay: (error, retryCount) => {
                         const code = this.getFirebaseErrorCode(error);
-                        if (code !== 'permission-denied' && code !== 'unauthenticated') {
+                        if (code !== 'unauthenticated') {
                             throw error;
                         }
 
-                        const delayMs = Math.min(500 * Math.pow(2, retryCount - 1), 4000);
+                        const delayMs = Math.min(
+                            500 * Math.pow(2, retryCount - 1),
+                            4000,
+                        );
                         return timer(delayMs);
                     },
                 }),

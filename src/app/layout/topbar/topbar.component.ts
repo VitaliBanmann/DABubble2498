@@ -1,4 +1,4 @@
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import {
@@ -7,9 +7,11 @@ import {
     catchError,
     map,
     of,
-    startWith,
     switchMap,
     take,
+    asyncScheduler,
+    observeOn,
+    filter,
 } from 'rxjs';
 import { UiStateService } from '../../services/ui-state.service';
 import { AuthFlowService } from '../../services/auth-flow.service';
@@ -44,7 +46,7 @@ interface SearchMessageResult {
     styleUrl: './topbar.component.scss',
 })
 export class TopbarComponent implements OnInit, OnDestroy {
-    displayName = '';
+    displayName = 'Gast';
     email = '';
     presenceStatus: PresenceStatus = 'offline';
     avatarUrl: string | null = null;
@@ -73,28 +75,29 @@ export class TopbarComponent implements OnInit, OnDestroy {
         private readonly channelService: ChannelService,
         private readonly messageService: MessageService,
         private readonly router: Router,
+        private readonly cdr: ChangeDetectorRef,
     ) {}
 
     ngOnInit(): void {
         this.subscription.add(
-            this.authService.authReady$.subscribe((ready) => {
-                if (!ready) {
-                    return;
-                }
-                // auth state resolved; if user is not logged in we should show guest
-                if (!this.authService.getCurrentUser()) {
-                    this.displayName = 'Gast';
-                    this.email = '';
-                    this.presenceStatus = 'offline';
-                    this.clearAvatar();
-                }
-            }),
+            this.authService.authReady$
+                .pipe(observeOn(asyncScheduler))
+                .subscribe((ready) => {
+                    if (!ready) {
+                        return;
+                    }
+                }),
         );
 
         this.subscription.add(
-            this.authService.currentUser$
+            combineLatest([
+                this.authService.authReady$,
+                this.authService.currentUser$,
+            ])
                 .pipe(
-                    switchMap((user) => {
+                    observeOn(asyncScheduler),
+                    filter(([ready]) => ready),
+                    switchMap(([, user]) => {
                         if (!user || user.isAnonymous) {
                             if (this.searchDataLoaded) {
                                 this.searchDataLoaded = false;
@@ -130,26 +133,30 @@ export class TopbarComponent implements OnInit, OnDestroy {
                         const { user, profile } = data;
 
                         if (profile) {
-                            this.profileResolved = true;
-                            this.clearProfileFallback();
-
                             const resolvedName =
                                 profile.displayName?.trim() ||
                                 user.displayName?.trim() ||
                                 user.email?.split('@')[0] ||
                                 'Gast';
-                            this.displayName = resolvedName;
 
                             const resolvedEmail =
                                 this.resolveProfileEmail(profile) ||
                                 user.email ||
                                 '';
-                            this.email = resolvedEmail;
 
-                            this.applyAvatar(profile.avatar || user.photoURL || null);
-
-                            this.presenceStatus =
+                            const resolvedAvatar =
+                                profile.avatar || user.photoURL || null;
+                            const resolvedPresence =
                                 profile.presenceStatus ?? 'online';
+
+                            this.deferUiUpdate(() => {
+                                this.profileResolved = true;
+                                this.clearProfileFallback();
+                                this.displayName = resolvedName;
+                                this.email = resolvedEmail;
+                                this.applyAvatar(resolvedAvatar);
+                                this.presenceStatus = resolvedPresence;
+                            });
                         }
                     },
                 }),
@@ -190,6 +197,13 @@ export class TopbarComponent implements OnInit, OnDestroy {
         this.avatarUrl = null;
         this.showAvatarImage = false;
     }
+
+    private deferUiUpdate(update: () => void): void {
+    setTimeout(() => {
+        update();
+        this.cdr.detectChanges();
+    }, 0);
+}
 
     private resolveProfileEmail(profile: Record<string, unknown>): string {
         const candidates = [
@@ -319,16 +333,65 @@ export class TopbarComponent implements OnInit, OnDestroy {
         }
     }
 
+    private buildSearchableChannelIds(
+        channels: Array<{ id?: string }>,
+    ): string[] {
+        const defaultChannelIds = ['allgemein', 'entwicklerteam'];
+        const dbChannelIds = channels
+            .map((channel) => channel.id ?? '')
+            .filter((id) => id.length > 0);
+
+        return Array.from(new Set([...defaultChannelIds, ...dbChannelIds]));
+    }
+
+    private loadSearchableMessages(channelIds: string[]): void {
+        if (!channelIds.length) {
+            this.searchableMessages = [];
+            return;
+        }
+
+        const channelStreams = channelIds.map((channelId) =>
+            this.messageService.getChannelMessages(channelId).pipe(
+                take(1),
+                catchError(() => of([])),
+            ),
+        );
+
+        this.subscription.add(
+            combineLatest(channelStreams).subscribe({
+                next: (messageGroups) => {
+                    this.searchableMessages = messageGroups
+                        .flat()
+                        .filter(
+                            (message) =>
+                                !!message.id &&
+                                typeof message.text === 'string' &&
+                                typeof message.channelId === 'string',
+                        )
+                        .map((message) => ({
+                            id: message.id as string,
+                            text: message.text,
+                            channelId: message.channelId as string,
+                        }));
+                },
+                error: () => {
+                    this.searchableMessages = [];
+                },
+            }),
+        );
+    }
+
     private loadSearchData(): void {
         this.subscription.add(
             combineLatest([
-                this.channelService.getAllChannels().pipe(catchError(() => of([]))),
+                this.channelService
+                    .getAllChannels()
+                    .pipe(catchError(() => of([]))),
                 this.userService.getAllUsers().pipe(catchError(() => of([]))),
-                this.messageService.getAllMessages().pipe(catchError(() => of([]))),
             ])
                 .pipe(take(1))
                 .subscribe({
-                    next: ([channels, users, messages]) => {
+                    next: ([channels, users]) => {
                         const defaultChannels: SearchChannelResult[] = [
                             { id: 'allgemein', name: 'Allgemein' },
                             { id: 'entwicklerteam', name: 'Entwicklerteam' },
@@ -360,18 +423,16 @@ export class TopbarComponent implements OnInit, OnDestroy {
                                 email: user.email,
                             }));
 
-                        this.searchableMessages = messages
-                            .filter(
-                                (message) =>
-                                    !!message.id &&
-                                    typeof message.text === 'string' &&
-                                    typeof message.channelId === 'string',
-                            )
-                            .map((message) => ({
-                                id: message.id as string,
-                                text: message.text,
-                                channelId: message.channelId as string,
-                            }));
+                        const readableChannelIds =
+                            this.buildSearchableChannelIds(
+                                channels as Array<{ id?: string }>,
+                            );
+                        this.loadSearchableMessages(readableChannelIds);
+                    },
+                    error: () => {
+                        this.searchableChannels = [];
+                        this.searchableUsers = [];
+                        this.searchableMessages = [];
                     },
                 }),
         );
@@ -379,15 +440,15 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
     private beginProfileFallback(
         uid: string,
-        user: { displayName?: string | null; email?: string | null; photoURL?: string | null },
+        user: {
+            displayName?: string | null;
+            email?: string | null;
+            photoURL?: string | null;
+        },
     ): void {
         if (this.profileUid !== uid) {
             this.profileUid = uid;
             this.profileResolved = false;
-            this.displayName = '';
-            this.email = '';
-            this.clearAvatar();
-            this.presenceStatus = 'online';
         }
 
         this.clearProfileFallback();
@@ -396,11 +457,15 @@ export class TopbarComponent implements OnInit, OnDestroy {
                 return;
             }
 
-            this.displayName =
-                user.displayName?.trim() || user.email?.split('@')[0] || 'Gast';
-            this.email = user.email ?? '';
-            this.applyAvatar(user.photoURL);
-            this.presenceStatus = 'online';
+            this.deferUiUpdate(() => {
+                this.displayName =
+                    user.displayName?.trim() ||
+                    user.email?.split('@')[0] ||
+                    'Gast';
+                this.email = user.email ?? '';
+                this.applyAvatar(user.photoURL);
+                this.presenceStatus = 'online';
+            });
         }, 1200);
     }
 
