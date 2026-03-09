@@ -54,51 +54,23 @@ export class UnreadStateService {
         channelMentions: Record<string, boolean>;
         directMentions: Record<string, boolean>;
     }> {
-        if (!userId) {
-            return of({
-                channels: {},
-                direct: {},
-                channelMentions: {},
-                directMentions: {},
-            });
-        }
-
-        const states$ = this.firestoreService.queryDocumentsRealtime<InboxState>(
-            `users/${userId}/inboxState`,
-            [],
-        );
-
+        if (!userId) return of(this.emptyFlags());
         const latestStreams = this.buildLatestStreams(userId, channelIds, dmUserIds);
         const mentionStreams = this.buildLatestMentionStreams(userId, channelIds, dmUserIds);
-        if (!latestStreams.length) {
-            return of({
-                channels: {},
-                direct: {},
-                channelMentions: {},
-                directMentions: {},
-            });
-        }
+        if (!latestStreams.length) return of(this.emptyFlags());
 
-        return combineLatest([states$, ...latestStreams, ...mentionStreams]).pipe(
-            map(([states, ...rest]) => {
-                const latest = rest.slice(0, latestStreams.length) as LatestContextMessage[];
-                const mentions = rest.slice(latestStreams.length) as LatestMentionMessage[];
-                return this.computeUnreadFlags(
-                    userId,
-                    states as InboxState[],
-                    latest,
-                    mentions,
-                );
-            },
+        return combineLatest([this.inboxStateStream(userId), ...latestStreams, ...mentionStreams]).pipe(
+            map(([states, ...rest]) =>
+                this.mapFlagsResult(userId, states as InboxState[], rest, latestStreams.length),
             ),
-            catchError(() =>
-                of({
-                    channels: {},
-                    direct: {},
-                    channelMentions: {},
-                    directMentions: {},
-                }),
-            ),
+            catchError(() => of(this.emptyFlags())),
+        );
+    }
+
+    private inboxStateStream(userId: string): Observable<InboxState[]> {
+        return this.firestoreService.queryDocumentsRealtime<InboxState>(
+            `users/${userId}/inboxState`,
+            [],
         );
     }
 
@@ -107,30 +79,10 @@ export class UnreadStateService {
         channelIds: string[],
         dmUserIds: string[],
     ): Observable<LatestContextMessage>[] {
-        const channelStreams = channelIds.map((channelId) =>
-            this.latestChannelMessage(channelId).pipe(
-                map((message) => ({
-                    kind: 'channel' as const,
-                    id: channelId,
-                    contextId: this.channelContextId(channelId),
-                    message,
-                })),
-            ),
-        );
-
-        const dmStreams = dmUserIds.map((otherUserId) => {
-            const conversationId = this.createConversationId(userId, otherUserId);
-            return this.latestDirectMessage(conversationId).pipe(
-                map((message) => ({
-                    kind: 'dm' as const,
-                    id: otherUserId,
-                    contextId: this.dmContextId(conversationId),
-                    message,
-                })),
-            );
-        });
-
-        return [...channelStreams, ...dmStreams];
+        return [
+            ...this.buildChannelLatestStreams(channelIds),
+            ...this.buildDirectLatestStreams(userId, dmUserIds),
+        ];
     }
 
     private latestChannelMessage(channelId: string): Observable<Message | null> {
@@ -164,30 +116,10 @@ export class UnreadStateService {
         channelIds: string[],
         dmUserIds: string[],
     ): Observable<LatestMentionMessage>[] {
-        const channelStreams = channelIds.map((channelId) =>
-            this.latestChannelMention(channelId, userId).pipe(
-                map((message) => ({
-                    kind: 'channel' as const,
-                    id: channelId,
-                    contextId: this.channelContextId(channelId),
-                    message,
-                })),
-            ),
-        );
-
-        const dmStreams = dmUserIds.map((otherUserId) => {
-            const conversationId = this.createConversationId(userId, otherUserId);
-            return this.latestDirectMention(conversationId, userId).pipe(
-                map((message) => ({
-                    kind: 'dm' as const,
-                    id: otherUserId,
-                    contextId: this.dmContextId(conversationId),
-                    message,
-                })),
-            );
-        });
-
-        return [...channelStreams, ...dmStreams];
+        return [
+            ...this.buildChannelMentionStreams(userId, channelIds),
+            ...this.buildDirectMentionStreams(userId, dmUserIds),
+        ];
     }
 
     private latestChannelMention(
@@ -235,47 +167,13 @@ export class UnreadStateService {
         channelMentions: Record<string, boolean>;
         directMentions: Record<string, boolean>;
     } {
-        const stateMap = states.reduce<Record<string, InboxState>>((acc, state) => {
-            if (state.contextId) {
-                acc[state.contextId] = state;
-            }
-            return acc;
-        }, {});
-
         const channels: Record<string, boolean> = {};
         const direct: Record<string, boolean> = {};
         const channelMentions: Record<string, boolean> = {};
         const directMentions: Record<string, boolean> = {};
-
-        latest.forEach((item) => {
-            const state = stateMap[item.contextId];
-            const lastRead = state ? this.toMillis(state.lastReadAt) : 0;
-            const messageTime = item.message ? this.toMillis(item.message.timestamp) : 0;
-            const isOwn = item.message?.senderId === userId;
-            const unread = !!item.message && !isOwn && messageTime > lastRead;
-
-            if (item.kind === 'channel') {
-                channels[item.id] = unread;
-                return;
-            }
-
-            direct[item.id] = unread;
-        });
-
-        mentions.forEach((item) => {
-            const state = stateMap[item.contextId];
-            const lastRead = state ? this.toMillis(state.lastReadAt) : 0;
-            const messageTime = item.message ? this.toMillis(item.message.timestamp) : 0;
-            const mentionUnread = !!item.message && messageTime > lastRead;
-
-            if (item.kind === 'channel') {
-                channelMentions[item.id] = mentionUnread;
-                return;
-            }
-
-            directMentions[item.id] = mentionUnread;
-        });
-
+        const stateMap = this.buildStateMap(states);
+        this.applyLatestUnread(userId, latest, stateMap, channels, direct);
+        this.applyMentionUnread(mentions, stateMap, channelMentions, directMentions);
         return { channels, direct, channelMentions, directMentions };
     }
 
@@ -308,28 +206,121 @@ export class UnreadStateService {
     }
 
     private toMillis(value: unknown): number {
-        if (value instanceof Date) {
-            return value.getTime();
-        }
-
-        if (
-            value &&
-            typeof value === 'object' &&
-            'toMillis' in value &&
-            typeof (value as { toMillis?: unknown }).toMillis === 'function'
-        ) {
-            return ((value as { toMillis: () => number }).toMillis());
-        }
-
-        if (
-            value &&
-            typeof value === 'object' &&
-            'toDate' in value &&
-            typeof (value as { toDate?: unknown }).toDate === 'function'
-        ) {
-            return ((value as { toDate: () => Date }).toDate()).getTime();
-        }
-
+        if (value instanceof Date) return value.getTime();
+        if (this.hasToMillis(value)) return value.toMillis();
+        if (this.hasToDate(value)) return value.toDate().getTime();
         return 0;
+    }
+
+    private emptyFlags() {
+        return { channels: {}, direct: {}, channelMentions: {}, directMentions: {} };
+    }
+
+    private mapFlagsResult(
+        userId: string,
+        states: InboxState[],
+        rest: unknown[],
+        latestCount: number,
+    ) {
+        const latest = rest.slice(0, latestCount) as LatestContextMessage[];
+        const mentions = rest.slice(latestCount) as LatestMentionMessage[];
+        return this.computeUnreadFlags(userId, states, latest, mentions);
+    }
+
+    private buildChannelLatestStreams(channelIds: string[]): Observable<LatestContextMessage>[] {
+        return channelIds.map((channelId) =>
+            this.latestChannelMessage(channelId).pipe(map((message) => this.toLatestChannel(channelId, message))),
+        );
+    }
+
+    private buildDirectLatestStreams(userId: string, dmUserIds: string[]): Observable<LatestContextMessage>[] {
+        return dmUserIds.map((otherUserId) => {
+            const conversationId = this.createConversationId(userId, otherUserId);
+            return this.latestDirectMessage(conversationId).pipe(map((message) => this.toLatestDirect(otherUserId, conversationId, message)));
+        });
+    }
+
+    private buildChannelMentionStreams(userId: string, channelIds: string[]): Observable<LatestMentionMessage>[] {
+        return channelIds.map((channelId) =>
+            this.latestChannelMention(channelId, userId).pipe(map((message) => this.toMentionChannel(channelId, message))),
+        );
+    }
+
+    private buildDirectMentionStreams(userId: string, dmUserIds: string[]): Observable<LatestMentionMessage>[] {
+        return dmUserIds.map((otherUserId) => {
+            const conversationId = this.createConversationId(userId, otherUserId);
+            return this.latestDirectMention(conversationId, userId).pipe(map((message) => this.toMentionDirect(otherUserId, conversationId, message)));
+        });
+    }
+
+    private toLatestChannel(id: string, message: Message | null): LatestContextMessage {
+        return { kind: 'channel', id, contextId: this.channelContextId(id), message };
+    }
+
+    private toLatestDirect(id: string, conversationId: string, message: Message | null): LatestContextMessage {
+        return { kind: 'dm', id, contextId: this.dmContextId(conversationId), message };
+    }
+
+    private toMentionChannel(id: string, message: Message | null): LatestMentionMessage {
+        return { kind: 'channel', id, contextId: this.channelContextId(id), message };
+    }
+
+    private toMentionDirect(id: string, conversationId: string, message: Message | null): LatestMentionMessage {
+        return { kind: 'dm', id, contextId: this.dmContextId(conversationId), message };
+    }
+
+    private buildStateMap(states: InboxState[]): Record<string, InboxState> {
+        return states.reduce<Record<string, InboxState>>((acc, state) => {
+            if (state.contextId) acc[state.contextId] = state;
+            return acc;
+        }, {});
+    }
+
+    private applyLatestUnread(
+        userId: string,
+        latest: LatestContextMessage[],
+        stateMap: Record<string, InboxState>,
+        channels: Record<string, boolean>,
+        direct: Record<string, boolean>,
+    ): void {
+        latest.forEach((item) => {
+            const unread = this.isLatestItemUnread(userId, item, stateMap[item.contextId]);
+            if (item.kind === 'channel') channels[item.id] = unread;
+            else direct[item.id] = unread;
+        });
+    }
+
+    private applyMentionUnread(
+        mentions: LatestMentionMessage[],
+        stateMap: Record<string, InboxState>,
+        channelMentions: Record<string, boolean>,
+        directMentions: Record<string, boolean>,
+    ): void {
+        mentions.forEach((item) => {
+            const unread = this.isMentionItemUnread(item, stateMap[item.contextId]);
+            if (item.kind === 'channel') channelMentions[item.id] = unread;
+            else directMentions[item.id] = unread;
+        });
+    }
+
+    private isLatestItemUnread(userId: string, item: LatestContextMessage, state?: InboxState): boolean {
+        const lastRead = state ? this.toMillis(state.lastReadAt) : 0;
+        const messageTime = item.message ? this.toMillis(item.message.timestamp) : 0;
+        const isOwn = item.message?.senderId === userId;
+        return !!item.message && !isOwn && messageTime > lastRead;
+    }
+
+    private isMentionItemUnread(item: LatestMentionMessage, state?: InboxState): boolean {
+        const lastRead = state ? this.toMillis(state.lastReadAt) : 0;
+        const messageTime = item.message ? this.toMillis(item.message.timestamp) : 0;
+        return !!item.message && messageTime > lastRead;
+    }
+
+    private hasToMillis(value: unknown): value is { toMillis: () => number } {
+        return !!value && typeof value === 'object' && 'toMillis' in value && typeof (value as any).toMillis === 'function';
+    }
+
+    private hasToDate(value: unknown): value is { toDate: () => Date } {
+        return !!value && typeof value === 'object' && 'toDate' in value && typeof (value as any).toDate === 'function';
     }
 }

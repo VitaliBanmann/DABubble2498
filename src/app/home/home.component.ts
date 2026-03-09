@@ -174,7 +174,20 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     private handleRouteMessageError(error: unknown): void {
         console.error('[HOME ROUTE MESSAGE ERROR]', error);
-        this.errorMessage = 'Nachrichten konnten nicht geladen werden.';
+        this.errorMessage = this.resolveLoadErrorMessage(error);
+    }
+
+    private resolveLoadErrorMessage(error: unknown): string {
+        const code = this.extractFirebaseErrorCode(error);
+        if (code === 'permission-denied') return 'Nachrichten konnten nicht geladen werden (Rechteproblem).';
+        if (code === 'failed-precondition') return 'Nachrichten konnten nicht geladen werden (Index fehlt/noch im Aufbau).';
+        return 'Nachrichten konnten nicht geladen werden.';
+    }
+
+    private extractFirebaseErrorCode(error: unknown): string {
+        if (!error || typeof error !== 'object') return '';
+        const code = (error as { code?: unknown }).code;
+        return typeof code === 'string' ? code : '';
     }
 
     private handleRouteMessageContext(

@@ -72,6 +72,11 @@ service cloud.firestore {
         : secondUid + '__' + firstUid;
     }
 
+    function isConversationParticipant(conversationId) {
+      return conversationId is string
+        && conversationId.matches('^' + request.auth.uid + '__[^_].*$|^[^_].*__' + request.auth.uid + '$');
+    }
+
     function isDirectMessage(data) {
       return hasField(data, 'receiverId')
         && hasField(data, 'conversationId')
@@ -85,11 +90,17 @@ service cloud.firestore {
     }
 
     function canReadDirectMessage(data) {
-    return hasField(data, 'senderId')
-    && hasField(data, 'receiverId')
-    && (
-      request.auth.uid == data.senderId
-      || request.auth.uid == data.receiverId
+    return (
+      hasField(data, 'senderId')
+      && hasField(data, 'receiverId')
+      && (
+        request.auth.uid == data.senderId
+        || request.auth.uid == data.receiverId
+      )
+    )
+    || (
+      hasField(data, 'conversationId')
+      && isConversationParticipant(data.conversationId)
     );
     }
 
