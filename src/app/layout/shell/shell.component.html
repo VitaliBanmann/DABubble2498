@@ -13,6 +13,33 @@
             <router-outlet />
         </main>
 
+        <!-- Right thread panel (single thread area) -->
+        <aside class="shell__thread" *ngIf="ui.isThreadOpen()">
+            <header class="thread__header">
+                <div class="thread__title">Thread</div>
+                <button
+                    type="button"
+                    class="thread__close"
+                    (click)="ui.closeThread()"
+                    aria-label="Thread schließen"
+                >
+                    ✕
+                </button>
+            </header>
+
+            <div class="thread__body">
+                <div class="thread-placeholder">Thread content placeholder</div>
+
+                <div class="thread-composer">
+                    <input
+                        type="text"
+                        placeholder="Antwort im Thread schreiben..."
+                    />
+                    <button type="button">Antworten</button>
+                </div>
+            </div>
+        </aside>
+
         <!-- Workspace menu toggle button (vertical) -->
         <button
             type="button"

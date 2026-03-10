@@ -5,7 +5,7 @@ export interface LegalContactInfo {
 }
 
 export const LEGAL_CONTACT_INFO: LegalContactInfo = {
-    contactEmail: 'kontakt@da-bubble.de',
-    privacyEmail: 'datenschutz@da-bubble.de',
-    phone: '+49 (0) 123 456789',
+    contactEmail: 'vitali.banmann@gmail.com',
+    privacyEmail: 'vitali.banmann@gmail.com',
+    phone: 'Nicht angegeben'
 };

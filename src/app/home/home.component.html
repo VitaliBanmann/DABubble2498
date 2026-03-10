@@ -1,4 +1,4 @@
-<main class="home-page" [class.with-thread]="isThreadPanelOpen">
+<main class="home-page">
     <section class="chat-pane">
         <header class="home-header">
             <div>
@@ -155,8 +155,15 @@
                                     type="button"
                                     class="thread-link"
                                     (click)="openThreadForMessage(message)"
+                                    [attr.aria-label]="
+                                        isThreadPanelOpen
+                                            ? 'Thread ist geöffnet'
+                                            : 'Thread öffnen'
+                                    "
                                 >
-                                    Thread öffnen
+                                    @if (!isThreadPanelOpen) {
+                                        Thread öffnen
+                                    }
                                 </button>
                             </div>
                         }
@@ -317,67 +324,4 @@
         }
     </section>
 
-    @if (isThreadPanelOpen && activeThreadParent && !isDirectMessage) {
-        <aside class="thread-panel" aria-label="Thread Panel">
-            <header class="thread-panel__header">
-                <div>
-                    <h2>Thread</h2>
-                    <p>{{ activeThreadTitle }}</p>
-                </div>
-                <button
-                    type="button"
-                    class="thread-panel__close"
-                    (click)="closeThread()"
-                >
-                    Schließen
-                </button>
-            </header>
-
-            <section class="thread-list" aria-label="Thread Nachrichten">
-                @if (!threadMessages.length) {
-                    <p class="empty-state">Noch keine Antworten im Thread.</p>
-                }
-
-                @for (
-                    threadMessage of threadMessages;
-                    track trackThreadMessage($index, threadMessage)
-                ) {
-                    <article class="thread-message">
-                        <div class="message__meta">
-                            <span>{{
-                                getThreadSenderLabel(threadMessage)
-                            }}</span>
-                            <span>{{
-                                formatTimestamp(threadMessage.timestamp)
-                            }}</span>
-                        </div>
-                        <p>{{ threadMessage.text }}</p>
-                    </article>
-                }
-            </section>
-
-            <form
-                class="thread-composer"
-                novalidate
-                (ngSubmit)="sendThreadMessage()"
-            >
-                <input
-                    type="text"
-                    [formControl]="threadMessageControl"
-                    placeholder="Antwort im Thread schreiben..."
-                />
-                <button
-                    type="button"
-                    (click)="sendThreadMessage()"
-                    [disabled]="
-                        isThreadSending ||
-                        !threadMessageControl.value.trim() ||
-                        !canWrite
-                    "
-                >
-                    {{ isThreadSending ? "Sende..." : "Antworten" }}
-                </button>
-            </form>
-        </aside>
-    }
 </main>

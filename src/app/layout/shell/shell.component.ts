@@ -24,5 +24,6 @@ export class ShellComponent {
 
     readonly classes = computed(() => ({
         'sidebar-open': this.ui.isSidebarOpen(),
+        'thread-open': this.ui.isThreadOpen(),
     }));
 }

@@ -401,13 +401,18 @@
 
 .thread-panel__close {
     border: none;
-    border-radius: 8px;
+    border-radius: 10px;
     background: #eef0ff;
     color: #444df2;
-    height: 32px;
-    padding: 0 10px;
+    width: 36px;
+    height: 36px;
+    padding: 0;
     cursor: pointer;
-    font-weight: 600;
+    font-size: 22px;
+    line-height: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .thread-list {
