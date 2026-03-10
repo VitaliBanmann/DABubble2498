@@ -77,6 +77,16 @@
     padding-right: 4px;
 }
 
+.latest-message-summary {
+    margin: 0;
+    border: 1px solid #e1e6f8;
+    border-radius: 10px;
+    background: #f7f9ff;
+    color: #3a4058;
+    font-size: 12px;
+    padding: 8px 10px;
+}
+
 .load-older-btn {
     align-self: center;
     border: 1px solid #d7dcff;
@@ -196,6 +206,10 @@
     background: #fff;
     cursor: pointer;
     padding: 0;
+}
+
+.hint + .hint {
+     margin-top: -8px;
 }
 
 .reaction-add:disabled {

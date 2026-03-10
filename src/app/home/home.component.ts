@@ -6,9 +6,12 @@ import {
     combineLatest,
     of,
     Observable,
+    retry,
     Subscription,
     switchMap,
     take,
+    throwError,
+    timer,
 } from 'rxjs';
 import { AuthFlowService } from '../services/auth-flow.service';
 import { AuthService } from '../services/auth.service';
@@ -71,6 +74,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     threadMessages: ThreadMessage[] = [];
     activeThreadParent: Message | null = null;
     errorMessage = '';
+    connectionHint = '';
     mentionSuggestions: MentionCandidate[] = [];
     showMentionSuggestions = false;
     private selectedMentions = new Map<string, MentionCandidate>();
@@ -347,6 +351,7 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     private handleRouteMessageError(error: unknown): void {
         console.error('[HOME ROUTE MESSAGE ERROR]', error);
+        this.connectionHint = '';
         this.errorMessage = this.resolveLoadErrorMessage(error);
     }
 
@@ -503,6 +508,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     private applyLiveMessages(messages: Message[]): void {
+        this.connectionHint = '';
         this.liveMessages = this.sortMessagesByTimestamp(messages);
         this.rebuildMessageList();
     }
@@ -858,6 +864,19 @@ export class HomeComponent implements OnInit, OnDestroy {
         return this.currentChannelName;
     }
 
+    get latestMessageSummary(): string {
+        const latest = this.messages[this.messages.length - 1];
+        if (!latest) {
+            return '';
+        }
+
+        const stamp = this.formatDateAndTime(latest.timestamp);
+        const sender = this.getSenderLabel(latest);
+        const text = (latest.text ?? '').trim();
+        const preview = text ? text : '(nur Anhang)';
+        return `${sender}: ${preview} (${stamp})`;
+    }
+
     get isThreadPanelOpen(): boolean {
         return this.ui.isThreadOpen();
     }
@@ -1166,7 +1185,6 @@ export class HomeComponent implements OnInit, OnDestroy {
     private handleAuthUserChange(incomingUser: FirebaseUser | null): void {
         const stableUser = this.resolveStableAuthUser(incomingUser);
         this.deferUiUpdate(() => this.applyStableAuthUser(stableUser));
-        this.logAuthEvent(incomingUser, stableUser);
     }
 
     private applyStableAuthUser(stableUser: FirebaseUser | null): void {
@@ -1179,36 +1197,45 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.markCurrentContextAsRead();
     }
 
-    private logAuthEvent(
-        incomingUser: FirebaseUser | null,
-        stableUser: FirebaseUser | null,
-    ): void {
-        console.log('[AUTH EVENT]', {
-            uid: incomingUser?.uid ?? null,
-            anon: incomingUser?.isAnonymous ?? null,
-            stableUid: stableUser?.uid ?? null,
-            stableAnon: stableUser?.isAnonymous ?? null,
-            ts: Date.now(),
-        });
-    }
-
     private prepareMessageStreamSwitch(): void {
         this.resetMessageStreams();
         this.resetThreadPanel();
     }
 
     private createDirectLiveStream(userId: string): Observable<Message[]> {
-        return this.messageService.streamLatestDirectMessages(
-            userId,
-            this.pageSize,
+        return this.withRealtimeReconnect(
+            this.messageService.streamLatestDirectMessages(userId, this.pageSize),
         );
     }
 
     private createChannelLiveStream(channelId: string): Observable<Message[]> {
-        return this.messageService.streamLatestChannelMessages(
-            channelId,
-            this.pageSize,
+        return this.withRealtimeReconnect(
+            this.messageService.streamLatestChannelMessages(channelId, this.pageSize),
         );
+    }
+
+    private withRealtimeReconnect(stream$: Observable<Message[]>): Observable<Message[]> {
+        return stream$.pipe(
+            retry({
+                count: 3,
+                delay: (error, retryCount) => this.getReconnectDelay(error, retryCount),
+            }),
+        );
+    }
+
+    private getReconnectDelay(error: unknown, retryCount: number): Observable<number> {
+        if (!this.isTransientStreamError(error)) {
+            return throwError(() => error);
+        }
+
+        this.connectionHint = 'Verbindung instabil. Erneuter Verbindungsversuch...';
+        const waitMs = Math.min(500 * 2 ** (retryCount - 1), 3000);
+        return timer(waitMs);
+    }
+
+    private isTransientStreamError(error: unknown): boolean {
+        const code = this.extractFirebaseErrorCode(error);
+        return ['aborted', 'cancelled', 'deadline-exceeded', 'internal', 'unavailable', 'unknown'].includes(code);
     }
 
     private canLoadOlderMessages(): boolean {
@@ -1349,6 +1376,21 @@ export class HomeComponent implements OnInit, OnDestroy {
             hour: '2-digit',
             minute: '2-digit',
         });
+    }
+
+    private formatDateAndTime(timestamp: Message['timestamp']): string {
+        if (!timestamp) {
+            return '';
+        }
+
+        const date = timestamp instanceof Date ? timestamp : this.tryToDate(timestamp);
+        if (!date) {
+            return '';
+        }
+
+        const day = date.toLocaleDateString('de-DE');
+        const time = this.formatTime(date);
+        return `${day}, ${time}`;
     }
 
     private resolveTrackTimestamp(

@@ -13,25 +13,6 @@
             <router-outlet />
         </main>
 
-        <!-- Thread (context-based) -->
-        <aside class="shell__thread" *ngIf="ui.isThreadOpen()">
-            <header class="thread__header">
-                <div class="thread__title">Thread</div>
-                <button
-                    type="button"
-                    class="thread__close"
-                    (click)="ui.closeThread()"
-                    aria-label="Thread schließen"
-                >
-                    ✕
-                </button>
-            </header>
-
-            <div class="thread__body">
-                <div class="thread-placeholder">Thread content placeholder</div>
-            </div>
-        </aside>
-
         <!-- Workspace menu toggle button (vertical) -->
         <button
             type="button"

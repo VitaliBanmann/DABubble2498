@@ -2,11 +2,13 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of } from 'rxjs';
 import { AppComponent } from './app.component';
+import { AuthFlowService } from './services/auth-flow.service';
 import { AuthService } from './services/auth.service';
 import { PresenceService } from './services/presence.service';
 import { UserService } from './services/user.service';
 
 class MockAuthService {
+    authReady$ = of(true);
     currentUser$ = of(null);
 
     registerWithEmailAndPassword(): Promise<void> {
@@ -30,6 +32,24 @@ class MockPresenceService {
     startTracking(): void {}
 }
 
+class MockAuthFlowService {
+    handleAuthState(): Promise<void> {
+        return Promise.resolve();
+    }
+
+    syncEmailFromAuth(): Promise<void> {
+        return Promise.resolve();
+    }
+
+    navigateAfterLogin(): Promise<void> {
+        return Promise.resolve();
+    }
+
+    logoutToLogin(): Promise<void> {
+        return Promise.resolve();
+    }
+}
+
 class MockUserService {
     getUser() {
         return of(null);
@@ -42,6 +62,7 @@ describe('AppComponent', () => {
             imports: [AppComponent],
             providers: [
                 provideRouter([]),
+                { provide: AuthFlowService, useClass: MockAuthFlowService },
                 { provide: AuthService, useClass: MockAuthService },
                 { provide: PresenceService, useClass: MockPresenceService },
                 { provide: UserService, useClass: MockUserService },

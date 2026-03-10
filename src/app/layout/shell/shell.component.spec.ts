@@ -6,19 +6,29 @@ import { AuthService } from '../../services/auth.service';
 import { ChannelService } from '../../services/channel.service';
 import { MessageService } from '../../services/message.service';
 import { PresenceService } from '../../services/presence.service';
+import { UnreadStateService } from '../../services/unread-state.service';
 import { UserService } from '../../services/user.service';
 
 class AuthServiceMock {
+  authReady$ = of(true);
   currentUser$ = of(null);
+
+  getCurrentUser() {
+    return null;
+  }
 }
 
 class UserServiceMock {
-  getAllUsers() {
+  getAllUsersRealtime() {
     return of([]);
   }
 
-  getUserRealtime() {
+  getUserProfileRealtime() {
     return of(null);
+  }
+
+  searchUsersByToken() {
+    return of([]);
   }
 }
 
@@ -26,10 +36,14 @@ class ChannelServiceMock {
   getAllChannels() {
     return of([]);
   }
+
+  searchChannelsByToken() {
+    return of([]);
+  }
 }
 
 class MessageServiceMock {
-  getAllMessages() {
+  searchMessagesByToken() {
     return of([]);
   }
 }
@@ -37,6 +51,12 @@ class MessageServiceMock {
 class PresenceServiceMock {
   setStatus(): Promise<void> {
     return Promise.resolve();
+  }
+}
+
+class UnreadStateServiceMock {
+  observeUnreadState() {
+    return of([]);
   }
 }
 
@@ -53,6 +73,7 @@ describe('ShellComponent', () => {
         { provide: ChannelService, useClass: ChannelServiceMock },
         { provide: MessageService, useClass: MessageServiceMock },
         { provide: PresenceService, useClass: PresenceServiceMock },
+        { provide: UnreadStateService, useClass: UnreadStateServiceMock },
       ],
     })
     .compileComponents();

@@ -16,6 +16,7 @@
             @if (isComposeMode) {
                 <form
                     class="compose-target"
+                    novalidate
                     (ngSubmit)="onComposeTargetSubmit()"
                 >
                     <input
@@ -68,6 +69,12 @@
             }
         </header>
         @if (!isComposeMode) {
+            @if (latestMessageSummary) {
+                <p class="latest-message-summary">
+                    Letzte Nachricht: {{ latestMessageSummary }}
+                </p>
+            }
+
             <section class="message-list" aria-label="Nachrichtenliste">
                 @if (hasMoreMessages) {
                     <button
@@ -293,6 +300,10 @@
 
         @if (attachmentError) {
             <p class="error">{{ attachmentError }}</p>
+        }
+
+        @if (connectionHint) {
+            <p class="hint">{{ connectionHint }}</p>
         }
 
         @if (authResolved && !canWrite) {

@@ -32,8 +32,8 @@
         @for (member of teamMembers; track $index) {
           <div class="team-member">
             <strong>Verantwortlich {{ $index + 1 }}:</strong><br>
-            <span class="placeholder">Name: [{{ member.name || 'Vorname Nachname' }}]</span><br>
-            <span class="placeholder">E-Mail: [{{ member.email || 'email@beispiel.de' }}]</span>
+            Name: {{ member.name }}<br>
+            E-Mail: {{ member.email }}
           </div>
         }
       </div>
@@ -118,7 +118,7 @@
       <p class="contact-info">
         <strong>Fragen zum Datenschutz?</strong><br>
         Bei Fragen zum Datenschutz wenden Sie sich bitte an: 
-        <span class="placeholder">[datenschutz&#64;da-bubble.de]</span>
+        {{ legalContact.privacyEmail }}
       </p>
     </section>
   </div>

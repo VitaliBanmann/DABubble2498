@@ -9,7 +9,12 @@ import { PresenceService } from '../../services/presence.service';
 import { UserService } from '../../services/user.service';
 
 class AuthServiceMock {
+  authReady$ = of(true);
   currentUser$ = of(null);
+
+  getCurrentUser() {
+    return null;
+  }
 
   logout(): Promise<void> {
     return Promise.resolve();
@@ -17,23 +22,27 @@ class AuthServiceMock {
 }
 
 class UserServiceMock {
-  getAllUsers() {
+  getAllUsersRealtime() {
     return of([]);
   }
 
-  getUserRealtime() {
+  getUserProfileRealtime() {
     return of(null);
+  }
+
+  searchUsersByToken() {
+    return of([]);
   }
 }
 
 class ChannelServiceMock {
-  getAllChannels() {
+  searchChannelsByToken() {
     return of([]);
   }
 }
 
 class MessageServiceMock {
-  getAllMessages() {
+  searchMessagesByToken() {
     return of([]);
   }
 }

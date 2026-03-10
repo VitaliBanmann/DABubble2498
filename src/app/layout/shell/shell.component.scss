@@ -19,10 +19,6 @@
     grid-template-columns: 366px 1fr;
 }
 
-.shell__body.sidebar-open.thread-open {
-    grid-template-columns: 366px 1fr 485px;
-}
-
 .shell__sidebar {
     background: #fff;
     border-right: 1px solid rgba(0, 0, 0, 0.06);
@@ -38,47 +34,6 @@
     margin: 16px;
 }
 
-.shell__thread {
-    background: #fff;
-    border-left: 1px solid rgba(0, 0, 0, 0.06);
-    display: grid;
-    grid-template-rows: 56px 1fr;
-    min-width: 485px;
-    width: 100%;
-    border-radius: 18px;
-    margin: 16px 0;
-}
-
-.thread__header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0 12px 0 16px;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.06);
-}
-
-.thread__title {
-    font-weight: 600;
-}
-
-.thread__close {
-    width: 40px;
-    height: 40px;
-    border: 0;
-    border-radius: 10px;
-    background: #f1f3ff;
-    cursor: pointer;
-}
-
-.thread__body {
-    overflow: auto;
-    min-width: 0;
-}
-
-.thread-placeholder {
-    padding: 16px;
-    opacity: 0.6;
-}
 
 /* Workspace toggle (vertical) */
 .workspace-toggle {
@@ -123,12 +78,9 @@
     opacity: 0.85;
 }
 
-/* Responsive: on smaller screens hide thread column (MVP) */
+/* Responsive layout */
 @media (max-width: 1100px) {
-    .shell__body.sidebar-open.thread-open {
-        grid-template-columns: 366px 1fr;
-    }
-    .shell__thread {
-        display: none;
+    .shell__body.sidebar-open {
+        grid-template-columns: 320px 1fr;
     }
 }
