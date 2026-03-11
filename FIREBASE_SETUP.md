@@ -15,24 +15,46 @@ Ein modernes Angular-Chat-Anwendungsprojekt mit Firebase-Integration.
 npm install
 ```
 
-## 🔧 Konfiguration
+## 🔧 Konfiguration & Setup
 
-### Firebase Setup
+### Firebase Projekt
+Projekt-Name: **DA-Bubble 2498** in Firebase Console
+
+**WICHTIG – Initiales Setup für neues Projekt:**
+
+1. **Authentication aktivieren:**
+   - Gehe zu **Authentication > Sign-in method**
+   - Aktiviere: **Email/Passwort**, **Google**, **Anonymous**
+   - Status aller drei sollte grün sein (Aktiviert)
+
+2. **Authorized Domains konfigurieren:**
+   - Gehe zu **Authentication > Settings > Authorized domains**
+   - Füge folgende Domains hinzu:
+     - `da-bubble-da44d.web.app` (Production)
+     - `da-bubble-da44d--test-*.web.app` (Test-Channels)
+   - **Hinweis:** `localhost:4200` kann **nicht** hinzugefügt werden (Firebase-Limitierung)
+   - Für lokale Entwicklung nutze stattdessen:
+     - Test-URL: `https://da-bubble-da44d--test-*.web.app` zum Testen
+     - Oder: Optional Firebase Emulator Suite für vollständigen lokalen Stack
+
+### Firebase Konfiguration
 
 Die Firebase-Konfiguration befindet sich in:
 - `src/environments/environment.ts` - Development
 - `src/environments/environment.prod.ts` - Production
 
 ```typescript
-// Deine Firebase Config ist bereits konfiguriert mit:
-const firebaseConfig = {
-  apiKey: "AIzaSyD5LEf5q6fnxSwlgxFtStf2PkUI-YT0leU",
-  authDomain: "da-bubble-2498.firebaseapp.com",
-  projectId: "da-bubble-2498",
-  storageBucket: "da-bubble-2498.firebasestorage.app",
-  messagingSenderId: "631540867204",
-  appId: "1:631540867204:web:8faff42021b25671cd22d1",
-  measurementId: "G-YER8LDLW0Y"
+// Aktuelle Firebase Config (Projekt: da-bubble-da44d):
+export const environment = {
+    production: false,
+    firebase: {
+        apiKey: 'AIzaSyDIPLROscPNuutE4s6a3fwCVHJBt1_ewnY',
+        authDomain: 'da-bubble-da44d.firebaseapp.com',
+        projectId: 'da-bubble-da44d',
+        storageBucket: 'da-bubble-da44d.firebasestorage.app',
+        messagingSenderId: '957279222682',
+        appId: '1:957279222682:web:ac8ec6b50fce511f239823',
+    },
 };
 ```
 

@@ -655,7 +655,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     canSendMessage(): boolean {
         const hasText = !!this.messageControl.value.trim();
         const hasAttachments = this.selectedAttachments.length > 0;
-        return !this.isSending && (hasText || hasAttachments);
+        return this.canWrite && !this.isSending && (hasText || hasAttachments);
     }
 
     private addAttachmentIfValid(file: File): void {
