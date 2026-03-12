@@ -1,7 +1,7 @@
-import { CommonModule } from '@angular/common';
-import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute, ParamMap, Router } from '@angular/router';
+import {CommonModule} from '@angular/common';
+import {ChangeDetectorRef, Component, OnDestroy, OnInit} from '@angular/core';
+import {FormControl, ReactiveFormsModule} from '@angular/forms';
+import {ActivatedRoute, ParamMap, Router} from '@angular/router';
 import {
     combineLatest,
     of,
@@ -13,8 +13,8 @@ import {
     throwError,
     timer,
 } from 'rxjs';
-import { AuthFlowService } from '../services/auth-flow.service';
-import { AuthService } from '../services/auth.service';
+import {AuthFlowService} from '../services/auth-flow.service';
+import {AuthService} from '../services/auth.service';
 import {
     Message,
     MessageAttachment,
@@ -22,16 +22,17 @@ import {
     MessageService,
     ThreadMessage,
 } from '../services/message.service';
-import { AttachmentService } from '../services/attachment.service';
-import { UiStateService } from '../services/ui-state.service';
-import { UnreadStateService } from '../services/unread-state.service';
-import { User, UserService } from '../services/user.service';
-import { User as FirebaseUser } from 'firebase/auth';
+import {AttachmentService} from '../services/attachment.service';
+import {UiStateService} from '../services/ui-state.service';
+import {UnreadStateService} from '../services/unread-state.service';
+import {User, UserService} from '../services/user.service';
+import {User as FirebaseUser} from 'firebase/auth';
 
 interface MentionCandidate {
     id: string;
     label: string;
 }
+
 interface ComposeTargetSuggestion {
     kind: 'channel' | 'user';
     id: string;
@@ -48,17 +49,18 @@ interface ComposeTargetSuggestion {
     styleUrl: './home.component.scss',
 })
 export class HomeComponent implements OnInit, OnDestroy {
-    readonly messageControl = new FormControl('', { nonNullable: true });
-    readonly threadMessageControl = new FormControl('', { nonNullable: true });
+    readonly messageControl = new FormControl('', {nonNullable: true});
+    readonly threadMessageControl = new FormControl('', {nonNullable: true});
     readonly channelNames: Record<string, string> = {
         allgemein: 'Allgemein',
         entwicklerteam: 'Entwicklerteam',
     };
-    readonly composeTargetControl = new FormControl('', { nonNullable: true });
+    readonly composeTargetControl = new FormControl('', {nonNullable: true});
 
     get isComposeMode(): boolean {
         return this.ui.isNewMessageOpen();
     }
+
     private composeResolvedTarget:
         | { kind: 'channel'; channelId: string }
         | { kind: 'user'; userId: string }
@@ -119,7 +121,8 @@ export class HomeComponent implements OnInit, OnDestroy {
         private readonly ui: UiStateService,
         private readonly unreadStateService: UnreadStateService,
         private readonly cdr: ChangeDetectorRef,
-    ) {}
+    ) {
+    }
 
     ngOnInit(): void {
         this.ui.closeThread();
@@ -302,6 +305,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.showComposeTargetSuggestions = false;
         this.composeTargetActiveIndex = -1;
     }
+
     private resolveStableAuthUser(
         incomingUser: FirebaseUser | null,
     ): FirebaseUser | null {
@@ -409,7 +413,7 @@ export class HomeComponent implements OnInit, OnDestroy {
 
         const channelId = this.resolveChannelTarget(raw);
         if (channelId) {
-            this.composeResolvedTarget = { kind: 'channel', channelId };
+            this.composeResolvedTarget = {kind: 'channel', channelId};
             this.errorMessage = '';
             return;
         }
@@ -423,7 +427,7 @@ export class HomeComponent implements OnInit, OnDestroy {
                 return;
             }
 
-            this.composeResolvedTarget = { kind: 'user', userId: user.id };
+            this.composeResolvedTarget = {kind: 'user', userId: user.id};
             this.errorMessage = '';
             return;
         }
@@ -498,12 +502,12 @@ export class HomeComponent implements OnInit, OnDestroy {
         const shouldDisable = this.isSending;
 
         if (shouldDisable && this.messageControl.enabled) {
-            this.messageControl.disable({ emitEvent: false });
+            this.messageControl.disable({emitEvent: false});
             return;
         }
 
         if (!shouldDisable && this.messageControl.disabled) {
-            this.messageControl.enable({ emitEvent: false });
+            this.messageControl.enable({emitEvent: false});
         }
     }
 
@@ -1251,15 +1255,15 @@ export class HomeComponent implements OnInit, OnDestroy {
     ): Observable<Message[]> {
         return this.isDirectMessage
             ? this.messageService.loadOlderDirectMessages(
-                  this.currentDirectUserId,
-                  timestamp,
-                  this.pageSize,
-              )
+                this.currentDirectUserId,
+                timestamp,
+                this.pageSize,
+            )
             : this.messageService.loadOlderChannelMessages(
-                  this.currentChannelId,
-                  timestamp,
-                  this.pageSize,
-              );
+                this.currentChannelId,
+                timestamp,
+                this.pageSize,
+            );
     }
 
     private applyOlderMessages(older: Message[]): void {
@@ -1314,13 +1318,13 @@ export class HomeComponent implements OnInit, OnDestroy {
     private createReadMarkRequest(): Observable<void> {
         return this.isDirectMessage
             ? this.unreadStateService.markDirectAsRead(
-                  this.currentUserId!,
-                  this.currentDirectUserId,
-              )
+                this.currentUserId!,
+                this.currentDirectUserId,
+            )
             : this.unreadStateService.markChannelAsRead(
-                  this.currentUserId!,
-                  this.currentChannelId,
-              );
+                this.currentUserId!,
+                this.currentChannelId,
+            );
     }
 
     private resolveWhenIncomingMissing(
@@ -1422,5 +1426,78 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.threadMessages = [];
         this.threadMessageControl.setValue('');
         this.ui.closeThread();
+    }
+
+    private toDate(value: unknown): Date | null {
+        if (!value) return null;
+
+        if (value instanceof Date) {
+            return isNaN(value.getTime()) ? null : value;
+        }
+
+        if (
+            typeof value === 'object' &&
+            value !== null &&
+            'toDate' in value &&
+            typeof (value as { toDate: () => Date }).toDate === 'function'
+        ) {
+            const date = (value as { toDate: () => Date }).toDate();
+            return isNaN(date.getTime()) ? null : date;
+        }
+
+        if (typeof value === 'number') {
+            const date = new Date(value);
+            return isNaN(date.getTime()) ? null : date;
+        }
+
+        if (typeof value === 'string') {
+            const date = new Date(value);
+            return isNaN(date.getTime()) ? null : date;
+        }
+
+        return null;
+    }
+
+    private isSameCalendarDay(a: Date | null, b: Date | null): boolean {
+        if (!a || !b) return false;
+
+        return (
+            a.getFullYear() === b.getFullYear() &&
+            a.getMonth() === b.getMonth() &&
+            a.getDate() === b.getDate()
+        );
+    }
+
+    shouldShowDateSeparator(index: number, message: { timestamp: unknown }): boolean {
+        if (index === 0) return true;
+
+        const currentDate = this.toDate(message.timestamp);
+        const previousDate = this.toDate(this.messages[index - 1]?.timestamp);
+
+        return !this.isSameCalendarDay(currentDate, previousDate);
+    }
+
+    getDateSeparatorLabel(timestamp: unknown): string {
+        const date = this.toDate(timestamp);
+
+        if (!date) return '';
+
+        const today = new Date();
+        const yesterday = new Date();
+        yesterday.setDate(today.getDate() - 1);
+
+        if (this.isSameCalendarDay(date, today)) {
+            return 'Heute';
+        }
+
+        if (this.isSameCalendarDay(date, yesterday)) {
+            return 'Gestern';
+        }
+
+        return new Intl.DateTimeFormat('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric',
+        }).format(date);
     }
 }

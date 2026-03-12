@@ -91,9 +91,9 @@
     align-self: center;
     border: 1px solid #d7dcff;
     border-radius: 999px;
-    height: 32px;
-    padding: 0 12px;
-    background: #f7f8ff;
+    height: 40px;
+    padding: 0 24px;
+    background: transparent;
     color: #444df2;
     font-weight: 600;
     cursor: pointer;
@@ -105,10 +105,15 @@
 }
 
 .message {
-    max-width: min(80%, 720px);
-    background: #f3f4f8;
-    border-radius: 14px;
-    padding: 10px 12px;
+    display: inline-block;
+    padding: 12px 16px;
+    background: #ECEEFE;
+    max-width: 90%;
+    word-break: break-word;
+    justify-content: flex-start;
+    border-top-right-radius: 24px;
+    border-bottom-right-radius: 24px;
+    border-bottom-left-radius: 24px;
 
     p {
         margin: 0;
@@ -116,6 +121,75 @@
         line-height: 1.35;
         white-space: pre-wrap;
     }
+}
+
+.loadMessages {
+    max-width: 100%;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-bottom: 24px;
+}
+
+.article__container {
+    display: flex;
+    justify-content: flex-start;
+    align-content: center;
+    gap: 16px;
+    padding: 16px;
+    margin-bottom: 8px;
+
+    img {
+        width: 70px;
+        height: 70px;
+        object-fit: cover;
+        border-radius: 35px;
+    }
+
+    &:hover {
+        background-color: #f5f5f5;
+        border-radius: 24px;
+
+        .message {
+            background-color: #ffffff;
+        }
+    }
+}
+
+.date-separator {
+    position: relative;
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin: 8px 0 20px;
+    text-align: center;
+
+    &::before {
+        content: '';
+        position: absolute;
+        inset: 50% 0 auto 0;
+        border-top: 1px solid #d9ddea;
+        transform: translateY(-50%);
+        z-index: 0;
+    }
+}
+
+.date-separator__label {
+    position: relative;
+    z-index: 1;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 14px;
+    border: 1px solid #d9ddea;
+    border-radius: 999px;
+    background: #ffffff;
+    color: #686a76;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1;
 }
 
 .message__reactions {
@@ -224,10 +298,21 @@
 
 .message__meta {
     display: flex;
+    align-items: center;
     gap: 10px;
     font-size: 11px;
     color: #7c8097;
     margin-bottom: 6px;
+
+    .sender__name {
+        font-size: 16px;
+        color: #000000;
+        font-weight: 600;
+    }
+
+    .sender__timestamp {
+
+    }
 }
 
 .composer {
