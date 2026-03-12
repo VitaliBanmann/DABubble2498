@@ -19,21 +19,37 @@
                 />
                 <span class="brand-name">DABubble</span>
             </div>
+
             <div class="signup">
-                <span>Neu bei DABubble?</span>
-                <button
-                    type="button"
-                    class="link"
-                    [disabled]="isSubmitting"
-                    (click)="onSubmit('register')"
-                >
-                    Konto erstellen
-                </button>
+                @if (!isRegisterMode) {
+                    <span>Neu bei DABubble?</span>
+                    <button
+                        type="button"
+                        class="link"
+                        [disabled]="isSubmitting"
+                        (click)="enterRegisterMode()"
+                    >
+                        Konto erstellen
+                    </button>
+                } @else {
+                    <span>Schon bei DABubble registriert?</span>
+                    <button
+                        type="button"
+                        class="link"
+                        [disabled]="isSubmitting"
+                        (click)="enterLoginMode()"
+                    >
+                        Anmelden
+                    </button>
+                }
             </div>
         </header>
 
-        <section class="auth-card" aria-label="Anmeldung">
-            <h1>Anmeldung</h1>
+        <section
+            class="auth-card"
+            [attr.aria-label]="isRegisterMode ? 'Registrierung' : 'Anmeldung'"
+        >
+            <h1>{{ isRegisterMode ? 'Konto erstellen' : 'Anmeldung' }}</h1>
             <p class="subtitle">
                 Wir empfehlen dir, die E-Mail-Adresse zu nutzen, die du bei der
                 Arbeit verwendest.
@@ -41,7 +57,7 @@
 
             <form
                 [formGroup]="loginForm"
-                (ngSubmit)="onSubmit('login')"
+                (ngSubmit)="onSubmit(isRegisterMode ? 'register' : 'login')"
                 novalidate
             >
                 <label class="field" for="email">
@@ -79,7 +95,7 @@
                         [type]="showPassword ? 'text' : 'password'"
                         formControlName="password"
                         placeholder="Passwort"
-                        autocomplete="current-password"
+                        [attr.autocomplete]="isRegisterMode ? 'new-password' : 'current-password'"
                     />
                     <button
                         type="button"
@@ -97,9 +113,10 @@
                         </span>
                     </button>
                 </label>
-                @if (passwordControl.touched && passwordControl.invalid) {
+
+                @if (showPasswordError) {
                     <p class="field-error">
-                        Bitte gib dein Passwort ein.
+                        {{ passwordErrorMessage }}
                     </p>
                 }
 
@@ -120,14 +137,16 @@
                     </div>
                 }
 
-                <button
-                    type="button"
-                    class="link forgot"
-                    [disabled]="isSubmitting"
-                    (click)="openForgotPasswordOverlay()"
-                >
-                    Passwort vergessen?
-                </button>
+                @if (!isRegisterMode) {
+                    <button
+                        type="button"
+                        class="link forgot"
+                        [disabled]="isSubmitting"
+                        (click)="openForgotPasswordOverlay()"
+                    >
+                        Passwort vergessen?
+                    </button>
+                }
 
                 @if (errorMessage) {
                     <p class="message error">{{ errorMessage }}</p>
@@ -137,18 +156,19 @@
                     <p class="message success">{{ successMessage }}</p>
                 }
 
-                <div class="divider">
-                    <span></span>
-                    <span class="divider-text">ODER</span>
-                    <span></span>
-                </div>
+                @if (!isRegisterMode) {
+                    <div class="divider">
+                        <span></span>
+                        <span class="divider-text">ODER</span>
+                        <span></span>
+                    </div>
 
-                <button
-                    type="button"
-                    class="google"
-                    [disabled]="isSubmitting"
-                    (click)="onGoogleLogin()"
-                >
+                    <button
+                        type="button"
+                        class="google"
+                        [disabled]="isSubmitting"
+                        (click)="onGoogleLogin()"
+                    >
                     <span class="google-icon" aria-hidden="true">
                         <svg viewBox="0 0 48 48" role="img" aria-hidden="true">
                             <path
@@ -169,25 +189,29 @@
                             />
                         </svg>
                     </span>
-                    Anmelden mit Google
-                </button>
+                        Anmelden mit Google
+                    </button>
+                }
 
-                <div class="actions">
+                <div class="actions" [class.actions--register]="isRegisterMode">
                     <button
                         type="submit"
                         class="primary"
                         [disabled]="isSubmitting"
                     >
-                        Anmelden
+                        {{ isRegisterMode ? 'Konto erstellen' : 'Anmelden' }}
                     </button>
-                    <button
-                        type="button"
-                        class="secondary"
-                        [disabled]="isSubmitting"
-                        (click)="onGuestLogin()"
-                    >
-                        Gäste-Login
-                    </button>
+
+                    @if (!isRegisterMode) {
+                        <button
+                            type="button"
+                            class="secondary"
+                            [disabled]="isSubmitting"
+                            (click)="onGuestLogin()"
+                        >
+                            Gäste-Login
+                        </button>
+                    }
                 </div>
             </form>
         </section>
@@ -238,10 +262,8 @@
                         autocomplete="email"
                     />
                 </label>
-                @if (
-                    forgotPasswordEmailControl.touched &&
-                    forgotPasswordEmailControl.invalid
-                ) {
+                @if (forgotPasswordEmailControl.touched &&
+                forgotPasswordEmailControl.invalid) {
                     <p class="field-error">
                         Bitte gib eine gültige E-Mail-Adresse ein.
                     </p>

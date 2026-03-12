@@ -310,6 +310,10 @@ form {
     grid-template-columns: 1fr 1fr;
     gap: 16px;
     margin-top: 8px;
+
+    &.actions--register {
+        grid-template-columns: 1fr;
+    }
 }
 
 .primary,

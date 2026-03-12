@@ -96,6 +96,18 @@ export class AppComponent {
         });
     }
 
+    enterRegisterMode(): void {
+        this.isRegisterMode = true;
+        this.errorMessage = '';
+        this.successMessage = '';
+    }
+
+    enterLoginMode(): void {
+        this.isRegisterMode = false;
+        this.errorMessage = '';
+        this.successMessage = '';
+    }
+
     private updateAuthScreenVisibility(url: string): void {
         const pathname = (url || '').split('?')[0];
 
@@ -105,11 +117,19 @@ export class AppComponent {
 
     async onSubmit(mode: 'login' | 'register'): Promise<void> {
         this.isRegisterMode = mode === 'register';
+
         if (!this.ensureValidLoginForm()) {
             return;
         }
 
         const { email, password } = this.readLoginCredentials();
+
+        if (mode === 'register' && !this.isRegisterPasswordValid(password)) {
+            this.errorMessage =
+                'Das Passwort erfüllt nicht die Anforderungen für die Registrierung.';
+            return;
+        }
+
         this.startSubmitting();
         await this.runSubmit(mode, email, password);
     }
@@ -147,6 +167,14 @@ export class AppComponent {
             email: (this.loginForm.value.email ?? '').trim(),
             password: this.loginForm.value.password ?? '',
         };
+    }
+
+    private isRegisterPasswordValid(password: string): boolean {
+        return (
+            password.length >= 8 &&
+            /[A-ZÄÖÜ]/.test(password) &&
+            /[^A-Za-z0-9]/.test(password)
+        );
     }
 
     private async authenticate(
@@ -205,6 +233,38 @@ export class AppComponent {
             uppercase: /[A-ZÄÖÜ]/.test(value),
             specialChar: /[^A-Za-z0-9]/.test(value),
         };
+    }
+
+    get passwordErrorMessage(): string {
+        const password = this.passwordControl.value ?? '';
+
+        if (!password) {
+            return this.isRegisterMode
+                ? 'Bitte gib ein Passwort ein.'
+                : 'Bitte gib dein Passwort ein.';
+        }
+
+        if (this.isRegisterMode && !this.isRegisterPasswordValid(password)) {
+            return 'Das Passwort muss mindestens 8 Zeichen, 1 Großbuchstaben und 1 Sonderzeichen enthalten.';
+        }
+
+        if (password.length < 6) {
+            return 'Das Passwort muss mindestens 6 Zeichen lang sein.';
+        }
+
+        return '';
+    }
+
+    get showPasswordError(): boolean {
+        const password = this.passwordControl.value ?? '';
+
+        return (
+            this.passwordControl.touched &&
+            (
+                this.passwordControl.invalid ||
+                (this.isRegisterMode && !!password && !this.isRegisterPasswordValid(password))
+            )
+        );
     }
 
     togglePasswordVisibility(): void {
