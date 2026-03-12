@@ -60,6 +60,31 @@
                 (ngSubmit)="onSubmit(isRegisterMode ? 'register' : 'login')"
                 novalidate
             >
+                @if (isRegisterMode) {
+                    <label class="field" for="displayName">
+                        <span class="icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+                                <path
+                                    d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z"
+                                />
+                            </svg>
+                        </span>
+                        <input
+                            id="displayName"
+                            type="text"
+                            formControlName="displayName"
+                            placeholder="Anzeigename"
+                            autocomplete="nickname"
+                        />
+                    </label>
+                }
+
+                @if (isRegisterMode && displayNameControl.touched && !displayNameControl.value?.trim()) {
+                    <p class="field-error">
+                        Bitte gib einen Anzeigenamen ein.
+                    </p>
+                }
+
                 <label class="field" for="email">
                     <span class="icon" aria-hidden="true">
                         <svg viewBox="0 0 24 24" role="img" aria-hidden="true">

@@ -10,6 +10,7 @@ import {
 import { AuthFlowService } from './services/auth-flow.service';
 import { AuthService } from './services/auth.service';
 import { PresenceService } from './services/presence.service';
+import { UserService } from './services/user.service';
 
 const AUTH_ERROR_MESSAGES: Record<string, string> = {
     'auth/popup-closed-by-user':
@@ -46,6 +47,7 @@ export class AppComponent {
     isRegisterMode = false;
 
     loginForm = this.formBuilder.group({
+        displayName: ['', [Validators.maxLength(30)]],
         email: ['', [Validators.required, Validators.email]],
         password: ['', [Validators.required, Validators.minLength(6)]],
         rememberMe: [false],
@@ -65,6 +67,7 @@ export class AppComponent {
         private readonly formBuilder: FormBuilder,
         private readonly authFlow: AuthFlowService,
         private readonly authService: AuthService,
+        private readonly userService: UserService,
         private readonly presenceService: PresenceService,
         private readonly router: Router,
         private readonly cdr: ChangeDetectorRef,
@@ -122,7 +125,7 @@ export class AppComponent {
             return;
         }
 
-        const { email, password } = this.readLoginCredentials();
+        const { displayName, email, password } = this.readLoginCredentials();
 
         if (mode === 'register' && !this.isRegisterPasswordValid(password)) {
             this.errorMessage =
@@ -130,17 +133,24 @@ export class AppComponent {
             return;
         }
 
+        if (mode === 'register' && !displayName) {
+            this.errorMessage = 'Bitte gib einen Anzeigenamen ein.';
+            this.displayNameControl.markAsTouched();
+            return;
+        }
+
         this.startSubmitting();
-        await this.runSubmit(mode, email, password);
+        await this.runSubmit(mode, displayName, email, password);
     }
 
     private async runSubmit(
         mode: 'login' | 'register',
+        displayName: string,
         email: string,
         password: string,
     ): Promise<void> {
         try {
-            await this.authenticate(mode, email, password);
+            await this.authenticate(mode, displayName, email, password);
         } catch (error) {
             this.errorMessage = this.resolveSubmitError(mode, error);
         } finally {
@@ -162,8 +172,13 @@ export class AppComponent {
         this.successMessage = '';
     }
 
-    private readLoginCredentials(): { email: string; password: string } {
+    private readLoginCredentials(): {
+        displayName: string;
+        email: string;
+        password: string;
+    } {
         return {
+            displayName: (this.loginForm.value.displayName ?? '').trim(),
             email: (this.loginForm.value.email ?? '').trim(),
             password: this.loginForm.value.password ?? '',
         };
@@ -179,6 +194,7 @@ export class AppComponent {
 
     private async authenticate(
         mode: 'login' | 'register',
+        displayName: string,
         email: string,
         password: string,
     ): Promise<void> {
@@ -187,7 +203,7 @@ export class AppComponent {
             return;
         }
 
-        await this.registerUser(email, password);
+        await this.registerUser(displayName, email, password);
     }
 
     private async loginUser(email: string, password: string): Promise<void> {
@@ -197,8 +213,18 @@ export class AppComponent {
         await this.authFlow.navigateAfterLogin();
     }
 
-    private async registerUser(email: string, password: string): Promise<void> {
+    private async registerUser(
+        displayName: string,
+        email: string,
+        password: string,
+    ): Promise<void> {
         await this.authService.registerWithEmailAndPassword(email, password);
+
+        await this.userService.updateCurrentUserProfile({
+            displayName,
+            email,
+        });
+
         this.successMessage = 'Konto erfolgreich erstellt.';
         await this.authFlow.syncEmailFromAuth(email);
         await this.authFlow.navigateAfterLogin();
@@ -224,6 +250,10 @@ export class AppComponent {
 
     get passwordControl() {
         return this.loginForm.controls.password;
+    }
+
+    get displayNameControl() {
+        return this.loginForm.controls.displayName;
     }
 
     get passwordChecks() {

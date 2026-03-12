@@ -228,15 +228,25 @@ export class UserService {
     }
 
     private buildNewUser(
-        currentUser: { displayName: string | null },
+        currentUser: { displayName: string | null; isAnonymous?: boolean },
         updates: Partial<User>,
         authEmail: string,
         updateEmail: string,
     ): User {
+        const email = updateEmail || authEmail;
+        const trimmedDisplayName = (updates.displayName ?? '').trim();
+        const authDisplayName = (currentUser.displayName ?? '').trim();
+        const fallbackNameFromEmail = email ? email.split('@')[0] : '';
+        const avatar = updates.avatar;
+
         return {
-            email: updateEmail || authEmail,
-            displayName: updates.displayName || currentUser.displayName || 'Gast',
-            avatar: updates.avatar,
+            email,
+            displayName:
+                trimmedDisplayName ||
+                authDisplayName ||
+                fallbackNameFromEmail ||
+                (currentUser.isAnonymous ? 'Gast' : 'Benutzer'),
+            ...(avatar ? { avatar } : {}),
         };
     }
 
