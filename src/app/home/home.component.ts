@@ -1,5 +1,12 @@
 import {CommonModule} from '@angular/common';
-import {ChangeDetectorRef, Component, OnDestroy, OnInit} from '@angular/core';
+import {
+    ChangeDetectorRef,
+    Component,
+    ElementRef,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+} from '@angular/core';
 import {FormControl, ReactiveFormsModule} from '@angular/forms';
 import {ActivatedRoute, ParamMap, Router} from '@angular/router';
 import {
@@ -41,6 +48,14 @@ interface ComposeTargetSuggestion {
     subtitle: string;
 }
 
+interface MessageGroup {
+    id: string;
+    senderId: string;
+    isOwn: boolean;
+    startedAt: Message['timestamp'];
+    messages: Message[];
+}
+
 @Component({
     selector: 'app-home',
     standalone: true,
@@ -74,6 +89,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     isDirectMessage = false;
     messages: Message[] = [];
     threadMessages: ThreadMessage[] = [];
+    messageGroups: MessageGroup[] = [];
     activeThreadParent: Message | null = null;
     errorMessage = '';
     connectionHint = '';
@@ -97,6 +113,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     private olderMessages: Message[] = [];
     private readonly pageSize = 30;
     private readonly maxAttachmentSizeBytes = 10 * 1024 * 1024;
+    private readonly messageGroupWindowMs = 5 * 60 * 1000;
     private readonly allowedAttachmentMimeTypes = new Set<string>([
         'application/pdf',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -518,11 +535,169 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     private rebuildMessageList(): void {
+        const wasNearBottom = this.isNearBottom();
+        const previousLastMessageKey = this.lastRenderedMessageKey;
+
         this.messages = this.mergeUniqueMessages(
             this.olderMessages,
             this.liveMessages,
         );
+        this.messageGroups = this.buildMessageGroups(this.messages);
         this.seedHelloWorldIfNeeded();
+
+        const nextLastMessageKey = this.getLastMessageKey(this.messages);
+        const hasNewBottomMessage =
+            !!nextLastMessageKey && nextLastMessageKey !== previousLastMessageKey;
+
+        this.lastRenderedMessageKey = nextLastMessageKey;
+
+        if (this.pendingOlderScrollRestore) {
+            this.restoreOlderMessagesScrollPosition();
+            return;
+        }
+
+        if (this.forceScrollToBottomOnNextRender || wasNearBottom) {
+            this.forceScrollToBottomOnNextRender = false;
+            this.scrollToBottom();
+            return;
+        }
+
+        if (hasNewBottomMessage) {
+            this.showScrollToLatestButton = true;
+        }
+
+        //this.scrollToBottom();
+    }
+
+    private getMessageListElement(): HTMLElement | null {
+        return this.messageListRef?.nativeElement ?? null;
+    }
+
+    private isNearBottom(): boolean {
+        const container = this.getMessageListElement();
+        if (!container) {
+            return true;
+        }
+
+        const distanceFromBottom =
+            container.scrollHeight - container.scrollTop - container.clientHeight;
+
+        return distanceFromBottom <= this.nearBottomThresholdPx;
+    }
+
+    private getLastMessageKey(messages: Message[]): string {
+        const lastMessage = messages[messages.length - 1];
+        if (!lastMessage) {
+            return '';
+        }
+
+        return lastMessage.id ?? this.trackMessage(messages.length - 1, lastMessage);
+    }
+
+    private scrollToBottom(): void {
+        setTimeout(() => {
+            const container = this.getMessageListElement();
+            if (!container) {
+                return;
+            }
+
+            container.scrollTop = container.scrollHeight;
+            this.showScrollToLatestButton = false;
+        }, 0);
+    }
+
+    private restoreOlderMessagesScrollPosition(): void {
+        setTimeout(() => {
+            const container = this.getMessageListElement();
+            const snapshot = this.pendingOlderScrollRestore;
+
+            if (!container || !snapshot) {
+                return;
+            }
+
+            const heightDelta =
+                container.scrollHeight - snapshot.previousScrollHeight;
+
+            container.scrollTop = snapshot.previousScrollTop + heightDelta;
+            this.pendingOlderScrollRestore = null;
+        }, 0);
+    }
+
+    onMessageListScroll(): void {
+        if (this.isNearBottom()) {
+            this.showScrollToLatestButton = false;
+        }
+    }
+
+    scrollToLatestMessages(): void {
+        this.forceScrollToBottomOnNextRender = true;
+        this.scrollToBottom();
+    }
+
+    @ViewChild('messageList') messageListRef?: ElementRef<HTMLElement>;
+
+    showScrollToLatestButton = false;
+
+    private readonly nearBottomThresholdPx = 200;
+    private forceScrollToBottomOnNextRender = true;
+    private pendingOlderScrollRestore:
+        | { previousScrollTop: number; previousScrollHeight: number }
+        | null = null;
+    private lastRenderedMessageKey = '';
+
+    private buildMessageGroups(messages: Message[]): MessageGroup[] {
+        const groups: MessageGroup[] = [];
+
+        for (const message of messages) {
+            const lastGroup = groups[groups.length - 1];
+
+            if (!lastGroup || this.shouldStartNewGroup(lastGroup, message)) {
+                groups.push(this.createMessageGroup(message, groups.length));
+                continue;
+            }
+
+            lastGroup.messages.push(message);
+        }
+
+        return groups;
+    }
+
+    private shouldStartNewGroup(
+        currentGroup: MessageGroup,
+        nextMessage: Message,
+    ): boolean {
+        const previousMessage = currentGroup.messages[currentGroup.messages.length - 1];
+        if (!previousMessage) {
+            return true;
+        }
+
+        if (currentGroup.senderId !== nextMessage.senderId) {
+            return true;
+        }
+
+        const previousDate = this.toDate(previousMessage.timestamp);
+        const nextDate = this.toDate(nextMessage.timestamp);
+
+        if (!this.isSameCalendarDay(previousDate, nextDate)) {
+            return true;
+        }
+
+        return !this.isWithinMessageGroupWindow(
+            nextMessage.timestamp,
+            previousMessage.timestamp,
+        );
+    }
+
+    private createMessageGroup(message: Message, index: number): MessageGroup {
+        const fallbackId = message.id ?? `${message.senderId}-${index}-${this.resolveTrackTimestamp(message.timestamp, index)}`;
+
+        return {
+            id: fallbackId,
+            senderId: message.senderId,
+            isOwn: this.isOwnMessage(message),
+            startedAt: message.timestamp,
+            messages: [message],
+        };
     }
 
     private clearMessagesState(): void {
@@ -551,9 +726,20 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     loadOlderMessages(): void {
         if (!this.canLoadOlderMessages()) return;
+
         const oldestLoaded = this.messages[0];
         if (!oldestLoaded?.timestamp) return this.stopOlderLoading();
+
+        const container = this.getMessageListElement();
+        if (container) {
+            this.pendingOlderScrollRestore = {
+                previousScrollTop: container.scrollTop,
+                previousScrollHeight: container.scrollHeight,
+            };
+        }
+
         this.isLoadingMoreMessages = true;
+
         this.createOlderLoader(oldestLoaded.timestamp).subscribe({
             next: (older) => this.applyOlderMessages(older),
             error: (error) => this.handleOlderLoadError(error),
@@ -829,11 +1015,15 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.attachmentError = '';
         this.isSending = false;
         this.syncComposerState();
+
         if (this.isComposeMode) {
             this.ui.closeNewMessage();
             this.composeTargetControl.setValue('');
             this.composeResolvedTarget = null;
         }
+
+        this.forceScrollToBottomOnNextRender = true;
+        this.scrollToBottom();
     }
 
     private onSendError(error: unknown): void {
@@ -912,6 +1102,45 @@ export class HomeComponent implements OnInit, OnDestroy {
         return (
             this.usersById[message.senderId]?.displayName ?? message.senderId
         );
+    }
+
+    getMessageAvatar(message: Message): string {
+        const fallbackAvatar = 'assets/pictures/profile.svg';
+        const user = this.usersById[message.senderId];
+        const rawAvatar = (user?.avatar ?? '').trim();
+
+        if (!rawAvatar) {
+            return fallbackAvatar;
+        }
+
+        return this.normalizeAvatarPath(rawAvatar, fallbackAvatar);
+    }
+
+    private normalizeAvatarPath(avatar: string, fallbackAvatar: string): string {
+        const trimmed = avatar.trim();
+
+        if (!trimmed) {
+            return fallbackAvatar;
+        }
+
+        if (
+            trimmed.startsWith('http://') ||
+            trimmed.startsWith('https://') ||
+            trimmed.startsWith('data:') ||
+            trimmed.startsWith('blob:')
+        ) {
+            return trimmed;
+        }
+
+        if (trimmed.startsWith('/assets/')) {
+            return trimmed;
+        }
+
+        if (trimmed.startsWith('assets/')) {
+            return trimmed;
+        }
+
+        return `assets/pictures/${trimmed}`;
     }
 
     hasMentionForCurrentUser(message: Message): boolean {
@@ -1001,6 +1230,30 @@ export class HomeComponent implements OnInit, OnDestroy {
                     'Reaktion konnte nicht aktualisiert werden.';
             },
         });
+    }
+
+    canOpenThreadFromToolbar(message: Message): boolean {
+        return !this.isDirectMessage && !!message.id;
+    }
+
+    canEditMessage(message: Message): boolean {
+        return this.isOwnMessage(message) && !!message.id;
+    }
+
+    onEmojiPickerClick(message: Message): void {
+        if (!this.canWrite || !message.id) {
+            return;
+        }
+
+        this.errorMessage = 'Emoji-Picker kommt als Nächstes.';
+    }
+
+    onEditMessageClick(message: Message): void {
+        if (!this.canEditMessage(message)) {
+            return;
+        }
+
+        this.errorMessage = 'Nachricht bearbeiten kommt als Nächstes.';
     }
 
     hasCurrentUserReacted(reaction: MessageReaction): boolean {
@@ -1127,11 +1380,14 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.liveMessages = [];
         this.olderMessages = [];
         this.messages = [];
+        this.messageGroups = [];
         this.hasMoreMessages = true;
         this.isLoadingMoreMessages = false;
         this.clearMentionSelection();
         this.selectedAttachments = [];
         this.attachmentError = '';
+        this.pendingOlderScrollRestore = null;
+        this.showScrollToLatestButton = false;
     }
 
     private mergeUniqueMessages(
@@ -1204,6 +1460,9 @@ export class HomeComponent implements OnInit, OnDestroy {
     private prepareMessageStreamSwitch(): void {
         this.resetMessageStreams();
         this.resetThreadPanel();
+        this.forceScrollToBottomOnNextRender = true;
+        this.showScrollToLatestButton = false;
+        this.lastRenderedMessageKey = '';
     }
 
     private createDirectLiveStream(userId: string): Observable<Message[]> {
@@ -1468,11 +1727,28 @@ export class HomeComponent implements OnInit, OnDestroy {
         );
     }
 
-    shouldShowDateSeparator(index: number, message: { timestamp: unknown }): boolean {
-        if (index === 0) return true;
+    private isWithinMessageGroupWindow(
+        currentTimestamp: Message['timestamp'],
+        previousTimestamp: Message['timestamp'],
+    ): boolean {
+        const currentDate = this.toDate(currentTimestamp);
+        const previousDate = this.toDate(previousTimestamp);
 
-        const currentDate = this.toDate(message.timestamp);
-        const previousDate = this.toDate(this.messages[index - 1]?.timestamp);
+        if (!currentDate || !previousDate) {
+            return false;
+        }
+
+        const diffMs = currentDate.getTime() - previousDate.getTime();
+        return diffMs >= 0 && diffMs <= this.messageGroupWindowMs;
+    }
+
+    shouldShowGroupDateSeparator(index: number, group: MessageGroup): boolean {
+        if (index === 0) {
+            return true;
+        }
+
+        const currentDate = this.toDate(group.startedAt);
+        const previousDate = this.toDate(this.messageGroups[index - 1]?.startedAt);
 
         return !this.isSameCalendarDay(currentDate, previousDate);
     }

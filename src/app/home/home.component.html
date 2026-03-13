@@ -69,13 +69,27 @@
             }
         </header>
         @if (!isComposeMode) {
-            @if (latestMessageSummary) {
+            <!--@if (latestMessageSummary) {
                 <p class="latest-message-summary">
                     Letzte Nachricht: {{ latestMessageSummary }}
                 </p>
+            }-->
+            @if (showScrollToLatestButton) {
+                <button
+                    type="button"
+                    class="scroll-to-latest-btn"
+                    (click)="scrollToLatestMessages()"
+                >
+                    Neue Nachrichten ↓
+                </button>
             }
 
-            <section class="message-list" aria-label="Nachrichtenliste">
+            <section
+                class="message-list"
+                aria-label="Nachrichtenliste"
+                #messageList
+                (scroll)="onMessageListScroll()"
+            >
                 @if (hasMoreMessages) {
                     <div class="loadMessages">
                         <button
@@ -100,65 +114,137 @@
                 }
 
                 @for (
-                    message of messages;
-                    track trackMessage($index, message)
+                    group of messageGroups;
+                    track group.id
                     ) {
-                    @if (shouldShowDateSeparator($index, message)) {
+                    @if (shouldShowGroupDateSeparator($index, group)) {
                         <div class="date-separator" aria-hidden="true">
                             <span class="date-separator__label">
-                                {{ getDateSeparatorLabel(message.timestamp) }}
+                                {{ getDateSeparatorLabel(group.startedAt) }}
                             </span>
                         </div>
                     }
 
-                    <div class="article__container">
-                        <img src="/assets/pictures/profil_m4.svg" alt="">
-                        <div class="message__container">
-                            <div class="message__meta">
-                                <span class="sender__name">{{ getSenderLabel(message) }}</span>
-                                <span class="sender__timestamp">{{ formatTimestamp(message.timestamp) }}</span>
-                            </div>
-                            <article
-                                class="message"
-                                [class.own]="isOwnMessage(message)"
-                                [class.active-thread-parent]="isThreadParent(message)"
+                    <div
+                        class="article__container"
+                        [class.article__container--own]="group.isOwn"
+                    >
+                        <div
+                            class="message-toolbar"
+                            [class.message-toolbar--own]="group.isOwn"
+                        >
+                            <button
+                                type="button"
+                                class="message-toolbar__btn"
+                                aria-label="Mit Daumen hoch reagieren"
+                                (click)="toggleReaction(group.messages[group.messages.length - 1], '👍')"
                             >
-                                <p>{{ message.text }}</p>
+                                <span class="toolbar-emoji">👍</span>
+                            </button>
 
-                                @if (hasMentionForCurrentUser(message)) {
-                                    <span class="mention-pill">Erwähnt dich</span>
-                                }
+                            <button
+                                type="button"
+                                class="message-toolbar__btn"
+                                aria-label="Mit Haken reagieren"
+                                (click)="toggleReaction(group.messages[group.messages.length - 1], '✅')"
+                            >
+                                <span class="toolbar-emoji">✅</span>
+                            </button>
 
-                                @if (message.attachments?.length) {
-                                    <div class="message-attachments">
-                                        @for (
-                                            attachment of message.attachments;
-                                            track attachment.path
-                                            ) {
-                                            <a
-                                                class="attachment-item"
-                                                [href]="attachment.url"
-                                                target="_blank"
-                                                rel="noopener noreferrer"
-                                            >
-                                                @if (attachment.isImage) {
-                                                    <img
-                                                        class="attachment-image"
-                                                        [src]="attachment.url"
-                                                        [alt]="attachment.name"
-                                                        loading="lazy"
-                                                    />
+                            <button
+                                type="button"
+                                class="message-toolbar__btn"
+                                aria-label="Emoji auswählen"
+                                (click)="onEmojiPickerClick(group.messages[group.messages.length - 1])"
+                            >
+                                <img src="assets/pictures/add_reaction.svg" alt="" aria-hidden="true" />
+                            </button>
+
+                            @if (canOpenThreadFromToolbar(group.messages[group.messages.length - 1])) {
+                                <button
+                                    type="button"
+                                    class="message-toolbar__btn"
+                                    aria-label="Thread öffnen"
+                                    (click)="openThreadForMessage(group.messages[group.messages.length - 1])"
+                                >
+                                    <img src="assets/pictures/answer.svg" alt="" aria-hidden="true" />
+                                </button>
+                            }
+
+                            @if (canEditMessage(group.messages[group.messages.length - 1])) {
+                                <button
+                                    type="button"
+                                    class="message-toolbar__btn"
+                                    aria-label="Nachricht bearbeiten"
+                                    (click)="onEditMessageClick(group.messages[group.messages.length - 1])"
+                                >
+                                    <img src="assets/pictures/edit_message.svg" alt="" aria-hidden="true" />
+                                </button>
+                            }
+                        </div>
+
+                        <img
+                            [src]="getMessageAvatar(group.messages[0])"
+                            [alt]="getSenderLabel(group.messages[0]) + ' Avatar'"
+                        >
+
+                        <div
+                            class="message__container"
+                            [class.message__container--own]="group.isOwn"
+                        >
+                            <div
+                                class="message__meta"
+                                [class.message__meta--own]="group.isOwn"
+                            >
+                                <span class="sender__name">{{ getSenderLabel(group.messages[0]) }}</span>
+                                <span class="sender__timestamp">
+                                    {{ formatTimestamp(group.messages[0].timestamp) }}
+                                </span>
+                            </div>
+
+                            <article
+                                class="message message--group"
+                                [class.own]="group.isOwn"
+                                [class.active-thread-parent]="isThreadParent(group.messages[group.messages.length - 1])"
+                            >
+                                @for (groupMessage of group.messages; track trackMessage($index, groupMessage)) {
+                                    <div class="message__line">
+                                        <p>{{ groupMessage.text }}</p>
+
+                                        @if (groupMessage.attachments?.length) {
+                                            <div class="message-attachments">
+                                                @for (attachment of groupMessage.attachments; track attachment.path) {
+                                                    <a
+                                                        class="attachment-item"
+                                                        [href]="attachment.url"
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                    >
+                                                        @if (attachment.isImage) {
+                                                            <img
+                                                                class="attachment-image"
+                                                                [src]="attachment.url"
+                                                                [alt]="attachment.name"
+                                                                loading="lazy"
+                                                            />
+                                                        }
+                                                        <span class="attachment-name">{{ attachment.name }}</span>
+                                                        <span class="attachment-download">Download</span>
+                                                    </a>
                                                 }
-                                                <span class="attachment-name">{{ attachment.name }}</span>
-                                                <span class="attachment-download">Download</span>
-                                            </a>
+                                            </div>
+                                        }
+
+                                        @if (hasMentionForCurrentUser(groupMessage)) {
+                                            <span class="mention-pill">Erwähnt dich</span>
                                         }
                                     </div>
                                 }
 
-                                @if (message.reactions?.length) {
-                                    @let visibleReactions = getVisibleReactions(message);
-                                    @let hiddenCount = getHiddenReactionCount(message);
+                                @if (group.messages[group.messages.length - 1].reactions?.length) {
+                                    @let lastMessage = group.messages[group.messages.length - 1];
+                                    @let visibleReactions = getVisibleReactions(lastMessage);
+                                    @let hiddenCount = getHiddenReactionCount(lastMessage);
 
                                     <div class="message__reactions">
                                         @for (reaction of visibleReactions; track reaction.emoji) {
@@ -166,7 +252,7 @@
                                                 type="button"
                                                 class="reaction"
                                                 [class.active]="hasCurrentUserReacted(reaction)"
-                                                (click)="toggleReaction(message, reaction.emoji)"
+                                                (click)="toggleReaction(lastMessage, reaction.emoji)"
                                             >
                                                 <span>{{ reaction.emoji }}</span>
                                                 <span>{{ reaction.userIds.length }}</span>
@@ -177,15 +263,15 @@
                                             <button
                                                 type="button"
                                                 class="reaction more"
-                                                (click)="toggleReactionList(message)"
+                                                (click)="toggleReactionList(lastMessage)"
                                             >
                                                 +{{ hiddenCount }} weitere
                                             </button>
-                                        } @else if ((message.reactions?.length ?? 0) > 20) {
+                                        } @else if ((lastMessage.reactions?.length ?? 0) > 20) {
                                             <button
                                                 type="button"
                                                 class="reaction more"
-                                                (click)="toggleReactionList(message)"
+                                                (click)="toggleReactionList(lastMessage)"
                                             >
                                                 weniger anzeigen
                                             </button>
@@ -195,25 +281,6 @@
                             </article>
                         </div>
                     </div>
-
-                    @if (!isDirectMessage) {
-                        <div class="message__actions">
-                            <button
-                                type="button"
-                                class="thread-link"
-                                (click)="openThreadForMessage(message)"
-                                [attr.aria-label]="
-                    isThreadPanelOpen
-                        ? 'Thread ist geöffnet'
-                        : 'Thread öffnen'
-                "
-                            >
-                                @if (!isThreadPanelOpen) {
-                                    Thread öffnen
-                                }
-                            </button>
-                        </div>
-                    }
                 }
             </section>
         }
