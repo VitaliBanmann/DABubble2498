@@ -3,6 +3,7 @@ import {
     ChangeDetectorRef,
     Component,
     ElementRef,
+    HostListener,
     OnDestroy,
     OnInit,
     ViewChild,
@@ -645,6 +646,27 @@ export class HomeComponent implements OnInit, OnDestroy {
         | null = null;
     private lastRenderedMessageKey = '';
 
+    emojiPickerMessageId: string | null = null;
+
+    readonly emojiPickerOptions: string[] = [
+        '😀',
+        '😂',
+        '😍',
+        '👍',
+        '🎉',
+        '🔥',
+        '❤️',
+        '🚀',
+        '👏',
+        '😮',
+        '😢',
+        '🙏',
+    ];
+
+    editingMessageId: string | null = null;
+    readonly editMessageControl = new FormControl('', { nonNullable: true });
+    isSavingEdit = false;
+
     private buildMessageGroups(messages: Message[]): MessageGroup[] {
         const groups: MessageGroup[] = [];
 
@@ -1240,20 +1262,100 @@ export class HomeComponent implements OnInit, OnDestroy {
         return this.isOwnMessage(message) && !!message.id;
     }
 
-    onEmojiPickerClick(message: Message): void {
+    onEmojiPickerClick(message: Message, event?: MouseEvent): void {
+        event?.stopPropagation();
+
         if (!this.canWrite || !message.id) {
             return;
         }
 
-        this.errorMessage = 'Emoji-Picker kommt als Nächstes.';
-    }
+        this.errorMessage = '';
 
-    onEditMessageClick(message: Message): void {
-        if (!this.canEditMessage(message)) {
+        if (this.emojiPickerMessageId === message.id) {
+            this.closeEmojiPicker();
             return;
         }
 
-        this.errorMessage = 'Nachricht bearbeiten kommt als Nächstes.';
+        this.emojiPickerMessageId = message.id;
+    }
+
+    isEmojiPickerOpen(message: Message): boolean {
+        return !!message.id && this.emojiPickerMessageId === message.id;
+    }
+
+    selectEmojiFromPicker(message: Message, emoji: string, event?: MouseEvent): void {
+        event?.stopPropagation();
+
+        if (!message.id) {
+            return;
+        }
+
+        this.toggleReaction(message, emoji);
+        this.closeEmojiPicker();
+    }
+
+    closeEmojiPicker(): void {
+        this.emojiPickerMessageId = null;
+    }
+
+    @HostListener('document:click')
+    onDocumentClick(): void {
+        this.closeEmojiPicker();
+    }
+
+    onEditMessageClick(message: Message): void {
+        if (!this.canEditMessage(message) || !message.id) {
+            return;
+        }
+
+        this.errorMessage = '';
+        this.closeEmojiPicker();
+        this.editingMessageId = message.id;
+        this.editMessageControl.setValue((message.text ?? '').trim());
+    }
+
+    isEditingMessage(message: Message): boolean {
+        return !!message.id && this.editingMessageId === message.id;
+    }
+
+    cancelMessageEdit(): void {
+        this.editingMessageId = null;
+        this.editMessageControl.setValue('');
+        this.isSavingEdit = false;
+    }
+
+    saveMessageEdit(message: Message): void {
+        if (!message.id || !this.isEditingMessage(message) || this.isSavingEdit) {
+            return;
+        }
+
+        const nextText = this.editMessageControl.value.trim();
+        const currentText = (message.text ?? '').trim();
+
+        if (!nextText) {
+            this.errorMessage = 'Die Nachricht darf nicht leer sein.';
+            return;
+        }
+
+        if (nextText === currentText) {
+            this.cancelMessageEdit();
+            return;
+        }
+
+        this.isSavingEdit = true;
+        this.errorMessage = '';
+
+        this.messageService.updateMessage(message.id, {
+            text: nextText,
+        }).subscribe({
+            next: () => {
+                this.cancelMessageEdit();
+            },
+            error: (error) => {
+                this.isSavingEdit = false;
+                this.errorMessage = this.resolveSendError(error);
+            },
+        });
     }
 
     hasCurrentUserReacted(reaction: MessageReaction): boolean {
@@ -1388,6 +1490,9 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.attachmentError = '';
         this.pendingOlderScrollRestore = null;
         this.showScrollToLatestButton = false;
+        this.editingMessageId = null;
+        this.editMessageControl.setValue('');
+        this.isSavingEdit = false;
     }
 
     private mergeUniqueMessages(
