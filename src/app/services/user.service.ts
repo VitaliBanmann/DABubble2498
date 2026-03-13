@@ -2,7 +2,7 @@ import { Injectable } from '@angular/core';
 import { FirestoreService } from './firestore.service';
 import { AuthService } from './auth.service';
 import { Observable, firstValueFrom, map, of, switchMap, take } from 'rxjs';
-import { where } from 'firebase/firestore';
+import { where } from '@angular/fire/firestore';
 import { buildSearchTokens, normalizeSearchToken } from './search-token.util';
 
 export type PresenceStatus = 'online' | 'away' | 'offline';

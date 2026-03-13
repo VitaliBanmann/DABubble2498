@@ -10,7 +10,7 @@ import {
     switchMap,
     take,
 } from 'rxjs';
-import { Timestamp, where } from 'firebase/firestore';
+import { Timestamp, where } from '@angular/fire/firestore';
 import { buildSearchTokens, normalizeSearchToken } from './search-token.util';
 
 export interface Channel extends Record<string, unknown> {

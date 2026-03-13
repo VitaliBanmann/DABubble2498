@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { limit, orderBy, where } from 'firebase/firestore';
+import { limit, orderBy, where } from '@angular/fire/firestore';
 import { combineLatest, Observable, of, map, catchError } from 'rxjs';
 import { FirestoreService } from './firestore.service';
 import { Message } from './message.service';
