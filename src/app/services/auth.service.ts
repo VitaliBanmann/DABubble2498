@@ -1,10 +1,12 @@
 import {
+    EnvironmentInjector,
     Inject,
     Injectable,
     NgZone,
     OnDestroy,
     PLATFORM_ID,
     Optional,
+    runInInjectionContext,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { Auth } from '@angular/fire/auth';
@@ -39,6 +41,7 @@ export class AuthService implements OnDestroy {
         @Inject(PLATFORM_ID) private readonly platformId: object,
         @Optional() private readonly auth: Auth | null,
         private readonly zone: NgZone,
+        private readonly injector: EnvironmentInjector,
     ) {
         if (isPlatformBrowser(this.platformId) && this.auth) {
             this.initAuthState();
@@ -52,25 +55,27 @@ export class AuthService implements OnDestroy {
 
         this.unsubscribeAuthState?.();
         let hasEmittedReady = false;
-        this.unsubscribeAuthState = onAuthStateChanged(
-            this.auth,
-            async (user) => {
-                if (user) {
-                    try {
-                        await user.getIdToken();
-                    } catch {
-                        // ignore: we still emit auth state, Firestore might retry
+        this.unsubscribeAuthState = runInInjectionContext(this.injector, () =>
+            onAuthStateChanged(
+                this.auth!,
+                async (user) => {
+                    if (user) {
+                        try {
+                            await user.getIdToken();
+                        } catch {
+                            // ignore: we still emit auth state, Firestore might retry
+                        }
                     }
-                }
 
-                this.zone.run(() => {
-                    this.currentUserSubject.next(user);
-                    if (!hasEmittedReady) {
-                        hasEmittedReady = true;
-                        this.authReadySubject.next(true);
-                    }
-                });
-            },
+                    this.zone.run(() => {
+                        this.currentUserSubject.next(user);
+                        if (!hasEmittedReady) {
+                            hasEmittedReady = true;
+                            this.authReadySubject.next(true);
+                        }
+                    });
+                },
+            ),
         );
     }
 
@@ -109,22 +114,18 @@ export class AuthService implements OnDestroy {
     }
 
     private signInWithEmail(email: string, password: string) {
-        return signInWithEmailAndPassword(
-            this.getRequiredAuth(),
-            email,
-            password,
+        return runInInjectionContext(this.injector, () =>
+            signInWithEmailAndPassword(this.getRequiredAuth(), email, password),
         );
     }
 
     async loginWithGoogle(): Promise<{ email: string | null }> {
         await this.resetAnonymousSessionIfNeeded();
-        const credential = await signInWithPopup(
-            this.getRequiredAuth(),
-            this.createGoogleProvider(),
+        const credential = await runInInjectionContext(this.injector, () =>
+            signInWithPopup(this.getRequiredAuth(), this.createGoogleProvider()),
         );
         this.ensureNotAnonymous(credential.user.isAnonymous);
         this.emitCurrentUser(credential.user);
-        console.log('User logged in with Google successfully');
         return { email: this.resolveUserEmail(credential.user) };
     }
 
@@ -218,10 +219,8 @@ export class AuthService implements OnDestroy {
         beforeErrorLog?: (error: any) => void,
     ): Promise<void> {
         return Promise.resolve()
-            .then(action)
-            .then(() => {
-                console.log(successMessage);
-            })
+            .then(() => runInInjectionContext(this.injector, action))
+            .then(() => {})
             .catch((error) => {
                 beforeErrorLog?.(error);
                 if (error?.code !== 'auth/invalid-credential') {

@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { EnvironmentInjector, Injectable, runInInjectionContext } from '@angular/core';
 import { Storage, getDownloadURL, ref, uploadBytes } from '@angular/fire/storage';
 import { Observable, from } from 'rxjs';
 import { MessageAttachment } from './message.service';
@@ -7,7 +7,10 @@ import { MessageAttachment } from './message.service';
     providedIn: 'root',
 })
 export class AttachmentService {
-    constructor(private readonly storage: Storage) {}
+    constructor(
+        private readonly storage: Storage,
+        private readonly injector: EnvironmentInjector,
+    ) {}
 
     uploadMessageAttachments(
         messageId: string,
@@ -45,11 +48,13 @@ export class AttachmentService {
     }
 
     private async uploadAndResolveUrl(path: string, file: File): Promise<string> {
-        const fileRef = ref(this.storage, path);
-        const snapshot = await uploadBytes(fileRef, file, {
-            contentType: file.type || undefined,
+        return runInInjectionContext(this.injector, async () => {
+            const fileRef = ref(this.storage, path);
+            const snapshot = await uploadBytes(fileRef, file, {
+                contentType: file.type || undefined,
+            });
+            return getDownloadURL(snapshot.ref);
         });
-        return getDownloadURL(snapshot.ref);
     }
 
     private safeFileName(name: string, index: number): string {

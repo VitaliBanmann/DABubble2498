@@ -19,7 +19,7 @@ import {
 import { UiStateService } from '../../services/ui-state.service';
 import { AuthFlowService } from '../../services/auth-flow.service';
 import { AuthService } from '../../services/auth.service';
-import { PresenceStatus, UserService } from '../../services/user.service';
+import { PresenceStatus, User, UserService } from '../../services/user.service';
 import { ChannelService } from '../../services/channel.service';
 import { MessageService } from '../../services/message.service';
 import { ShowProfileComponent } from '../show-profile/show-profile.component';
@@ -70,6 +70,11 @@ export class TopbarComponent implements OnInit, OnDestroy {
     private profileUid: string | null = null;
     private profileResolved = false;
     private profileFallbackTimer: ReturnType<typeof setTimeout> | null = null;
+    private cachedUsers: User[] = [];
+    private cachedChannels: SearchChannelResult[] = [
+        { id: 'allgemein', name: 'Allgemein' },
+        { id: 'entwicklerteam', name: 'Entwicklerteam' },
+    ];
 
     constructor(
         public readonly ui: UiStateService,
@@ -85,6 +90,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
     ngOnInit(): void {
         this.trackAuthReady();
         this.trackUserProfile();
+        this.warmSearchCache();
     }
 
     get initials(): string {
@@ -201,15 +207,19 @@ export class TopbarComponent implements OnInit, OnDestroy {
     }
 
     navigateToMessage(result: SearchMessageResult): void {
-    this.clearSearchResults();
-    if (result.kind === 'dm' && result.partnerUserId) {
-        void this.router.navigate(['/app/dm', result.partnerUserId]);
-        return;
+        this.clearSearchResults();
+        if (result.kind === 'dm' && result.partnerUserId) {
+            void this.router.navigate(['/app/dm', result.partnerUserId], {
+                queryParams: { msg: result.id },
+            });
+            return;
+        }
+        if (result.channelId) {
+            void this.router.navigate(['/app/channel', result.channelId], {
+                queryParams: { msg: result.id },
+            });
+        }
     }
-    if (result.channelId) {
-        void this.router.navigate(['/app/channel', result.channelId]);
-    }
-}
 
     closeSearchResults(): void {
         this.showSearchResults = false;
@@ -255,9 +265,9 @@ export class TopbarComponent implements OnInit, OnDestroy {
     }
 
     private extractSearchQuery(value: string): string {
-        const parts = value.trim().split(/\s+/).filter(Boolean);
-        if (!parts.length) return '';
-        return normalizeSearchToken(parts[parts.length - 1]);
+        const trimmed = value.trim();
+        if (!trimmed) return '';
+        return normalizeSearchToken(trimmed);
     }
 
     private clearSearchResults(): void {
@@ -403,44 +413,72 @@ export class TopbarComponent implements OnInit, OnDestroy {
     }
 
     private readonly defaultChannelbases: SearchChannelResult[] = [
-    { id: 'allgemein', name: 'Allgemein' },
-    { id: 'entwicklerteam', name: 'Entwicklerteam' },
-];
+        { id: 'allgemein', name: 'Allgemein' },
+        { id: 'entwicklerteam', name: 'Entwicklerteam' },
+    ];
 
-private buildChannelResults$(token: string) {
-    return this.channelService.getAllChannels().pipe(
-        map((channels) => {
-            const merged = new Map<string, SearchChannelResult>(
-                this.defaultChannelbases.map((ch) => [ch.id, ch]),
-            );
-            channels
-                .filter((ch: any) => !!ch?.id)
-                .forEach((ch: any) =>
-                    merged.set(ch.id, { id: ch.id, name: ch.name }),
-                );
-            return Array.from(merged.values()).filter((ch) =>
-                this.matchesSearch([ch.name], token),
-            );
-        }),
-        catchError(() =>
-            of(
-                this.defaultChannelbases.filter((ch) =>
-                    this.matchesSearch([ch.name], token),
-                ),
+    private buildChannelResults$(token: string) {
+        const fallback = this.cachedChannels.filter((ch) =>
+            this.matchesSearch([ch.name], token),
+        );
+        return this.channelService.getAllChannels().pipe(
+            startWith(null as any),
+            map((channels) =>
+                (channels
+                    ? this.mergeWithDefaults(channels)
+                    : this.cachedChannels
+                ).filter((ch) => this.matchesSearch([ch.name], token)),
             ),
-        ),
-    );
-}
+            catchError(() => of(fallback)),
+        );
+    }
+
+    private mergeWithDefaults(channels: any[]): SearchChannelResult[] {
+        const merged = new Map<string, SearchChannelResult>(
+            this.defaultChannelbases.map((ch) => [ch.id, ch]),
+        );
+        channels
+            .filter((ch: any) => !!ch?.id)
+            .forEach((ch: any) =>
+                merged.set(ch.id, { id: ch.id, name: ch.name }),
+            );
+        return Array.from(merged.values());
+    }
 
     private buildUserResults$(token: string) {
+        const fallback = this.cachedUsers.filter((u: any) =>
+            this.matchesSearch([u?.displayName, u?.email], token),
+        );
         return this.userService.getAllUsersRealtime().pipe(
+            startWith(this.cachedUsers),
             map((users) =>
                 users.filter((u: any) =>
                     this.matchesSearch([u?.displayName, u?.email], token),
                 ),
             ),
-            catchError(() => of([])),
+            catchError(() => of(fallback)),
         );
+    }
+
+    private warmSearchCache(): void {
+        this.subscription.add(
+            this.userService
+                .getAllUsersRealtime()
+                .pipe(catchError(() => of([] as User[])))
+                .subscribe((users) => {
+                    this.cachedUsers = users;
+                }),
+        );
+        this.subscription.add(
+            this.channelService
+                .getAllChannels()
+                .pipe(catchError(() => of([])))
+                .subscribe((channels) => this.applyCachedChannels(channels)),
+        );
+    }
+
+    private applyCachedChannels(channels: any[]): void {
+        this.cachedChannels = this.mergeWithDefaults(channels);
     }
 
     private buildMessageResults$(token: string) {
@@ -477,12 +515,6 @@ private buildChannelResults$(token: string) {
                             .streamLatestChannelMessages(channelId, 200)
                             .pipe(
                                 map((msgs) => {
-                                    console.log(
-                                        '[CH]',
-                                        channelId,
-                                        'raw msgs:',
-                                        msgs.length,
-                                    );
                                     return msgs
                                         .filter((m: any) =>
                                             this.matchesSearch(
@@ -574,14 +606,6 @@ private buildChannelResults$(token: string) {
         users: any[],
         messages: any[],
     ): void {
-        console.log(
-            '[SEARCH] channels:',
-            channels.length,
-            'users:',
-            users.length,
-            'messages:',
-            messages,
-        );
         this.channelResults = channels
             .filter((channel) => !!channel.id)
             .map((channel) => ({

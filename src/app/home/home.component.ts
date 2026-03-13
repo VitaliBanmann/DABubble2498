@@ -1,4 +1,4 @@
-import {CommonModule} from '@angular/common';
+import { CommonModule } from '@angular/common';
 import {
     ChangeDetectorRef,
     Component,
@@ -10,8 +10,8 @@ import {
     ViewChild,
     ViewChildren,
 } from '@angular/core';
-import {FormControl, ReactiveFormsModule} from '@angular/forms';
-import {ActivatedRoute, ParamMap, Router} from '@angular/router';
+import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import {
     combineLatest,
     of,
@@ -23,8 +23,8 @@ import {
     throwError,
     timer,
 } from 'rxjs';
-import {AuthFlowService} from '../services/auth-flow.service';
-import {AuthService} from '../services/auth.service';
+import { AuthFlowService } from '../services/auth-flow.service';
+import { AuthService } from '../services/auth.service';
 import {
     Message,
     MessageAttachment,
@@ -32,11 +32,11 @@ import {
     MessageService,
     ThreadMessage,
 } from '../services/message.service';
-import {AttachmentService} from '../services/attachment.service';
-import {UiStateService} from '../services/ui-state.service';
-import {UnreadStateService} from '../services/unread-state.service';
-import {User, UserService} from '../services/user.service';
-import {User as FirebaseUser} from 'firebase/auth';
+import { AttachmentService } from '../services/attachment.service';
+import { UiStateService } from '../services/ui-state.service';
+import { UnreadStateService } from '../services/unread-state.service';
+import { User, UserService } from '../services/user.service';
+import { User as FirebaseUser } from 'firebase/auth';
 
 interface MentionCandidate {
     id: string;
@@ -67,13 +67,13 @@ interface MessageGroup {
     styleUrl: './home.component.scss',
 })
 export class HomeComponent implements OnInit, OnDestroy {
-    readonly messageControl = new FormControl('', {nonNullable: true});
-    readonly threadMessageControl = new FormControl('', {nonNullable: true});
+    readonly messageControl = new FormControl('', { nonNullable: true });
+    readonly threadMessageControl = new FormControl('', { nonNullable: true });
     readonly channelNames: Record<string, string> = {
         allgemein: 'Allgemein',
         entwicklerteam: 'Entwicklerteam',
     };
-    readonly composeTargetControl = new FormControl('', {nonNullable: true});
+    readonly composeTargetControl = new FormControl('', { nonNullable: true });
 
     get isComposeMode(): boolean {
         return this.ui.isNewMessageOpen();
@@ -141,8 +141,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         private readonly ui: UiStateService,
         private readonly unreadStateService: UnreadStateService,
         private readonly cdr: ChangeDetectorRef,
-    ) {
-    }
+    ) {}
 
     ngOnInit(): void {
         this.ui.closeThread();
@@ -150,6 +149,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.subscribeToAuth();
         this.subscribeToUsers();
         this.subscribeToRouteMessages();
+        this.subscribeToQueryParams();
         this.syncComposerState();
     }
 
@@ -171,13 +171,32 @@ export class HomeComponent implements OnInit, OnDestroy {
         );
     }
 
-    onSendButtonClick(): void {
-        console.log('[SEND BUTTON CLICK]', {
-            canWrite: this.canWrite,
-            isSending: this.isSending,
-            inputDisabled: this.messageControl.disabled,
-            value: this.messageControl.value,
-        });
+    private subscribeToQueryParams(): void {
+        this.subscription.add(
+            this.route.queryParamMap.subscribe((params) => {
+                const msgId = params.get('msg');
+                if (msgId) {
+                    this.pendingScrollToMessageId = msgId;
+                    this.tryScrollToMessage();
+                }
+            }),
+        );
+    }
+
+    private tryScrollToMessage(): void {
+        const msgId = this.pendingScrollToMessageId;
+        if (!msgId) return;
+        setTimeout(() => {
+            const el = document.getElementById('msg-' + msgId);
+            if (!el) return;
+            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            el.classList.add('message__line--highlight');
+            this.pendingScrollToMessageId = null;
+            setTimeout(
+                () => el.classList.remove('message__line--highlight'),
+                2500,
+            );
+        }, 400);
     }
 
     onComposeTargetInput(): void {
@@ -433,7 +452,7 @@ export class HomeComponent implements OnInit, OnDestroy {
 
         const channelId = this.resolveChannelTarget(raw);
         if (channelId) {
-            this.composeResolvedTarget = {kind: 'channel', channelId};
+            this.composeResolvedTarget = { kind: 'channel', channelId };
             this.errorMessage = '';
             return;
         }
@@ -447,7 +466,7 @@ export class HomeComponent implements OnInit, OnDestroy {
                 return;
             }
 
-            this.composeResolvedTarget = {kind: 'user', userId: user.id};
+            this.composeResolvedTarget = { kind: 'user', userId: user.id };
             this.errorMessage = '';
             return;
         }
@@ -522,12 +541,12 @@ export class HomeComponent implements OnInit, OnDestroy {
         const shouldDisable = this.isSending;
 
         if (shouldDisable && this.messageControl.enabled) {
-            this.messageControl.disable({emitEvent: false});
+            this.messageControl.disable({ emitEvent: false });
             return;
         }
 
         if (!shouldDisable && this.messageControl.disabled) {
-            this.messageControl.enable({emitEvent: false});
+            this.messageControl.enable({ emitEvent: false });
         }
     }
 
@@ -550,9 +569,15 @@ export class HomeComponent implements OnInit, OnDestroy {
 
         const nextLastMessageKey = this.getLastMessageKey(this.messages);
         const hasNewBottomMessage =
-            !!nextLastMessageKey && nextLastMessageKey !== previousLastMessageKey;
+            !!nextLastMessageKey &&
+            nextLastMessageKey !== previousLastMessageKey;
 
         this.lastRenderedMessageKey = nextLastMessageKey;
+
+        if (this.pendingScrollToMessageId) {
+            this.tryScrollToMessage();
+            return;
+        }
 
         if (this.pendingOlderScrollRestore) {
             this.restoreOlderMessagesScrollPosition();
@@ -583,7 +608,9 @@ export class HomeComponent implements OnInit, OnDestroy {
         }
 
         const distanceFromBottom =
-            container.scrollHeight - container.scrollTop - container.clientHeight;
+            container.scrollHeight -
+            container.scrollTop -
+            container.clientHeight;
 
         return distanceFromBottom <= this.nearBottomThresholdPx;
     }
@@ -594,7 +621,10 @@ export class HomeComponent implements OnInit, OnDestroy {
             return '';
         }
 
-        return lastMessage.id ?? this.trackMessage(messages.length - 1, lastMessage);
+        return (
+            lastMessage.id ??
+            this.trackMessage(messages.length - 1, lastMessage)
+        );
     }
 
     private scrollToBottom(): void {
@@ -640,12 +670,14 @@ export class HomeComponent implements OnInit, OnDestroy {
     @ViewChild('messageList') messageListRef?: ElementRef<HTMLElement>;
 
     showScrollToLatestButton = false;
+    private pendingScrollToMessageId: string | null = null;
 
     private readonly nearBottomThresholdPx = 200;
     private forceScrollToBottomOnNextRender = true;
-    private pendingOlderScrollRestore:
-        | { previousScrollTop: number; previousScrollHeight: number }
-        | null = null;
+    private pendingOlderScrollRestore: {
+        previousScrollTop: number;
+        previousScrollHeight: number;
+    } | null = null;
     private lastRenderedMessageKey = '';
 
     emojiPickerMessageId: string | null = null;
@@ -693,7 +725,8 @@ export class HomeComponent implements OnInit, OnDestroy {
         currentGroup: MessageGroup,
         nextMessage: Message,
     ): boolean {
-        const previousMessage = currentGroup.messages[currentGroup.messages.length - 1];
+        const previousMessage =
+            currentGroup.messages[currentGroup.messages.length - 1];
         if (!previousMessage) {
             return true;
         }
@@ -716,7 +749,9 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     private createMessageGroup(message: Message, index: number): MessageGroup {
-        const fallbackId = message.id ?? `${message.senderId}-${index}-${this.resolveTrackTimestamp(message.timestamp, index)}`;
+        const fallbackId =
+            message.id ??
+            `${message.senderId}-${index}-${this.resolveTrackTimestamp(message.timestamp, index)}`;
 
         return {
             id: fallbackId,
@@ -820,12 +855,6 @@ export class HomeComponent implements OnInit, OnDestroy {
             });
             return;
         }
-        console.log('[SEND CLICKED]', {
-            disabled: this.messageControl.disabled,
-            value: this.messageControl.value,
-            canWrite: this.canWrite,
-            isSending: this.isSending,
-        });
         const request$ = this.prepareSendRequest();
         if (!request$) {
             return;
@@ -907,13 +936,6 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     private validateSender(): boolean {
-        console.log('[SEND CHECK]', {
-            activeUid: this.activeAuthUser?.uid ?? null,
-            activeAnon: this.activeAuthUser?.isAnonymous ?? null,
-            currentUserId: this.currentUserId,
-            canWrite: this.canWrite,
-            ts: Date.now(),
-        });
         if (!this.activeAuthUser)
             return this.rejectSender(
                 'Du bist nicht angemeldet. Bitte melde dich erneut an.',
@@ -1035,7 +1057,6 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     private onSendSuccess(): void {
-        console.log('[SEND SUCCESS]');
         this.messageControl.setValue('');
         this.clearMentionSelection();
         this.selectedAttachments = [];
@@ -1057,7 +1078,6 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.errorMessage = this.resolveSendError(error);
         this.isSending = false;
         this.syncComposerState();
-        console.log('[SEND ERROR RAW]', error);
     }
 
     private resolveSendError(error: unknown): string {
@@ -1143,7 +1163,10 @@ export class HomeComponent implements OnInit, OnDestroy {
         return this.normalizeAvatarPath(rawAvatar, fallbackAvatar);
     }
 
-    private normalizeAvatarPath(avatar: string, fallbackAvatar: string): string {
+    private normalizeAvatarPath(
+        avatar: string,
+        fallbackAvatar: string,
+    ): string {
         const trimmed = avatar.trim();
 
         if (!trimmed) {
@@ -1288,7 +1311,11 @@ export class HomeComponent implements OnInit, OnDestroy {
         return !!message.id && this.emojiPickerMessageId === message.id;
     }
 
-    selectEmojiFromPicker(message: Message, emoji: string, event?: MouseEvent): void {
+    selectEmojiFromPicker(
+        message: Message,
+        emoji: string,
+        event?: MouseEvent,
+    ): void {
         event?.stopPropagation();
 
         if (!message.id) {
@@ -1331,7 +1358,11 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     saveMessageEdit(message: Message): void {
-        if (!message.id || !this.isEditingMessage(message) || this.isSavingEdit) {
+        if (
+            !message.id ||
+            !this.isEditingMessage(message) ||
+            this.isSavingEdit
+        ) {
             return;
         }
 
@@ -1351,17 +1382,19 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.isSavingEdit = true;
         this.errorMessage = '';
 
-        this.messageService.updateMessage(message.id, {
-            text: nextText,
-        }).subscribe({
-            next: () => {
-                this.cancelMessageEdit();
-            },
-            error: (error) => {
-                this.isSavingEdit = false;
-                this.errorMessage = this.resolveSendError(error);
-            },
-        });
+        this.messageService
+            .updateMessage(message.id, {
+                text: nextText,
+            })
+            .subscribe({
+                next: () => {
+                    this.cancelMessageEdit();
+                },
+                error: (error) => {
+                    this.isSavingEdit = false;
+                    this.errorMessage = this.resolveSendError(error);
+                },
+            });
     }
 
     onEditTextareaKeydown(event: KeyboardEvent, message: Message): void {
@@ -1607,38 +1640,58 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     private createDirectLiveStream(userId: string): Observable<Message[]> {
         return this.withRealtimeReconnect(
-            this.messageService.streamLatestDirectMessages(userId, this.pageSize),
+            this.messageService.streamLatestDirectMessages(
+                userId,
+                this.pageSize,
+            ),
         );
     }
 
     private createChannelLiveStream(channelId: string): Observable<Message[]> {
         return this.withRealtimeReconnect(
-            this.messageService.streamLatestChannelMessages(channelId, this.pageSize),
+            this.messageService.streamLatestChannelMessages(
+                channelId,
+                this.pageSize,
+            ),
         );
     }
 
-    private withRealtimeReconnect(stream$: Observable<Message[]>): Observable<Message[]> {
+    private withRealtimeReconnect(
+        stream$: Observable<Message[]>,
+    ): Observable<Message[]> {
         return stream$.pipe(
             retry({
                 count: 3,
-                delay: (error, retryCount) => this.getReconnectDelay(error, retryCount),
+                delay: (error, retryCount) =>
+                    this.getReconnectDelay(error, retryCount),
             }),
         );
     }
 
-    private getReconnectDelay(error: unknown, retryCount: number): Observable<number> {
+    private getReconnectDelay(
+        error: unknown,
+        retryCount: number,
+    ): Observable<number> {
         if (!this.isTransientStreamError(error)) {
             return throwError(() => error);
         }
 
-        this.connectionHint = 'Verbindung instabil. Erneuter Verbindungsversuch...';
+        this.connectionHint =
+            'Verbindung instabil. Erneuter Verbindungsversuch...';
         const waitMs = Math.min(500 * 2 ** (retryCount - 1), 3000);
         return timer(waitMs);
     }
 
     private isTransientStreamError(error: unknown): boolean {
         const code = this.extractFirebaseErrorCode(error);
-        return ['aborted', 'cancelled', 'deadline-exceeded', 'internal', 'unavailable', 'unknown'].includes(code);
+        return [
+            'aborted',
+            'cancelled',
+            'deadline-exceeded',
+            'internal',
+            'unavailable',
+            'unknown',
+        ].includes(code);
     }
 
     private canLoadOlderMessages(): boolean {
@@ -1654,15 +1707,15 @@ export class HomeComponent implements OnInit, OnDestroy {
     ): Observable<Message[]> {
         return this.isDirectMessage
             ? this.messageService.loadOlderDirectMessages(
-                this.currentDirectUserId,
-                timestamp,
-                this.pageSize,
-            )
+                  this.currentDirectUserId,
+                  timestamp,
+                  this.pageSize,
+              )
             : this.messageService.loadOlderChannelMessages(
-                this.currentChannelId,
-                timestamp,
-                this.pageSize,
-            );
+                  this.currentChannelId,
+                  timestamp,
+                  this.pageSize,
+              );
     }
 
     private applyOlderMessages(older: Message[]): void {
@@ -1703,27 +1756,21 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.attachmentError = message;
     }
 
-    private logChannelSendPayload(text: string, mentionsCount: number): void {
-        console.log('[SEND PAYLOAD]', {
-            text,
-            channelId: this.currentChannelId,
-            senderId: this.currentUserId,
-            mentionsCount,
-            attachmentsCount: this.selectedAttachments.length,
-            canWrite: this.canWrite,
-        });
-    }
+    private logChannelSendPayload(
+        _text: string,
+        _mentionsCount: number,
+    ): void {}
 
     private createReadMarkRequest(): Observable<void> {
         return this.isDirectMessage
             ? this.unreadStateService.markDirectAsRead(
-                this.currentUserId!,
-                this.currentDirectUserId,
-            )
+                  this.currentUserId!,
+                  this.currentDirectUserId,
+              )
             : this.unreadStateService.markChannelAsRead(
-                this.currentUserId!,
-                this.currentChannelId,
-            );
+                  this.currentUserId!,
+                  this.currentChannelId,
+              );
     }
 
     private resolveWhenIncomingMissing(
@@ -1786,7 +1833,8 @@ export class HomeComponent implements OnInit, OnDestroy {
             return '';
         }
 
-        const date = timestamp instanceof Date ? timestamp : this.tryToDate(timestamp);
+        const date =
+            timestamp instanceof Date ? timestamp : this.tryToDate(timestamp);
         if (!date) {
             return '';
         }
@@ -1888,7 +1936,9 @@ export class HomeComponent implements OnInit, OnDestroy {
         }
 
         const currentDate = this.toDate(group.startedAt);
-        const previousDate = this.toDate(this.messageGroups[index - 1]?.startedAt);
+        const previousDate = this.toDate(
+            this.messageGroups[index - 1]?.startedAt,
+        );
 
         return !this.isSameCalendarDay(currentDate, previousDate);
     }
