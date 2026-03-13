@@ -6,7 +6,9 @@ import {
     HostListener,
     OnDestroy,
     OnInit,
+    QueryList,
     ViewChild,
+    ViewChildren,
 } from '@angular/core';
 import {FormControl, ReactiveFormsModule} from '@angular/forms';
 import {ActivatedRoute, ParamMap, Router} from '@angular/router';
@@ -667,6 +669,9 @@ export class HomeComponent implements OnInit, OnDestroy {
     readonly editMessageControl = new FormControl('', { nonNullable: true });
     isSavingEdit = false;
 
+    @ViewChildren('editMessageTextarea')
+    editMessageTextareas?: QueryList<ElementRef<HTMLTextAreaElement>>;
+
     private buildMessageGroups(messages: Message[]): MessageGroup[] {
         const groups: MessageGroup[] = [];
 
@@ -1312,6 +1317,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.closeEmojiPicker();
         this.editingMessageId = message.id;
         this.editMessageControl.setValue((message.text ?? '').trim());
+        this.focusActiveEditTextarea();
     }
 
     isEditingMessage(message: Message): boolean {
@@ -1356,6 +1362,35 @@ export class HomeComponent implements OnInit, OnDestroy {
                 this.errorMessage = this.resolveSendError(error);
             },
         });
+    }
+
+    onEditTextareaKeydown(event: KeyboardEvent, message: Message): void {
+        if (event.key === 'Escape') {
+            event.preventDefault();
+            this.cancelMessageEdit();
+            return;
+        }
+
+        const isSubmitShortcut =
+            event.key === 'Enter' && (event.ctrlKey || event.metaKey);
+
+        if (isSubmitShortcut) {
+            event.preventDefault();
+            this.saveMessageEdit(message);
+        }
+    }
+
+    private focusActiveEditTextarea(): void {
+        setTimeout(() => {
+            const textarea = this.editMessageTextareas?.last?.nativeElement;
+            if (!textarea) {
+                return;
+            }
+
+            textarea.focus();
+            const valueLength = textarea.value.length;
+            textarea.setSelectionRange(valueLength, valueLength);
+        }, 0);
     }
 
     hasCurrentUserReacted(reaction: MessageReaction): boolean {

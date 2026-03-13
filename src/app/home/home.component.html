@@ -129,6 +129,144 @@
                         class="article__container"
                         [class.article__container--own]="group.isOwn"
                     >
+                        <img
+                            [src]="getMessageAvatar(group.messages[0])"
+                            [alt]="getSenderLabel(group.messages[0]) + ' Avatar'"
+                        >
+
+                        <div
+                            class="message__container"
+                            [class.message__container--own]="group.isOwn"
+                        >
+                            <div
+                                class="message__meta"
+                                [class.message__meta--own]="group.isOwn"
+                            >
+                                <span class="sender__name">{{ getSenderLabel(group.messages[0]) }}</span>
+                                <span class="sender__timestamp">
+                                    {{ formatTimestamp(group.messages[0].timestamp) }}
+                                </span>
+                            </div>
+
+                            <article
+                                class="message message--group"
+                                [class.own]="group.isOwn"
+                            >
+                                @for (groupMessage of group.messages; track trackMessage($index, groupMessage)) {
+                                    <div
+                                        class="message__line"
+                                        [class.message__line--own]="isOwnMessage(groupMessage)"
+                                    >
+                                        @if (isEditingMessage(groupMessage)) {
+                                            <div class="message-edit-box" (click)="$event.stopPropagation()">
+                                                <textarea
+                                                    #editMessageTextarea
+                                                    class="message-edit-box__input"
+                                                    [formControl]="editMessageControl"
+                                                    rows="3"
+                                                    (keydown)="onEditTextareaKeydown($event, groupMessage)"
+                                                ></textarea>
+
+                                                <div class="message-edit-box__actions">
+                                                    <button
+                                                        type="button"
+                                                        class="message-edit-box__btn message-edit-box__btn--secondary"
+                                                        (click)="cancelMessageEdit()"
+                                                        [disabled]="isSavingEdit"
+                                                    >
+                                                        Abbrechen
+                                                    </button>
+
+                                                    <button
+                                                        type="button"
+                                                        class="message-edit-box__btn message-edit-box__btn--primary"
+                                                        (click)="saveMessageEdit(groupMessage)"
+                                                        [disabled]="isSavingEdit"
+                                                    >
+                                                        {{ isSavingEdit ? 'Speichere...' : 'Speichern' }}
+                                                    </button>
+
+                                                    <p class="message-edit-box__hint">
+                                                        Esc zum Abbrechen · Ctrl/Cmd + Enter zum Speichern
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        } @else {
+                                            <p>{{ groupMessage.text }}</p>
+
+                                            @if (groupMessage.edited) {
+                                                <span class="message__edited-label">(bearbeitet)</span>
+                                            }
+
+                                            @if (groupMessage.attachments?.length) {
+                                                <div class="message-attachments">
+                                                    @for (attachment of groupMessage.attachments; track attachment.path) {
+                                                        <a
+                                                            class="attachment-item"
+                                                            [href]="attachment.url"
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                        >
+                                                            @if (attachment.isImage) {
+                                                                <img
+                                                                    class="attachment-image"
+                                                                    [src]="attachment.url"
+                                                                    [alt]="attachment.name"
+                                                                    loading="lazy"
+                                                                />
+                                                            }
+                                                            <span class="attachment-name">{{ attachment.name }}</span>
+                                                            <span class="attachment-download">Download</span>
+                                                        </a>
+                                                    }
+                                                </div>
+                                            }
+
+                                            @if (hasMentionForCurrentUser(groupMessage)) {
+                                                <span class="mention-pill">Erwähnt dich</span>
+                                            }
+
+                                            @if (groupMessage.reactions?.length) {
+                                                @let visibleReactions = getVisibleReactions(groupMessage);
+                                                @let hiddenCount = getHiddenReactionCount(groupMessage);
+
+                                                <div class="message__reactions">
+                                                    @for (reaction of visibleReactions; track reaction.emoji) {
+                                                        <button
+                                                            type="button"
+                                                            class="reaction"
+                                                            [class.active]="hasCurrentUserReacted(reaction)"
+                                                            (click)="toggleReaction(groupMessage, reaction.emoji)"
+                                                        >
+                                                            <span>{{ reaction.emoji }}</span>
+                                                            <span>{{ reaction.userIds.length }}</span>
+                                                        </button>
+                                                    }
+
+                                                    @if (hiddenCount > 0) {
+                                                        <button
+                                                            type="button"
+                                                            class="reaction more"
+                                                            (click)="toggleReactionList(groupMessage)"
+                                                        >
+                                                            +{{ hiddenCount }} weitere
+                                                        </button>
+                                                    } @else if ((groupMessage.reactions?.length ?? 0) > 20) {
+                                                        <button
+                                                            type="button"
+                                                            class="reaction more"
+                                                            (click)="toggleReactionList(groupMessage)"
+                                                        >
+                                                            weniger anzeigen
+                                                        </button>
+                                                    }
+                                                </div>
+                                            }
+                                        }
+                                    </div>
+                                }
+                            </article>
+                        </div>
                         <div
                             class="message-toolbar"
                             [class.message-toolbar--own]="group.isOwn"
@@ -199,138 +337,6 @@
                                     <img src="assets/pictures/edit_message.svg" alt="" aria-hidden="true" />
                                 </button>
                             }
-                        </div>
-
-                        <img
-                            [src]="getMessageAvatar(group.messages[0])"
-                            [alt]="getSenderLabel(group.messages[0]) + ' Avatar'"
-                        >
-
-                        <div
-                            class="message__container"
-                            [class.message__container--own]="group.isOwn"
-                        >
-                            <div
-                                class="message__meta"
-                                [class.message__meta--own]="group.isOwn"
-                            >
-                                <span class="sender__name">{{ getSenderLabel(group.messages[0]) }}</span>
-                                <span class="sender__timestamp">
-                                    {{ formatTimestamp(group.messages[0].timestamp) }}
-                                </span>
-                            </div>
-
-                            <article
-                                class="message message--group"
-                                [class.own]="group.isOwn"
-                                [class.active-thread-parent]="isThreadParent(group.messages[group.messages.length - 1])"
-                            >
-                                @for (groupMessage of group.messages; track trackMessage($index, groupMessage)) {
-                                    <div class="message__line">
-                                        @if (isEditingMessage(groupMessage)) {
-                                            <div class="message-edit-box" (click)="$event.stopPropagation()">
-                                                <textarea
-                                                    class="message-edit-box__input"
-                                                    [formControl]="editMessageControl"
-                                                    rows="3"
-                                                ></textarea>
-
-                                                <div class="message-edit-box__actions">
-                                                    <button
-                                                        type="button"
-                                                        class="message-edit-box__btn message-edit-box__btn--secondary"
-                                                        (click)="cancelMessageEdit()"
-                                                        [disabled]="isSavingEdit"
-                                                    >
-                                                        Abbrechen
-                                                    </button>
-
-                                                    <button
-                                                        type="button"
-                                                        class="message-edit-box__btn message-edit-box__btn--primary"
-                                                        (click)="saveMessageEdit(groupMessage)"
-                                                        [disabled]="isSavingEdit"
-                                                    >
-                                                        {{ isSavingEdit ? 'Speichere...' : 'Speichern' }}
-                                                    </button>
-                                                </div>
-                                            </div>
-                                        } @else {
-                                            <p>{{ groupMessage.text }}</p>
-
-                                            @if (groupMessage.edited) {
-                                                <span class="message__edited-label">(bearbeitet)</span>
-                                            }
-
-                                            @if (groupMessage.attachments?.length) {
-                                                <div class="message-attachments">
-                                                    @for (attachment of groupMessage.attachments; track attachment.path) {
-                                                        <a
-                                                            class="attachment-item"
-                                                            [href]="attachment.url"
-                                                            target="_blank"
-                                                            rel="noopener noreferrer"
-                                                        >
-                                                            @if (attachment.isImage) {
-                                                                <img
-                                                                    class="attachment-image"
-                                                                    [src]="attachment.url"
-                                                                    [alt]="attachment.name"
-                                                                    loading="lazy"
-                                                                />
-                                                            }
-                                                            <span class="attachment-name">{{ attachment.name }}</span>
-                                                            <span class="attachment-download">Download</span>
-                                                        </a>
-                                                    }
-                                                </div>
-                                            }
-
-                                            @if (hasMentionForCurrentUser(groupMessage)) {
-                                                <span class="mention-pill">Erwähnt dich</span>
-                                            }
-                                        }
-                                    </div>
-                                }
-
-                                @if (group.messages[group.messages.length - 1].reactions?.length) {
-                                    @let lastMessage = group.messages[group.messages.length - 1];
-                                    @let visibleReactions = getVisibleReactions(lastMessage);
-                                    @let hiddenCount = getHiddenReactionCount(lastMessage);
-
-                                    <div class="message__reactions">
-                                        @for (reaction of visibleReactions; track reaction.emoji) {
-                                            <button
-                                                type="button"
-                                                class="reaction"
-                                                [class.active]="hasCurrentUserReacted(reaction)"
-                                                (click)="toggleReaction(lastMessage, reaction.emoji)"
-                                            >
-                                                <span>{{ reaction.emoji }}</span>
-                                                <span>{{ reaction.userIds.length }}</span>
-                                            </button>
-                                        }
-
-                                        @if (hiddenCount > 0) {
-                                            <button
-                                                type="button"
-                                                class="reaction more"
-                                                (click)="toggleReactionList(lastMessage)"
-                                            >
-                                                +{{ hiddenCount }} weitere
-                                            </button>
-                                        } @else if ((lastMessage.reactions?.length ?? 0) > 20) {
-                                            <button
-                                                type="button"
-                                                class="reaction more"
-                                                (click)="toggleReactionList(lastMessage)"
-                                            >
-                                                weniger anzeigen
-                                            </button>
-                                        }
-                                    </div>
-                                }
-                            </article>
                         </div>
                     </div>
                 }

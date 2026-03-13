@@ -152,9 +152,11 @@
 }
 
 .message__line {
+    position: relative;
     display: flex;
     flex-direction: column;
     gap: 6px;
+    padding-top: 2px;
 }
 
 .message__line + .message__line {
@@ -199,6 +201,13 @@
     display: flex;
     flex-direction: column;
     gap: 10px;
+}
+
+.message-edit-box__hint {
+    margin: 0;
+    font-size: 11px;
+    color: #7c8097;
+    text-align: right;
 }
 
 .message-edit-box__input {
@@ -321,9 +330,7 @@
     gap: 4px;
     padding: 6px;
     border: 1px solid #d8ddef;
-    border-top-left-radius: 24px;
-    border-top-right-radius: 24px;
-    border-bottom-left-radius: 24px;
+    border-radius: 14px;
     background: #ffffff;
     box-shadow: 0 8px 20px rgba(0, 0, 0, 0.08);
     opacity: 0;
@@ -381,6 +388,7 @@
 
 .message-toolbar__btn:hover {
     background: #f1f3fb;
+    transform: translateY(-1px);
 }
 
 .message-toolbar__btn:active {
