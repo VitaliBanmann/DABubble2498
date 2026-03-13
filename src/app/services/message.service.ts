@@ -1,6 +1,11 @@
 import { Injectable } from '@angular/core';
-import { where, orderBy, limit, startAfter } from '@angular/fire/firestore';
-import { Timestamp } from 'firebase/firestore';
+import {
+    where,
+    Timestamp,
+    orderBy,
+    limit,
+    startAfter,
+} from 'firebase/firestore';
 import { Observable, catchError, map, of, switchMap, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
 import { FirestoreService } from './firestore.service';
@@ -110,7 +115,9 @@ export class MessageService {
                 orderBy('timestamp', 'desc'),
                 limit(pageSize),
             ])
-            .pipe(catchError((error) => this.logReadError('CHANNEL_LIVE', error)));
+            .pipe(
+                catchError((error) => this.logReadError('CHANNEL_LIVE', error)),
+            );
     }
 
     loadOlderChannelMessages(
@@ -125,7 +132,11 @@ export class MessageService {
                 startAfter(beforeTimestamp),
                 limit(pageSize),
             ])
-            .pipe(catchError((error) => this.logReadError('CHANNEL_OLDER', error)));
+            .pipe(
+                catchError((error) =>
+                    this.logReadError('CHANNEL_OLDER', error),
+                ),
+            );
     }
 
     getDirectMessages(otherUserId: string): Observable<Message[]> {
@@ -181,11 +192,35 @@ export class MessageService {
         mentions: string[] = [],
         attachments: MessageAttachment[] = [],
     ): Observable<string> {
-        return this.firestoreService.addDocument(this.messagesCollection, {
-            ...this.buildDirectMessagePayload(otherUserId, text, senderId, mentions, attachments),
+        return this.sendMessage({
+            ...this.buildDirectMessagePayload(
+                otherUserId,
+                text,
+                senderId,
+                mentions,
+                attachments,
+            ),
             timestamp: new Date(),
             read: false,
         });
+    }
+
+    searchChannelMessagesByToken(
+        channelId: string,
+        token: string,
+    ): Observable<Message[]> {
+        const normalized = normalizeSearchToken(token);
+        if (!normalized || !channelId) return of([]);
+
+        return this.firestoreService.queryDocuments<Message>(
+            this.messagesCollection,
+            [
+                where('channelId', '==', channelId),
+                where('searchTokens', 'array-contains', normalized),
+                orderBy('timestamp', 'desc'),
+                limit(10),
+            ],
+        );
     }
 
     sendDirectMessageWithId(
@@ -197,7 +232,13 @@ export class MessageService {
         attachments: MessageAttachment[] = [],
     ): Observable<string> {
         return this.sendMessageWithId(messageId, {
-            ...this.buildDirectMessagePayload(otherUserId, text, senderId, mentions, attachments),
+            ...this.buildDirectMessagePayload(
+                otherUserId,
+                text,
+                senderId,
+                mentions,
+                attachments,
+            ),
             timestamp: new Date(),
             read: false,
         });
@@ -249,7 +290,9 @@ export class MessageService {
         );
     }
 
-    getChannelThreadMessages(parentMessageId: string): Observable<ThreadMessage[]> {
+    getChannelThreadMessages(
+        parentMessageId: string,
+    ): Observable<ThreadMessage[]> {
         if (!parentMessageId.trim()) {
             return of([]);
         }
@@ -267,9 +310,18 @@ export class MessageService {
         text: string,
         senderId: string,
     ): Observable<string> {
-        const cleanParentMessageId = this.requireNonEmpty(parentMessageId, 'Missing parentMessageId');
-        const cleanText = this.requireNonEmpty(text, 'Thread message text is empty');
-        const cleanSenderId = this.requireNonEmpty(senderId, 'Missing senderId');
+        const cleanParentMessageId = this.requireNonEmpty(
+            parentMessageId,
+            'Missing parentMessageId',
+        );
+        const cleanText = this.requireNonEmpty(
+            text,
+            'Thread message text is empty',
+        );
+        const cleanSenderId = this.requireNonEmpty(
+            senderId,
+            'Missing senderId',
+        );
 
         return this.firestoreService.addDocument(
             `messages/${cleanParentMessageId}/threads`,
@@ -287,9 +339,19 @@ export class MessageService {
         return this.firestoreService
             .getDocument<Message>(this.messagesCollection, messageId)
             .pipe(
-                map((message) => this.computeUpdatedReactions(message, emoji, currentUser.uid)),
+                map((message) =>
+                    this.computeUpdatedReactions(
+                        message,
+                        emoji,
+                        currentUser.uid,
+                    ),
+                ),
                 switchMap((reactions) =>
-                    this.firestoreService.updateDocument(this.messagesCollection, messageId, { reactions }),
+                    this.firestoreService.updateDocument(
+                        this.messagesCollection,
+                        messageId,
+                        { reactions },
+                    ),
                 ),
             );
     }
@@ -301,7 +363,10 @@ export class MessageService {
         return [firstUserId, secondUserId].sort().join('__');
     }
 
-    private sanitizeMentions(mentions: string[] | undefined, senderId: string): string[] {
+    private sanitizeMentions(
+        mentions: string[] | undefined,
+        senderId: string,
+    ): string[] {
         if (!mentions?.length) {
             return [];
         }
@@ -326,11 +391,20 @@ export class MessageService {
 
     private buildMessagePayload(message: Message): Message {
         const text = (message.text ?? '').trim();
-        const senderId = this.requireNonEmpty(message.senderId ?? '', 'Missing senderId');
+        const senderId = this.requireNonEmpty(
+            message.senderId ?? '',
+            'Missing senderId',
+        );
         const mentions = this.sanitizeMentions(message.mentions, senderId);
         const attachments = this.sanitizeAttachments(message.attachments);
         this.ensureHasContent(text, attachments);
-        return this.composeMessagePayload(message, text, senderId, mentions, attachments);
+        return this.composeMessagePayload(
+            message,
+            text,
+            senderId,
+            mentions,
+            attachments,
+        );
     }
 
     private buildDirectMessagePayload(
@@ -341,11 +415,24 @@ export class MessageService {
         attachments: MessageAttachment[],
     ): DirectMessagePayload {
         const cleanText = (text ?? '').trim();
-        const cleanSenderId = this.requireNonEmpty(senderId, 'Missing senderId');
+        const cleanSenderId = this.requireNonEmpty(
+            senderId,
+            'Missing senderId',
+        );
         const cleanAttachments = this.sanitizeAttachments(attachments);
         this.ensureHasContent(cleanText, cleanAttachments);
-        const conversationId = this.createConversationId(cleanSenderId, otherUserId);
-        return this.composeDirectPayload(cleanText, cleanSenderId, otherUserId, conversationId, mentions, cleanAttachments);
+        const conversationId = this.createConversationId(
+            cleanSenderId,
+            otherUserId,
+        );
+        return this.composeDirectPayload(
+            cleanText,
+            cleanSenderId,
+            otherUserId,
+            conversationId,
+            mentions,
+            cleanAttachments,
+        );
     }
 
     private composeMessagePayload(
@@ -397,7 +484,10 @@ export class MessageService {
         return cleaned;
     }
 
-    private ensureHasContent(text: string, attachments: MessageAttachment[]): void {
+    private ensureHasContent(
+        text: string,
+        attachments: MessageAttachment[],
+    ): void {
         if (!text && !attachments.length) {
             throw new Error('Message requires text or attachments');
         }
@@ -420,9 +510,15 @@ export class MessageService {
         userId: string,
     ): MessageReaction[] {
         if (!message) throw new Error('Message not found');
-        const existing = (message.reactions ?? []).map((reaction) => ({ ...reaction, userIds: [...reaction.userIds] }));
-        const reactionIndex = existing.findIndex((reaction) => reaction.emoji === emoji);
-        if (reactionIndex < 0) return [...existing, { emoji, userIds: [userId] }];
+        const existing = (message.reactions ?? []).map((reaction) => ({
+            ...reaction,
+            userIds: [...reaction.userIds],
+        }));
+        const reactionIndex = existing.findIndex(
+            (reaction) => reaction.emoji === emoji,
+        );
+        if (reactionIndex < 0)
+            return [...existing, { emoji, userIds: [userId] }];
         return this.toggleUserReaction(existing, reactionIndex, userId);
     }
 
@@ -449,5 +545,4 @@ export class MessageService {
         const attachmentNames = attachments.map((item) => item.name ?? '');
         return buildSearchTokens([text, ...attachmentNames]);
     }
-
 }

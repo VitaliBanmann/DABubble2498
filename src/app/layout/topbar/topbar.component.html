@@ -8,15 +8,22 @@
         <span class="topbar__name">DABubble</span>
     </div>
 
-    <div class="topbar__search">
+    <div class="topbar__search">    
+    <div class="topbar__search-input">
         <input
             type="text"
             placeholder="Devspace durchsuchen"
             [value]="searchTerm"
-            (input)="onSearchInput(($any($event.target)).value)"
+            (input)="onSearchInput($any($event.target).value)"
+            (keydown.enter)="onSearchEnter($event)"
             (blur)="onSearchBlur()"
             (focus)="onSearchInput(searchTerm)"
         />
+        <span
+            class="material-symbols-outlined topbar__search-icon"
+            aria-hidden="true"
+            >search</span
+        >
 
         @if (showSearchResults) {
             <div class="search-results" (mousedown)="$event.preventDefault()">
@@ -61,8 +68,16 @@
                         }
                     </section>
                 }
+                @if (
+                    !channelResults.length &&
+                    !userResults.length &&
+                    !messageResults.length
+                ) {
+                    <p class="search-results__empty">Keine Treffer</p>
+                }
             </div>
         }
+    </div>
     </div>
 
     <div class="topbar__user">
@@ -76,7 +91,10 @@
                     (error)="onAvatarError()"
                 />
             } @else {
-                <div class="topbar__avatar-fallback" [attr.aria-label]="displayName">
+                <div
+                    class="topbar__avatar-fallback"
+                    [attr.aria-label]="displayName"
+                >
                     {{ initials }}
                 </div>
             }
@@ -93,7 +111,10 @@
 
         @if (showUserMenu) {
             <div class="user-menu">
-                <div class="user-menu__backdrop" (click)="closeUserMenu()"></div>
+                <div
+                    class="user-menu__backdrop"
+                    (click)="closeUserMenu()"
+                ></div>
                 <div class="user-menu__content">
                     <button
                         type="button"

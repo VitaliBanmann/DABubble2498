@@ -8,7 +8,6 @@ import {
     map,
     of,
     switchMap,
-    take,
     asyncScheduler,
     observeOn,
     filter,
@@ -168,14 +167,28 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
     onSearchInput(value: string): void {
         this.searchTerm = value;
-        const query = value.trim().toLowerCase();
+        const query = this.extractSearchQuery(value);
 
-        if (!query) {
-            this.clearSearchResults();
+        if (query.length < 2) {
+            this.showSearchResults = false;
+            this.channelResults = [];
+            this.userResults = [];
+            this.messageResults = [];
             return;
         }
 
+        this.showSearchResults = true;
         this.runIndexedSearch(query);
+    }
+
+    onSearchEnter(event: Event): void {
+        event.preventDefault();
+        if (this.channelResults[0])
+            return this.navigateToChannel(this.channelResults[0].id);
+        if (this.userResults[0])
+            return this.navigateToUser(this.userResults[0]);
+        if (this.messageResults[0])
+            return this.navigateToMessage(this.messageResults[0].channelId);
     }
 
     onSearchBlur(): void {
@@ -237,9 +250,19 @@ export class TopbarComponent implements OnInit, OnDestroy {
         const token = normalizeSearchToken(rawQuery);
         if (!token) return this.clearSearchResults();
         this.searchSubscription?.unsubscribe();
-        this.searchSubscription = this.createSearchStream(token)
-            .pipe(take(1))
-            .subscribe(([channels, users, messages]) => this.applySearchResults(channels, users, messages));
+        this.searchSubscription = this.createSearchStream(token).subscribe(
+            ([channels, users, messages]) =>
+                this.applySearchResults(channels, users, messages),
+        );
+    }
+
+    private extractSearchQuery(value: string): string {
+        const parts = value.trim().split(/\s+/).filter(Boolean);
+        if (!parts.length) {
+            return '';
+        }
+
+        return normalizeSearchToken(parts[parts.length - 1]);
     }
 
     private clearSearchResults(): void {
@@ -260,7 +283,10 @@ export class TopbarComponent implements OnInit, OnDestroy {
     ): void {
         if (this.profileUid !== uid) this.resetProfileResolution(uid);
         this.clearProfileFallback();
-        this.profileFallbackTimer = setTimeout(() => this.applyProfileFallback(uid, user), 1200);
+        this.profileFallbackTimer = setTimeout(
+            () => this.applyProfileFallback(uid, user),
+            1200,
+        );
     }
 
     private clearProfileFallback(): void {
@@ -277,11 +303,16 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
     private applyProfileFallback(
         uid: string,
-        user: { displayName?: string | null; email?: string | null; photoURL?: string | null },
+        user: {
+            displayName?: string | null;
+            email?: string | null;
+            photoURL?: string | null;
+        },
     ): void {
         if (this.profileUid !== uid || this.profileResolved) return;
         this.deferUiUpdate(() => {
-            this.displayName = user.displayName?.trim() || user.email?.split('@')[0] || 'Gast';
+            this.displayName =
+                user.displayName?.trim() || user.email?.split('@')[0] || 'Gast';
             this.email = user.email ?? '';
             this.applyAvatar(user.photoURL);
             this.presenceStatus = 'online';
@@ -290,19 +321,34 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
     private trackAuthReady(): void {
         this.subscription.add(
-            this.authService.authReady$.pipe(observeOn(asyncScheduler)).subscribe(),
+            this.authService.authReady$
+                .pipe(observeOn(asyncScheduler))
+                .subscribe(),
         );
     }
 
     private trackUserProfile(): void {
         this.subscription.add(
-            combineLatest([this.authService.authReady$, this.authService.currentUser$])
-                .pipe(observeOn(asyncScheduler), filter(([ready]) => ready), switchMap(([, user]) => this.loadProfileState(user)))
+            combineLatest([
+                this.authService.authReady$,
+                this.authService.currentUser$,
+            ])
+                .pipe(
+                    observeOn(asyncScheduler),
+                    filter(([ready]) => ready),
+                    switchMap(([, user]) => this.loadProfileState(user)),
+                )
                 .subscribe({ next: (data) => this.applyProfileState(data) }),
         );
     }
 
-    private loadProfileState(user: { uid: string; isAnonymous: boolean; email: string | null } | null) {
+    private loadProfileState(
+        user: {
+            uid: string;
+            isAnonymous: boolean;
+            email: string | null;
+        } | null,
+    ) {
         if (!user || user.isAnonymous) {
             this.clearSearchResults();
             this.clearProfileFallback();
@@ -311,21 +357,41 @@ export class TopbarComponent implements OnInit, OnDestroy {
         this.beginProfileFallback(user.uid, user);
         return this.userService
             .getUserProfileRealtime(user.uid, user.email ?? '')
-            .pipe(catchError(() => of(null)), map((profile) => ({ user, profile })));
+            .pipe(
+                catchError(() => of(null)),
+                map((profile) => ({ user, profile })),
+            );
     }
 
     private applyProfileState(data: { user: any; profile: any } | null): void {
         if (!data?.profile) return;
         const profile = data.profile;
         const user = data.user;
-        const resolvedName = profile.displayName?.trim() || user.displayName?.trim() || user.email?.split('@')[0] || 'Gast';
-        const resolvedEmail = this.resolveProfileEmail(profile) || user.email || '';
+        const resolvedName =
+            profile.displayName?.trim() ||
+            user.displayName?.trim() ||
+            user.email?.split('@')[0] ||
+            'Gast';
+        const resolvedEmail =
+            this.resolveProfileEmail(profile) || user.email || '';
         const resolvedAvatar = profile.avatar || user.photoURL || null;
         const resolvedPresence = profile.presenceStatus ?? 'online';
-        this.deferUiUpdate(() => this.applyResolvedProfile(resolvedName, resolvedEmail, resolvedAvatar, resolvedPresence));
+        this.deferUiUpdate(() =>
+            this.applyResolvedProfile(
+                resolvedName,
+                resolvedEmail,
+                resolvedAvatar,
+                resolvedPresence,
+            ),
+        );
     }
 
-    private applyResolvedProfile(name: string, email: string, avatar: string | null, presence: PresenceStatus): void {
+    private applyResolvedProfile(
+        name: string,
+        email: string,
+        avatar: string | null,
+        presence: PresenceStatus,
+    ): void {
         this.profileResolved = true;
         this.clearProfileFallback();
         this.displayName = name;
@@ -335,20 +401,104 @@ export class TopbarComponent implements OnInit, OnDestroy {
     }
 
     private createSearchStream(token: string) {
-        return combineLatest([
-            this.channelService.searchChannelsByToken(token).pipe(catchError(() => of([]))),
-            this.userService.searchUsersByToken(token).pipe(catchError(() => of([]))),
-            this.messageService.searchMessagesByToken(token).pipe(catchError(() => of([]))),
-        ]);
+        const channelResults$ = this.channelService.getAllChannels().pipe(
+            map((channels) =>
+                channels.filter((channel: any) =>
+                    this.matchesSearch(
+                        [channel?.name, channel?.description],
+                        token,
+                    ),
+                ),
+            ),
+            catchError(() => of([])),
+        );
+
+        const userResults$ = this.userService.getAllUsersRealtime().pipe(
+            map((users) =>
+                users.filter((user: any) =>
+                    this.matchesSearch([user?.displayName, user?.email], token),
+                ),
+            ),
+            catchError(() => of([])),
+        );
+
+        const messageResults$ = this.channelService.getAllChannels().pipe(
+            switchMap((channels) => {
+                const channelIds = channels
+                    .map((channel: any) => channel?.id as string | undefined)
+                    .filter((id): id is string => !!id);
+
+                if (!channelIds.length) {
+                    return of([]);
+                }
+
+                return combineLatest(
+                    channelIds.map((channelId) =>
+                        this.messageService
+                            .searchChannelMessagesByToken(channelId, token)
+                            .pipe(catchError(() => of([]))),
+                    ),
+                ).pipe(
+                    map((grouped) =>
+                        grouped
+                            .flat()
+                            .sort((a: any, b: any) => {
+                                const aTime = new Date(
+                                    a?.timestamp ?? 0,
+                                ).getTime();
+                                const bTime = new Date(
+                                    b?.timestamp ?? 0,
+                                ).getTime();
+                                return bTime - aTime;
+                            })
+                            .slice(0, 20),
+                    ),
+                );
+            }),
+            catchError(() => of([])),
+        );
+
+        return combineLatest([channelResults$, userResults$, messageResults$]);
     }
 
-    private applySearchResults(channels: any[], users: any[], messages: any[]): void {
-        this.channelResults = channels.filter((channel) => !!channel.id).map((channel) => ({ id: channel.id as string, name: channel.name })).slice(0, 5);
-        this.userResults = users.filter((user) => !!user.id).map((user) => ({ id: user.id as string, name: user.displayName, email: user.email })).slice(0, 5);
-        this.messageResults = messages
-            .filter((message) => !!message.id && typeof message.channelId === 'string')
-            .map((message) => ({ id: message.id as string, text: message.text, channelId: message.channelId as string }))
+    private matchesSearch(parts: Array<unknown>, token: string): boolean {
+        return parts.some((part) =>
+            normalizeSearchToken(String(part ?? '')).includes(token),
+        );
+    }
+
+    private applySearchResults(
+        channels: any[],
+        users: any[],
+        messages: any[],
+    ): void {
+        this.channelResults = channels
+            .filter((channel) => !!channel.id)
+            .map((channel) => ({
+                id: channel.id as string,
+                name: channel.name,
+            }))
             .slice(0, 5);
-        this.showSearchResults = this.channelResults.length > 0 || this.userResults.length > 0 || this.messageResults.length > 0;
+        this.userResults = users
+            .filter((user) => !!user.id)
+            .map((user) => ({
+                id: user.id as string,
+                name: user.displayName,
+                email: user.email,
+            }))
+            .slice(0, 5);
+        this.messageResults = messages
+            .filter(
+                (message) =>
+                    !!message.id && typeof message.channelId === 'string',
+            )
+            .map((message) => ({
+                id: message.id as string,
+                text: message.text,
+                channelId: message.channelId as string,
+            }))
+            .slice(0, 5);
+
+        this.showSearchResults = !!this.extractSearchQuery(this.searchTerm);
     }
 }

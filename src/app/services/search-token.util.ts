@@ -23,7 +23,7 @@ function collectWords(part: string): string[] {
 }
 
 function addTokenVariants(tokens: Set<string>, word: string): void {
-    tokens.add(word);
-    tokens.add(word.slice(0, 3));
-    tokens.add(word.slice(0, 4));
+    for (let length = 2; length <= word.length; length += 1) {
+        tokens.add(word.slice(0, length));
+    }
 }
