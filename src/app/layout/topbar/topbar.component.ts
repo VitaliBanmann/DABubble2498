@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import {
     combineLatest,
+    Observable,
     Subscription,
     catchError,
     map,
@@ -11,6 +12,9 @@ import {
     asyncScheduler,
     observeOn,
     filter,
+    distinctUntilChanged,
+    startWith,
+    debounceTime,
 } from 'rxjs';
 import { UiStateService } from '../../services/ui-state.service';
 import { AuthFlowService } from '../../services/auth-flow.service';
@@ -35,7 +39,10 @@ interface SearchUserResult {
 interface SearchMessageResult {
     id: string;
     text: string;
-    channelId: string;
+    kind: 'channel' | 'dm';
+    channelId?: string;
+    conversationId?: string;
+    partnerUserId?: string;
 }
 
 @Component({
@@ -82,15 +89,10 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
     get initials(): string {
         const name = this.displayName.trim();
-        if (!name) {
-            return '';
-        }
-
+        if (!name) return '';
         const parts = name.split(/\s+/).filter(Boolean);
-        if (parts.length >= 2) {
+        if (parts.length >= 2)
             return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-        }
-
         return parts[0][0].toUpperCase();
     }
 
@@ -100,12 +102,10 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
     private applyAvatar(avatar?: string | null): void {
         const resolved = this.resolveAvatarUrl(avatar ?? '');
-
         if (!resolved) {
             this.clearAvatar();
             return;
         }
-
         this.avatarUrl = resolved;
         this.showAvatarImage = true;
     }
@@ -129,21 +129,15 @@ export class TopbarComponent implements OnInit, OnDestroy {
             profile['emailAddress'],
             profile['eMail'],
         ];
-
         const firstEmail = candidates.find(
             (value) => typeof value === 'string' && value.trim().length > 0,
         );
-
         return typeof firstEmail === 'string' ? firstEmail.trim() : '';
     }
 
     private resolveAvatarUrl(avatar: string): string {
         const trimmed = avatar.trim();
-
-        if (!trimmed) {
-            return '';
-        }
-
+        if (!trimmed) return '';
         if (
             trimmed.startsWith('data:image/') ||
             trimmed.startsWith('http://') ||
@@ -152,7 +146,6 @@ export class TopbarComponent implements OnInit, OnDestroy {
         ) {
             return trimmed;
         }
-
         return `assets/pictures/${trimmed.replace(/^\/+/, '')}`;
     }
 
@@ -168,7 +161,6 @@ export class TopbarComponent implements OnInit, OnDestroy {
     onSearchInput(value: string): void {
         this.searchTerm = value;
         const query = this.extractSearchQuery(value);
-
         if (query.length < 2) {
             this.showSearchResults = false;
             this.channelResults = [];
@@ -176,7 +168,6 @@ export class TopbarComponent implements OnInit, OnDestroy {
             this.messageResults = [];
             return;
         }
-
         this.showSearchResults = true;
         this.runIndexedSearch(query);
     }
@@ -188,7 +179,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
         if (this.userResults[0])
             return this.navigateToUser(this.userResults[0]);
         if (this.messageResults[0])
-            return this.navigateToMessage(this.messageResults[0].channelId);
+            return this.navigateToMessage(this.messageResults[0]);
     }
 
     onSearchBlur(): void {
@@ -209,9 +200,16 @@ export class TopbarComponent implements OnInit, OnDestroy {
         });
     }
 
-    navigateToMessage(channelId: string): void {
-        this.navigateToChannel(channelId);
+    navigateToMessage(result: SearchMessageResult): void {
+    this.clearSearchResults();
+    if (result.kind === 'dm' && result.partnerUserId) {
+        void this.router.navigate(['/app/dm', result.partnerUserId]);
+        return;
     }
+    if (result.channelId) {
+        void this.router.navigate(['/app/channel', result.channelId]);
+    }
+}
 
     closeSearchResults(): void {
         this.showSearchResults = false;
@@ -258,10 +256,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
     private extractSearchQuery(value: string): string {
         const parts = value.trim().split(/\s+/).filter(Boolean);
-        if (!parts.length) {
-            return '';
-        }
-
+        if (!parts.length) return '';
         return normalizeSearchToken(parts[parts.length - 1]);
     }
 
@@ -401,64 +396,171 @@ export class TopbarComponent implements OnInit, OnDestroy {
     }
 
     private createSearchStream(token: string) {
-        const channelResults$ = this.channelService.getAllChannels().pipe(
-            map((channels) =>
-                channels.filter((channel: any) =>
-                    this.matchesSearch(
-                        [channel?.name, channel?.description],
-                        token,
-                    ),
-                ),
-            ),
-            catchError(() => of([])),
-        );
+        const channelResults$ = this.buildChannelResults$(token);
+        const userResults$ = this.buildUserResults$(token);
+        const messageResults$ = this.buildMessageResults$(token);
+        return combineLatest([channelResults$, userResults$, messageResults$]);
+    }
 
-        const userResults$ = this.userService.getAllUsersRealtime().pipe(
-            map((users) =>
-                users.filter((user: any) =>
-                    this.matchesSearch([user?.displayName, user?.email], token),
-                ),
-            ),
-            catchError(() => of([])),
-        );
+    private readonly defaultChannelbases: SearchChannelResult[] = [
+    { id: 'allgemein', name: 'Allgemein' },
+    { id: 'entwicklerteam', name: 'Entwicklerteam' },
+];
 
-        const messageResults$ = this.channelService.getAllChannels().pipe(
-            switchMap((channels) => {
-                const channelIds = channels
-                    .map((channel: any) => channel?.id as string | undefined)
-                    .filter((id): id is string => !!id);
-
-                if (!channelIds.length) {
-                    return of([]);
-                }
-
-                return combineLatest(
-                    channelIds.map((channelId) =>
-                        this.messageService
-                            .searchChannelMessagesByToken(channelId, token)
-                            .pipe(catchError(() => of([]))),
-                    ),
-                ).pipe(
-                    map((grouped) =>
-                        grouped
-                            .flat()
-                            .sort((a: any, b: any) => {
-                                const aTime = new Date(
-                                    a?.timestamp ?? 0,
-                                ).getTime();
-                                const bTime = new Date(
-                                    b?.timestamp ?? 0,
-                                ).getTime();
-                                return bTime - aTime;
-                            })
-                            .slice(0, 20),
-                    ),
+private buildChannelResults$(token: string) {
+    return this.channelService.getAllChannels().pipe(
+        map((channels) => {
+            const merged = new Map<string, SearchChannelResult>(
+                this.defaultChannelbases.map((ch) => [ch.id, ch]),
+            );
+            channels
+                .filter((ch: any) => !!ch?.id)
+                .forEach((ch: any) =>
+                    merged.set(ch.id, { id: ch.id, name: ch.name }),
                 );
+            return Array.from(merged.values()).filter((ch) =>
+                this.matchesSearch([ch.name], token),
+            );
+        }),
+        catchError(() =>
+            of(
+                this.defaultChannelbases.filter((ch) =>
+                    this.matchesSearch([ch.name], token),
+                ),
+            ),
+        ),
+    );
+}
+
+    private buildUserResults$(token: string) {
+        return this.userService.getAllUsersRealtime().pipe(
+            map((users) =>
+                users.filter((u: any) =>
+                    this.matchesSearch([u?.displayName, u?.email], token),
+                ),
+            ),
+            catchError(() => of([])),
+        );
+    }
+
+    private buildMessageResults$(token: string) {
+        return combineLatest([
+            this.buildChannelMessageResults$(token).pipe(
+                startWith([] as any[]),
+            ),
+            this.buildDmMessageResults$(token).pipe(startWith([] as any[])),
+        ] as [Observable<any[]>, Observable<any[]>]).pipe(
+            debounceTime(200),
+            map(([ch, dm]: [any[], any[]]) =>
+                [...ch, ...dm]
+                    .sort(
+                        (a: any, b: any) =>
+                            new Date(b?.timestamp ?? 0).getTime() -
+                            new Date(a?.timestamp ?? 0).getTime(),
+                    )
+                    .slice(0, 20),
+            ),
+            catchError(() => of([])),
+        );
+    }
+
+    private buildChannelMessageResults$(token: string) {
+        return this.getSearchableChannelIds().pipe(
+            distinctUntilChanged(
+                (a: string[], b: string[]) => a.join(',') === b.join(','),
+            ),
+            switchMap((ids: string[]) => {
+                if (!ids.length) return of([]);
+                return combineLatest(
+                    ids.map((channelId: string) =>
+                        this.messageService
+                            .streamLatestChannelMessages(channelId, 200)
+                            .pipe(
+                                map((msgs) => {
+                                    console.log(
+                                        '[CH]',
+                                        channelId,
+                                        'raw msgs:',
+                                        msgs.length,
+                                    );
+                                    return msgs
+                                        .filter((m: any) =>
+                                            this.matchesSearch(
+                                                [m?.text],
+                                                token,
+                                            ),
+                                        )
+                                        .map((m: any) => ({
+                                            ...m,
+                                            kind: 'channel' as const,
+                                            channelId,
+                                        }));
+                                }),
+                                catchError((err) => {
+                                    console.error('[CH ERROR]', channelId, err);
+                                    return of([] as any[]);
+                                }),
+                            ),
+                    ),
+                ).pipe(map((grouped: any[][]) => grouped.flat()));
             }),
             catchError(() => of([])),
         );
+    }
 
-        return combineLatest([channelResults$, userResults$, messageResults$]);
+    private getSearchableChannelIds(): Observable<string[]> {
+        const PUBLIC_IDS = ['allgemein', 'entwicklerteam'];
+        return this.channelService.getAllChannels().pipe(
+            map((channels) => {
+                const memberIds = channels
+                    .map((ch: any) => ch?.id as string)
+                    .filter(Boolean);
+                return [...new Set([...PUBLIC_IDS, ...memberIds])].sort();
+            }),
+            catchError(() => of(PUBLIC_IDS)),
+        );
+    }
+
+    private buildDmMessageResults$(token: string) {
+        return this.userService.getAllUsersRealtime().pipe(
+            map((users) =>
+                users
+                    .map((u: any) => u.id as string)
+                    .filter(Boolean)
+                    .sort(),
+            ),
+            distinctUntilChanged((a, b) => a.join(',') === b.join(',')),
+            switchMap((userIds) => {
+                const currentUser = this.authService.getCurrentUser();
+                if (!currentUser) return of([]);
+                const otherIds = userIds.filter((id) => id !== currentUser.uid);
+                if (!otherIds.length) return of([]);
+                return combineLatest(
+                    otherIds.map((userId) =>
+                        this.messageService
+                            .streamLatestDirectMessages(userId, 200)
+                            .pipe(
+                                map((msgs) =>
+                                    msgs
+                                        .filter((m: any) =>
+                                            this.matchesSearch(
+                                                [m?.text],
+                                                token,
+                                            ),
+                                        )
+                                        .map((m: any) => ({
+                                            ...m,
+                                            kind: 'dm' as const,
+                                            partnerUserId: userId,
+                                        })),
+                                ),
+                                catchError(() => of([])),
+                            ),
+                    ),
+                ).pipe(map((grouped) => grouped.flat()));
+            }),
+            catchError(() => of([])),
+        );
     }
 
     private matchesSearch(parts: Array<unknown>, token: string): boolean {
@@ -472,6 +574,14 @@ export class TopbarComponent implements OnInit, OnDestroy {
         users: any[],
         messages: any[],
     ): void {
+        console.log(
+            '[SEARCH] channels:',
+            channels.length,
+            'users:',
+            users.length,
+            'messages:',
+            messages,
+        );
         this.channelResults = channels
             .filter((channel) => !!channel.id)
             .map((channel) => ({
@@ -490,15 +600,18 @@ export class TopbarComponent implements OnInit, OnDestroy {
         this.messageResults = messages
             .filter(
                 (message) =>
-                    !!message.id && typeof message.channelId === 'string',
+                    !!message.id &&
+                    (message.channelId || message.conversationId),
             )
             .map((message) => ({
                 id: message.id as string,
                 text: message.text,
-                channelId: message.channelId as string,
+                kind: (message.kind ?? 'channel') as 'channel' | 'dm',
+                channelId: message.channelId,
+                conversationId: message.conversationId,
+                partnerUserId: message.partnerUserId,
             }))
             .slice(0, 5);
-
         this.showSearchResults = !!this.extractSearchQuery(this.searchTerm);
     }
 }

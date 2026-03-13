@@ -61,7 +61,7 @@
                         @for (message of messageResults; track message.id) {
                             <button
                                 type="button"
-                                (click)="navigateToMessage(message.channelId)"
+                                (click)="navigateToMessage(message)"
                             >
                                 {{ message.text }}
                             </button>
