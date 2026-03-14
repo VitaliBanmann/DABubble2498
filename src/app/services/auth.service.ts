@@ -86,11 +86,7 @@ export class AuthService implements OnDestroy {
         return this.runAuthAction(
             async () => {
                 await this.resetAnonymousSessionIfNeeded();
-                const credential = await createUserWithEmailAndPassword(
-                    this.getRequiredAuth(),
-                    email,
-                    password,
-                );
+                const credential = await this.createUserWithEmail(email, password);
                 this.ensureNotAnonymous(credential.user.isAnonymous);
                 this.emitCurrentUser(credential.user);
             },
@@ -119,6 +115,12 @@ export class AuthService implements OnDestroy {
         );
     }
 
+    private createUserWithEmail(email: string, password: string) {
+        return runInInjectionContext(this.injector, () =>
+            createUserWithEmailAndPassword(this.getRequiredAuth(), email, password),
+        );
+    }
+
     async loginWithGoogle(): Promise<{ email: string | null }> {
         await this.resetAnonymousSessionIfNeeded();
         const credential = await runInInjectionContext(this.injector, () =>
@@ -135,7 +137,9 @@ export class AuthService implements OnDestroy {
             return;
         }
 
-        await signOut(this.getRequiredAuth());
+        await runInInjectionContext(this.injector, () =>
+            signOut(this.getRequiredAuth()),
+        );
         this.emitCurrentUser(null);
     }
 
