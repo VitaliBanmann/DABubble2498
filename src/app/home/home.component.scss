@@ -708,11 +708,11 @@
     font: inherit;
     font-size: 20px;
     line-height: 1.45;
-    color: #686a76;
+    color: #000000;
     box-sizing: border-box;
 
     &::placeholder {
-        color: #000000;
+        color: #686a76;
         opacity: 1;
     }
 }
