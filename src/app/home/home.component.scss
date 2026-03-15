@@ -646,39 +646,16 @@
 
 .composer {
     width: 100%;
-    display: grid;
-    grid-template-columns: 1fr auto;
-    grid-template-rows: auto auto;
+    display: flex;
+    flex-direction: column;
     gap: 10px;
     position: relative;
 
-    .mention-chip-list {
-        grid-column: 1 / -1;
+    .mention-chip-list,
+    .attachment-chip-list {
         display: flex;
         flex-wrap: wrap;
         gap: 6px;
-    }
-
-    .composer-tools {
-        grid-column: 1 / -1;
-        display: flex;
-        align-items: center;
-        gap: 8px;
-    }
-
-    .attach-btn {
-        border: 1px solid #cfd6f3;
-        border-radius: 999px;
-        background: #f7f8ff;
-        color: #3645a3;
-        font-size: 12px;
-        font-weight: 600;
-        padding: 6px 12px;
-        cursor: pointer;
-    }
-
-    #message-attachment-input {
-        display: none;
     }
 
     .mention-chip {
@@ -691,13 +668,6 @@
         cursor: pointer;
     }
 
-    .attachment-chip-list {
-        grid-column: 1 / -1;
-        display: flex;
-        flex-wrap: wrap;
-        gap: 6px;
-    }
-
     .attachment-chip {
         border: 1px solid #d6dae8;
         border-radius: 999px;
@@ -708,61 +678,152 @@
         cursor: pointer;
     }
 
-    input {
-        grid-column: 1;
-        grid-row: 2;
-        height: 44px;
-        border-radius: 12px;
-        border: 1px solid #dde1ee;
-        padding: 0 12px;
-        outline: none;
+    #message-attachment-input {
+        display: none;
+    }
+}
+
+.composer-shell {
+    position: relative;
+    width: 100%;
+    max-height: 145px;
+    height: 145px;
+    border: 1px solid #cfd4f6;
+    border-radius: 30px;
+    background: #fff;
+    overflow: visible;
+}
+
+.composer-input {
+    width: 100%;
+    height: 145px;
+    min-height: 145px;
+    max-height: 190px;
+    border: none;
+    outline: none;
+    resize: none;
+    overflow-y: hidden;
+    background: transparent;
+    padding: 22px 88px 56px 22px;
+    font: inherit;
+    font-size: 20px;
+    line-height: 1.45;
+    color: #686a76;
+    box-sizing: border-box;
+
+    &::placeholder {
+        color: #000000;
+        opacity: 1;
+    }
+}
+
+.composer-bottom {
+    position: absolute;
+    bottom: 18px;
+    display: flex;
+    align-items: center;
+    gap: 18px;
+}
+
+.composer-bottom--left {
+    left: 18px;
+}
+
+.composer-bottom--right {
+    right: 18px;
+    flex-direction: column;
+    gap: 30px;
+}
+
+.composer-icon-btn,
+.composer-action-btn {
+    border: none;
+    background: transparent;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+}
+
+.composer-icon-btn {
+    width: 40px;
+    height: 40px;
+    color: #686a76;
+    font-size: 28px;
+    line-height: 1;
+
+    img {
+        width: 40px;
+        height: 40px;
+        object-fit: contain;
+        display: block;
+        opacity: 0.8;
     }
 
-    .mention-suggestions {
-        position: absolute;
-        left: 0;
-        right: 78px;
-        bottom: calc(100% + 8px);
-        background: #fff;
-        border: 1px solid #dbe1f3;
-        border-radius: 10px;
-        padding: 6px;
-        display: flex;
-        flex-direction: column;
-        gap: 4px;
-        z-index: 5;
+    &:hover img,
+    &:hover {
+        opacity: 1;
     }
+}
 
-    .mention-option {
-        border: 0;
-        background: #f7f8ff;
-        border-radius: 8px;
-        height: 34px;
-        text-align: left;
-        padding: 0 10px;
-        cursor: pointer;
-        color: #2f3565;
+.composer-icon-btn--mention {
+    font-size: 34px;
+    font-weight: 500;
+    color: #686a76;
+}
+
+.composer-action-btn {
+    width: 40px;
+    height: 40px;
+
+    img {
+        width: 40px;
+        height: 40px;
+        object-fit: contain;
+        display: block;
     }
+}
 
-    .mention-option:hover {
-        background: #edf0ff;
+.composer-action-btn--send {
+    color: #444df2;
+
+    &:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
     }
+}
 
-    button {
-        grid-column: 2;
-        grid-row: 2;
-        border: none;
-        border-radius: 12px;
-        padding: 0 16px;
-        background: #444df2;
-        color: white;
-        cursor: pointer;
+.mention-suggestions {
+    position: absolute;
+    left: 16px;
+    right: 80px;
+    bottom: calc(100% + 10px);
+    background: #fff;
+    border: 1px solid #dbe1f3;
+    border-radius: 14px;
+    padding: 6px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 12;
+    box-shadow: 0 10px 24px rgba(26, 36, 87, 0.12);
+}
 
-        &:disabled {
-            opacity: 0.6;
-            cursor: not-allowed;
-        }
-    }
+.mention-option {
+    border: 0;
+    background: #f7f8ff;
+    border-radius: 10px;
+    min-height: 38px;
+    text-align: left;
+    padding: 0 12px;
+    cursor: pointer;
+    color: #2f3565;
+    font-size: 14px;
+}
+
+.mention-option:hover {
+    background: #edf0ff;
 }
 
 .empty-state,

@@ -535,26 +535,11 @@
                 }
             </section>
         }
-        <form class="composer" novalidate (ngSubmit)="sendMessage()">
-            <div class="composer-tools">
-                <label class="attach-btn" for="message-attachment-input">
-                    Datei anhängen
-                </label>
-                <input
-                    id="message-attachment-input"
-                    type="file"
-                    multiple
-                    (change)="onAttachmentSelected($event)"
-                    accept="image/*,.pdf,.docx,.txt"
-                />
-            </div>
 
+        <form class="composer" novalidate (ngSubmit)="sendMessage()">
             @if (selectedMentionsList().length) {
                 <div class="mention-chip-list">
-                    @for (
-                        candidate of selectedMentionsList();
-                        track candidate.id
-                    ) {
+                    @for (candidate of selectedMentionsList(); track candidate.id) {
                         <button
                             type="button"
                             class="mention-chip"
@@ -568,10 +553,7 @@
 
             @if (selectedAttachments.length) {
                 <div class="attachment-chip-list">
-                    @for (
-                        attachment of selectedAttachments;
-                        track attachment.name + "-" + $index
-                    ) {
+                    @for (attachment of selectedAttachments; track attachment.name + "-" + $index) {
                         <button
                             type="button"
                             class="attachment-chip"
@@ -583,38 +565,81 @@
                 </div>
             }
 
-            <input
-                type="text"
-                [formControl]="messageControl"
-                (input)="onComposerInput()"
-                [placeholder]="
-                    isDirectMessage
-                        ? 'Nachricht an ' + currentConversationTitle
-                        : 'Nachricht schreiben...'
-                "
-            />
+            <div class="composer-shell">
+        <textarea
+            #composerTextarea
+            class="composer-input"
+            [formControl]="messageControl"
+            (input)="onComposerInput()"
+            (keydown)="onComposerKeydown($event)"
+            rows="4"
+            [placeholder]="
+                isDirectMessage
+                    ? 'Nachricht an ' + currentConversationTitle
+                    : 'Nachricht an #' + currentConversationTitle
+            "
+        ></textarea>
 
-            @if (showMentionSuggestions) {
-                <div class="mention-suggestions">
-                    @for (candidate of mentionSuggestions; track candidate.id) {
-                        <button
-                            type="button"
-                            class="mention-option"
-                            (click)="selectMention(candidate)"
-                        >
-                            @{{ candidate.label }}
-                        </button>
-                    }
+                <div class="composer-bottom composer-bottom--left">
+                    <button
+                        type="button"
+                        class="composer-icon-btn"
+                        aria-label="Emoji auswählen"
+                    >
+                        <img src="assets/pictures/add_reaction_grey.svg" alt="" aria-hidden="true" />
+                    </button>
+
+                    <button
+                        type="button"
+                        class="composer-icon-btn composer-icon-btn--mention"
+                        aria-label="Person erwähnen"
+                    >
+                        <img src="assets/pictures/mention.svg" alt="" aria-hidden="true" />
+                    </button>
                 </div>
-            }
 
-            <button
-                type="button"
-                (click)="sendMessage()"
-                [disabled]="!canSendMessage()"
-            >
-                {{ isSending ? "Sende..." : "Senden" }}
-            </button>
+                <div class="composer-bottom composer-bottom--right">
+                    <label
+                        class="composer-action-btn composer-action-btn--upload"
+                        for="message-attachment-input"
+                        aria-label="Datei anhängen"
+                    >
+                        <img src="assets/pictures/add_channel.svg" alt="" aria-hidden="true" />
+                    </label>
+
+                    <button
+                        type="button"
+                        class="composer-action-btn composer-action-btn--send"
+                        (click)="sendMessage()"
+                        [disabled]="!canSendMessage()"
+                        aria-label="Nachricht senden"
+                    >
+                        <img src="assets/pictures/send.svg" alt="" aria-hidden="true" />
+                    </button>
+                </div>
+
+                <input
+                    id="message-attachment-input"
+                    type="file"
+                    multiple
+                    (change)="onAttachmentSelected($event)"
+                    accept="image/*,.pdf,.docx,.txt"
+                />
+
+                @if (showMentionSuggestions) {
+                    <div class="mention-suggestions">
+                        @for (candidate of mentionSuggestions; track candidate.id) {
+                            <button
+                                type="button"
+                                class="mention-option"
+                                (click)="selectMention(candidate)"
+                            >
+                                @{{ candidate.label }}
+                            </button>
+                        }
+                    </div>
+                }
+            </div>
         </form>
 
         @if (attachmentError) {

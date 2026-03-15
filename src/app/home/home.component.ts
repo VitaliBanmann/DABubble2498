@@ -74,6 +74,8 @@ export class HomeComponent implements OnInit, OnDestroy {
         entwicklerteam: 'Entwicklerteam',
     };
     readonly composeTargetControl = new FormControl('', { nonNullable: true });
+    private readonly composerMinHeightPx = 145;
+    private readonly composerMaxHeightPx = 180;
 
     get isComposeMode(): boolean {
         return this.ui.isNewMessageOpen();
@@ -151,6 +153,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.subscribeToRouteMessages();
         this.subscribeToQueryParams();
         this.syncComposerState();
+        setTimeout(() => this.resizeComposerTextarea(), 0);
     }
 
     private initializeConversationFromSnapshot(): void {
@@ -668,6 +671,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     @ViewChild('messageList') messageListRef?: ElementRef<HTMLElement>;
+    @ViewChild('composerTextarea') composerTextareaRef?: ElementRef<HTMLTextAreaElement>;
 
     showScrollToLatestButton = false;
     private pendingScrollToMessageId: string | null = null;
@@ -841,6 +845,10 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     sendMessage(): void {
+        if (this.isSending) {
+            return;
+        }
+
         if (this.isComposeMode) {
             void this.onComposeTargetSubmit().then(() => {
                 if (!this.composeResolvedTarget) {
@@ -926,6 +934,31 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     onComposerInput(): void {
         this.updateMentionSuggestions();
+        this.resizeComposerTextarea();
+    }
+
+    private resizeComposerTextarea(): void {
+        const textarea = this.composerTextareaRef?.nativeElement;
+        if (!textarea) {
+            return;
+        }
+
+        textarea.style.height = `${this.composerMinHeightPx}px`;
+        const nextHeight = Math.min(textarea.scrollHeight, this.composerMaxHeightPx);
+        textarea.style.height = `${nextHeight}px`;
+        textarea.style.overflowY =
+            textarea.scrollHeight > this.composerMaxHeightPx ? 'auto' : 'hidden';
+    }
+
+    private focusComposerTextarea(): void {
+        setTimeout(() => {
+            const textarea = this.composerTextareaRef?.nativeElement;
+            if (!textarea) {
+                return;
+            }
+
+            textarea.focus();
+        }, 0);
     }
 
     private subscribeToSendRequest(request$: Observable<string>): void {
@@ -1057,6 +1090,7 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     private onSendSuccess(): void {
+        console.log('[SEND SUCCESS]');
         this.messageControl.setValue('');
         this.clearMentionSelection();
         this.selectedAttachments = [];
@@ -1070,6 +1104,8 @@ export class HomeComponent implements OnInit, OnDestroy {
             this.composeResolvedTarget = null;
         }
 
+        this.resizeComposerTextarea();
+        this.focusComposerTextarea();
         this.forceScrollToBottomOnNextRender = true;
         this.scrollToBottom();
     }
@@ -1965,5 +2001,19 @@ export class HomeComponent implements OnInit, OnDestroy {
             month: '2-digit',
             year: 'numeric',
         }).format(date);
+    }
+
+    onComposerKeydown(event: KeyboardEvent): void {
+        if (this.isSending) {
+            return;
+        }
+
+        if (event.key === 'Enter' && !event.shiftKey) {
+            event.preventDefault();
+
+            if (this.canSendMessage()) {
+                this.sendMessage();
+            }
+        }
     }
 }
