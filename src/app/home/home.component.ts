@@ -37,6 +37,7 @@ import { UiStateService } from '../services/ui-state.service';
 import { UnreadStateService } from '../services/unread-state.service';
 import { User, UserService } from '../services/user.service';
 import { User as FirebaseUser } from 'firebase/auth';
+import { PickerComponent } from '@ctrl/ngx-emoji-mart';
 
 interface MentionCandidate {
     id: string;
@@ -62,7 +63,7 @@ interface MessageGroup {
 @Component({
     selector: 'app-home',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule],
+    imports: [CommonModule, ReactiveFormsModule, PickerComponent],
     templateUrl: './home.component.html',
     styleUrl: './home.component.scss',
 })
@@ -683,23 +684,6 @@ export class HomeComponent implements OnInit, OnDestroy {
         previousScrollHeight: number;
     } | null = null;
     private lastRenderedMessageKey = '';
-
-    emojiPickerMessageId: string | null = null;
-
-    readonly emojiPickerOptions: string[] = [
-        '😀',
-        '😂',
-        '😍',
-        '👍',
-        '🎉',
-        '🔥',
-        '❤️',
-        '🚀',
-        '👏',
-        '😮',
-        '😢',
-        '🙏',
-    ];
 
     editingMessageId: string | null = null;
     readonly editMessageControl = new FormControl('', { nonNullable: true });
@@ -1326,58 +1310,12 @@ export class HomeComponent implements OnInit, OnDestroy {
         return this.isOwnMessage(message) && !!message.id;
     }
 
-    onEmojiPickerClick(message: Message, event?: MouseEvent): void {
-        event?.stopPropagation();
-
-        if (!this.canWrite || !message.id) {
-            return;
-        }
-
-        this.errorMessage = '';
-
-        if (this.emojiPickerMessageId === message.id) {
-            this.closeEmojiPicker();
-            return;
-        }
-
-        this.emojiPickerMessageId = message.id;
-    }
-
-    isEmojiPickerOpen(message: Message): boolean {
-        return !!message.id && this.emojiPickerMessageId === message.id;
-    }
-
-    selectEmojiFromPicker(
-        message: Message,
-        emoji: string,
-        event?: MouseEvent,
-    ): void {
-        event?.stopPropagation();
-
-        if (!message.id) {
-            return;
-        }
-
-        this.toggleReaction(message, emoji);
-        this.closeEmojiPicker();
-    }
-
-    closeEmojiPicker(): void {
-        this.emojiPickerMessageId = null;
-    }
-
-    @HostListener('document:click')
-    onDocumentClick(): void {
-        this.closeEmojiPicker();
-    }
-
     onEditMessageClick(message: Message): void {
         if (!this.canEditMessage(message) || !message.id) {
             return;
         }
 
         this.errorMessage = '';
-        this.closeEmojiPicker();
         this.editingMessageId = message.id;
         this.editMessageControl.setValue((message.text ?? '').trim());
         this.focusActiveEditTextarea();
@@ -1919,9 +1857,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         }
 
         if (
-            typeof value === 'object' &&
-            value !== null &&
-            'toDate' in value &&
+            typeof value === 'object' && 'toDate' in value &&
             typeof (value as { toDate: () => Date }).toDate === 'function'
         ) {
             const date = (value as { toDate: () => Date }).toDate();
@@ -2015,5 +1951,142 @@ export class HomeComponent implements OnInit, OnDestroy {
                 this.sendMessage();
             }
         }
+    }
+
+    /*########## Emoji Picker ########## */
+    activeEmojiPicker:
+        | { type: 'composer' }
+        | { type: 'message'; messageId: string }
+        | null = null;
+
+    toggleComposerEmojiPicker(event: MouseEvent): void {
+        event.stopPropagation();
+
+        if (this.activeEmojiPicker?.type === 'composer') {
+            this.closeAllEmojiPickers();
+            return;
+        }
+
+        this.activeEmojiPicker = { type: 'composer' };
+    }
+
+    toggleMessageEmojiPicker(message: Message, event: MouseEvent): void {
+        event.stopPropagation();
+
+        if (!message.id || !this.canWrite) {
+            return;
+        }
+
+        if (
+            this.activeEmojiPicker?.type === 'message' &&
+            this.activeEmojiPicker.messageId === message.id
+        ) {
+            this.closeAllEmojiPickers();
+            return;
+        }
+
+        this.activeEmojiPicker = {
+            type: 'message',
+            messageId: message.id,
+        };
+    }
+
+    isComposerEmojiPickerOpen(): boolean {
+        return this.activeEmojiPicker?.type === 'composer';
+    }
+
+    isMessageEmojiPickerOpen(message: Message): boolean {
+        return (
+            !!message.id &&
+            this.activeEmojiPicker?.type === 'message' &&
+            this.activeEmojiPicker.messageId === message.id
+        );
+    }
+
+    closeAllEmojiPickers(): void {
+        this.activeEmojiPicker = null;
+    }
+
+    closeComposerEmojiPicker(): void {
+        this.closeAllEmojiPickers();
+    }
+
+    @HostListener('document:click')
+    onDocumentClick(): void {
+        this.closeAllEmojiPickers();
+    }
+
+    @HostListener('document:keydown.escape', ['$event'])
+    onEscapeKey(event: Event): void {
+        if (!this.activeEmojiPicker) {
+            return;
+        }
+
+        event.preventDefault();
+        this.closeAllEmojiPickers();
+    }
+
+    onComposerEmojiSelect(event: any): void {
+        const emoji = event?.emoji?.native ?? event?.native ?? '';
+        if (!emoji) {
+            return;
+        }
+
+        const textarea = this.composerTextareaRef?.nativeElement;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const currentValue = this.messageControl.value ?? '';
+
+        const newValue =
+            currentValue.substring(0, start) +
+            emoji +
+            currentValue.substring(end);
+
+        this.messageControl.setValue(newValue);
+
+        setTimeout(() => {
+            textarea.focus();
+            const nextCursor = start + emoji.length;
+            textarea.selectionStart = textarea.selectionEnd = nextCursor;
+            this.resizeComposerTextarea();
+        }, 0);
+
+        this.closeAllEmojiPickers();
+    }
+
+    onMessageEmojiSelect(event: any, message: Message): void {
+        const emoji = event?.emoji?.native ?? event?.native ?? '';
+        if (!emoji || !message.id) {
+            return;
+        }
+
+        this.toggleReaction(message, emoji);
+        this.closeAllEmojiPickers();
+    }
+
+    /*########## Mentioning ########## */
+    insertMentionTrigger(): void {
+        const textarea = this.composerTextareaRef?.nativeElement;
+        if (!textarea) return;
+
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const currentValue = this.messageControl.value ?? '';
+
+        const newValue =
+            currentValue.substring(0, start) +
+            '@' +
+            currentValue.substring(end);
+
+        this.messageControl.setValue(newValue);
+
+        setTimeout(() => {
+            textarea.focus();
+            const nextCursor = start + 1;
+            textarea.selectionStart = textarea.selectionEnd = nextCursor;
+            this.onComposerInput();
+        }, 0);
     }
 }

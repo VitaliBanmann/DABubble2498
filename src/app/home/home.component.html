@@ -425,58 +425,17 @@
                                 type="button"
                                 class="message-toolbar__btn message-toolbar__btn--picker"
                                 aria-label="Emoji auswählen"
-                                (click)="
-                                    onEmojiPickerClick(
-                                        group.messages[
-                                            group.messages.length - 1
-                                        ],
-                                        $event
-                                    )
-                                "
+                                (click)="toggleMessageEmojiPicker(group.messages[group.messages.length - 1], $event)"
                             >
-                                <img
-                                    src="assets/pictures/add_reaction.svg"
-                                    alt=""
-                                    aria-hidden="true"
-                                />
+                                <img src="assets/pictures/add_reaction.svg" alt="" aria-hidden="true" />
 
-                                @if (
-                                    isEmojiPickerOpen(
-                                        group.messages[
-                                            group.messages.length - 1
-                                        ]
-                                    )
-                                ) {
-                                    <div
-                                        class="emoji-picker-popover"
-                                        (click)="$event.stopPropagation()"
-                                    >
-                                        @for (
-                                            emoji of emojiPickerOptions;
-                                            track emoji
-                                        ) {
-                                            <button
-                                                type="button"
-                                                class="emoji-picker-popover__item"
-                                                (click)="
-                                                    selectEmojiFromPicker(
-                                                        group.messages[
-                                                            group.messages
-                                                                .length - 1
-                                                        ],
-                                                        emoji,
-                                                        $event
-                                                    )
-                                                "
-                                                [attr.aria-label]="
-                                                    'Mit ' +
-                                                    emoji +
-                                                    ' reagieren'
-                                                "
-                                            >
-                                                {{ emoji }}
-                                            </button>
-                                        }
+                                @if (isMessageEmojiPickerOpen(group.messages[group.messages.length - 1])) {
+                                    <div class="emoji-picker-popover" (click)="$event.stopPropagation()">
+                                        <emoji-mart
+                                            (emojiSelect)="onMessageEmojiSelect($event, group.messages[group.messages.length - 1])"
+                                            [showPreview]="false"
+                                            [perLine]="8"
+                                        ></emoji-mart>
                                     </div>
                                 }
                             </button>
@@ -585,16 +544,18 @@
                         type="button"
                         class="composer-icon-btn"
                         aria-label="Emoji auswählen"
+                        (click)="toggleComposerEmojiPicker($event)"
                     >
-                        <img src="assets/pictures/add_reaction_grey.svg" alt="" aria-hidden="true" />
+                        <img src="assets/pictures/add_reaction.svg" alt="" aria-hidden="true" />
                     </button>
 
                     <button
                         type="button"
                         class="composer-icon-btn composer-icon-btn--mention"
                         aria-label="Person erwähnen"
+                        (click)="insertMentionTrigger()"
                     >
-                        <img src="assets/pictures/mention.svg" alt="" aria-hidden="true" />
+                        @
                     </button>
                 </div>
 
@@ -604,7 +565,7 @@
                         for="message-attachment-input"
                         aria-label="Datei anhängen"
                     >
-                        <img src="assets/pictures/add_channel.svg" alt="" aria-hidden="true" />
+                        <img src="assets/pictures/add_reaction.svg" alt="" aria-hidden="true" />
                     </label>
 
                     <button
@@ -614,7 +575,7 @@
                         [disabled]="!canSendMessage()"
                         aria-label="Nachricht senden"
                     >
-                        <img src="assets/pictures/send.svg" alt="" aria-hidden="true" />
+                        <span>➤</span>
                     </button>
                 </div>
 
@@ -637,6 +598,16 @@
                                 @{{ candidate.label }}
                             </button>
                         }
+                    </div>
+                }
+
+                @if (isComposerEmojiPickerOpen()) {
+                    <div class="composer-emoji-picker" (click)="$event.stopPropagation()">
+                        <emoji-mart
+                            (emojiSelect)="onComposerEmojiSelect($event)"
+                            [showPreview]="false"
+                            [perLine]="8"
+                        ></emoji-mart>
                     </div>
                 }
             </div>
