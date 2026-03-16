@@ -1,7 +1,7 @@
 <main class="home-page">
     <section class="chat-pane">
         <header class="home-header">
-            <div>
+            <div class="home-header__title">
                 <h1>
                     {{
                         isComposeMode
@@ -12,6 +12,47 @@
                     }}
                 </h1>
             </div>
+
+            @if (!isComposeMode && !isDirectMessage) {
+                <div class="home-header__members">
+                    <button
+                        type="button"
+                        class="members-avatar"
+                        aria-label="Channel-Mitglieder anzeigen"
+                    >
+                        @for (member of visibleChannelMembers; track member.id ?? $index) {
+                            <img
+                                [src]="getUserAvatar(member)"
+                                [alt]="member.displayName + ' Avatar'"
+                                [title]="member.displayName"
+                            />
+                        }
+
+                        @if (remainingChannelMembersCount > 0) {
+                            <span class="members-avatar__more">
+                    +{{ remainingChannelMembersCount }}
+                </span>
+                        }
+                    </button>
+
+                    <p class="home-header__members-count">
+                        {{ channelMembersCount }}
+                    </p>
+
+                    <button
+                        type="button"
+                        class="home-header__add-member"
+                        aria-label="Mitglied hinzufügen"
+                        (click)="onAddMemberClick()"
+                    >
+                        <img
+                            src="assets/pictures/add_members.svg"
+                            alt=""
+                            aria-hidden="true"
+                        />
+                    </button>
+                </div>
+            }
 
             @if (isComposeMode) {
                 <form
@@ -525,19 +566,19 @@
             }
 
             <div class="composer-shell">
-        <textarea
-            #composerTextarea
-            class="composer-input"
-            [formControl]="messageControl"
-            (input)="onComposerInput()"
-            (keydown)="onComposerKeydown($event)"
-            rows="4"
-            [placeholder]="
-                isDirectMessage
-                    ? 'Nachricht an ' + currentConversationTitle
-                    : 'Nachricht an #' + currentConversationTitle
-            "
-        ></textarea>
+                <textarea
+                    #composerTextarea
+                    class="composer-input"
+                    [formControl]="messageControl"
+                    (input)="onComposerInput()"
+                    (keydown)="onComposerKeydown($event)"
+                    rows="4"
+                    [placeholder]="
+                        isDirectMessage
+                            ? 'Nachricht an ' + currentConversationTitle
+                            : 'Nachricht an #' + currentConversationTitle
+                    "
+                ></textarea>
 
                 <div class="composer-bottom composer-bottom--left">
                     <button
