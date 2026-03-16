@@ -10,7 +10,7 @@ import {
     ViewChild,
     ViewChildren,
 } from '@angular/core';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
+import {FormControl, FormsModule, ReactiveFormsModule} from '@angular/forms';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import {
     combineLatest,
@@ -66,7 +66,7 @@ import { HomeComponentBase7 } from './home.component.base7';
 @Component({
     selector: 'app-home',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule, PickerComponent],
+    imports: [CommonModule, ReactiveFormsModule, PickerComponent, FormsModule],
     templateUrl: './home.component.html',
     styleUrl: './home.component.scss',
 })
