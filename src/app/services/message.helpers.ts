@@ -57,21 +57,14 @@ export function computeUpdatedReactions(
     userId: string,
 ): MessageReaction[] {
     if (!message) throw new Error('Message not found');
-
-    const existing = (message.reactions ?? []).map((reaction) => ({
-        ...reaction,
-        userIds: [...reaction.userIds],
-    }));
-
-    const reactionIndex = existing.findIndex(
-        (reaction) => reaction.emoji === emoji,
-    );
-
-    if (reactionIndex < 0) {
-        return [...existing, { emoji, userIds: [userId] }];
-    }
-
+    const existing = cloneReactions(message.reactions ?? []);
+    const reactionIndex = existing.findIndex((reaction) => reaction.emoji === emoji);
+    if (reactionIndex < 0) return [...existing, { emoji, userIds: [userId] }];
     return toggleUserReaction(existing, reactionIndex, userId);
+}
+
+function cloneReactions(reactions: MessageReaction[]): MessageReaction[] {
+    return reactions.map((reaction) => ({ ...reaction, userIds: [...reaction.userIds] }));
 }
 
 function toggleUserReaction(

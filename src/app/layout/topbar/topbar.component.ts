@@ -207,17 +207,19 @@ export class TopbarComponent implements OnInit, OnDestroy {
         const token = normalizeSearchToken(rawQuery);
         if (!token) return this.clearSearchResults();
         this.searchSubscription?.unsubscribe();
-        this.searchSubscription = createSearchStream(token, {
+        this.searchSubscription = createSearchStream(token, this.getSearchDependencies())
+            .subscribe(([channels, users, messages]) => this.applySearchResults(channels, users, messages));
+    }
+
+    private getSearchDependencies() {
+        return {
             authService: this.authService,
             channelService: this.channelService,
             messageService: this.messageService,
             userService: this.userService,
             cachedChannels: this.cachedChannels,
             cachedUsers: this.cachedUsers,
-        }).subscribe(
-            ([channels, users, messages]) =>
-                this.applySearchResults(channels, users, messages),
-        );
+        };
     }
 
     private extractSearchQuery(value: string): string {
@@ -328,22 +330,12 @@ export class TopbarComponent implements OnInit, OnDestroy {
         if (!data?.profile) return;
         const profile = data.profile;
         const user = data.user;
-        const resolvedName =
-            profile.displayName?.trim() ||
-            user.displayName?.trim() ||
-            user.email?.split('@')[0] ||
-            'Gast';
-        const resolvedEmail = resolveProfileEmail(profile) || user.email || '';
-        const resolvedAvatar = profile.avatar || user.photoURL || null;
-        const resolvedPresence = profile.presenceStatus ?? 'online';
-        this.deferUiUpdate(() =>
-            this.applyResolvedProfile(
-                resolvedName,
-                resolvedEmail,
-                resolvedAvatar,
-                resolvedPresence,
-            ),
-        );
+        this.deferUiUpdate(() => this.applyResolvedProfile(...this.resolveProfileValues(profile, user)));
+    }
+
+    private resolveProfileValues(profile: any, user: any): [string, string, string | null, PresenceStatus] {
+        const name = profile.displayName?.trim() || user.displayName?.trim() || user.email?.split('@')[0] || 'Gast';
+        return [name, resolveProfileEmail(profile) || user.email || '', profile.avatar || user.photoURL || null, profile.presenceStatus ?? 'online'];
     }
 
     private applyResolvedProfile(

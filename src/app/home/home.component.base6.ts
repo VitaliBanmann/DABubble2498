@@ -318,20 +318,9 @@ protected formatTime(date: Date): string {
         });
     }
 
-protected formatDateAndTime(timestamp: Message['timestamp']): string {
-        if (!timestamp) {
-            return '';
-        }
-
-        const date =
-            timestamp instanceof Date ? timestamp : this.tryToDate(timestamp);
-        if (!date) {
-            return '';
-        }
-
-        const day = date.toLocaleDateString('de-DE');
-        const time = this.formatTime(date);
-        return `${day}, ${time}`;
+    protected formatDateAndTime(timestamp: Message['timestamp']): string {
+        const date = this.tryToDate(timestamp);
+        return date ? `${this.getDateSeparatorLabel(date)} ${this.formatTime(date)}` : '';
     }
 
 protected resolveTrackTimestamp(

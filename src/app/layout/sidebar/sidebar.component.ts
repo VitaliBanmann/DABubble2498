@@ -230,20 +230,17 @@ export class SidebarComponent implements OnInit, OnDestroy {
     openDirectMessage(member: SidebarDirectMessage): void {
         this.ui.closeNewMessage();
         const userId = member.id;
-        if (!userId) {
-            return;
-        }
-
+        if (!userId) return;
         this.activeChannelId = null;
         this.activeDirectMessageId = userId;
+        void this.router.navigate(['/app/dm', userId], this.buildDirectMessageNavigation(member));
+    }
 
-        void this.router.navigate(['/app/dm', userId], {
-            queryParams: {
-                name: normalizeDirectMessageLabel(member.label),
-                compose: null,
-            },
-            queryParamsHandling: 'merge',
-        });
+    private buildDirectMessageNavigation(member: SidebarDirectMessage) {
+        return {
+            queryParams: { name: normalizeDirectMessageLabel(member.label), compose: null },
+            queryParamsHandling: 'merge' as const,
+        };
     }
 
     getInitials(displayName: string): string {
@@ -364,19 +361,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
         channel: Channel,
     ): SidebarChannel[] {
         if (!channel.id) return merged;
-        const existingIndex = merged.findIndex(
-            (item) => item.id === channel.id,
-        );
-        this.upsertMergedChannel(
-            merged,
-            existingIndex,
-            mapSidebarChannel(
-                channel,
-                this.canonicalChannelLabels,
-                this.unreadByChannelId,
-                this.mentionByChannelId,
-            ),
-        );
+        const existingIndex = merged.findIndex((item) => item.id === channel.id);
+        const mapped = mapSidebarChannel(channel, this.canonicalChannelLabels, this.unreadByChannelId, this.mentionByChannelId);
+        this.upsertMergedChannel(merged, existingIndex, mapped);
         return merged;
     }
 

@@ -68,59 +68,30 @@ export class HomeComponentBase4 extends HomeComponentBase3 {
 
     protected buildComposeSendRequest(text: string): Observable<string> {
         const target = this.composeResolvedTarget;
-        if (!target) {
-            throw new Error('Compose target missing');
-        }
+        if (!target) throw new Error('Compose target missing');
+        return target.kind === 'user'
+            ? this.buildComposeDirectRequest(text, target.userId)
+            : this.buildComposeChannelRequest(text, target.channelId);
+    }
 
+    protected buildComposeDirectRequest(text: string, userId: string): Observable<string> {
+        return this.createDirectRequest(text, userId);
+    }
+
+    protected buildComposeChannelRequest(text: string, channelId: string): Observable<string> {
         const messageId = this.messageService.createMessageId();
-        const mentions = this.collectMentionIdsForText(text);
-
-        if (target.kind === 'user') {
-            return this.uploadAttachmentsForMessage(messageId).pipe(
-                switchMap((attachments) =>
-                    this.messageService.sendDirectMessageWithId(
-                        messageId,
-                        target.userId,
-                        text,
-                        this.currentUserId ?? '',
-                        mentions,
-                        attachments,
-                    ),
-                ),
-            );
-        }
-
-        const payload = this.createChannelMessagePayload(
-            text,
-            mentions,
-            target.channelId,
-        );
-
-        return this.uploadAttachmentsForMessage(messageId).pipe(
-            switchMap((attachments) =>
-                this.messageService.sendMessageWithId(messageId, {
-                    ...payload,
-                    attachments,
-                }),
-            ),
-        );
+        const payload = this.createChannelMessagePayload(text, this.collectMentionIdsForText(text), channelId);
+        return this.uploadAttachmentsForMessage(messageId).pipe(switchMap((attachments: MessageAttachment[]): Observable<string> => this.messageService.sendMessageWithId(messageId, { ...payload, attachments })));
     }
 
 protected buildDirectSendRequest(text: string): Observable<string> {
+        return this.createDirectRequest(text, this.currentDirectUserId);
+    }
+
+    protected createDirectRequest(text: string, userId: string): Observable<string> {
         const messageId = this.messageService.createMessageId();
         const mentions = this.collectMentionIdsForText(text);
-        return this.uploadAttachmentsForMessage(messageId).pipe(
-            switchMap((attachments) =>
-                this.messageService.sendDirectMessageWithId(
-                    messageId,
-                    this.currentDirectUserId,
-                    text,
-                    this.currentUserId ?? '',
-                    mentions,
-                    attachments,
-                ),
-            ),
-        );
+        return this.uploadAttachmentsForMessage(messageId).pipe(switchMap((attachments: MessageAttachment[]): Observable<string> => this.messageService.sendDirectMessageWithId(messageId, userId, text, this.currentUserId ?? '', mentions, attachments)));
     }
 
 protected buildChannelSendRequest(text: string): Observable<string> {
@@ -129,7 +100,7 @@ protected buildChannelSendRequest(text: string): Observable<string> {
         this.logChannelSendPayload(text, mentions.length);
         const channelPayload = this.createChannelMessagePayload(text, mentions);
         return this.uploadAttachmentsForMessage(messageId).pipe(
-            switchMap((attachments) =>
+            switchMap((attachments: MessageAttachment[]): Observable<string> =>
                 this.messageService.sendMessageWithId(messageId, {
                     ...channelPayload,
                     attachments,
@@ -152,20 +123,27 @@ protected uploadAttachmentsForMessage(
     }
 
 protected onSendSuccess(): void {
-        console.log('[SEND SUCCESS]');
+        this.resetComposerAfterSend();
+        if (this.isComposeMode) this.resetComposeTarget();
+        this.focusAfterSend();
+    }
+
+    protected resetComposerAfterSend(): void {
         this.messageControl.setValue('');
         this.clearMentionSelection();
         this.selectedAttachments = [];
         this.attachmentError = '';
         this.isSending = false;
         this.syncComposerState();
+    }
 
-        if (this.isComposeMode) {
-            this.ui.closeNewMessage();
-            this.composeTargetControl.setValue('');
-            this.composeResolvedTarget = null;
-        }
+    protected resetComposeTarget(): void {
+        this.ui.closeNewMessage();
+        this.composeTargetControl.setValue('');
+        this.composeResolvedTarget = null;
+    }
 
+    protected focusAfterSend(): void {
         this.resizeComposerTextarea();
         this.focusComposerTextarea();
         this.forceScrollToBottomOnNextRender = true;
@@ -266,29 +244,17 @@ protected normalizeAvatarPath(
         fallbackAvatar: string,
     ): string {
         const trimmed = avatar.trim();
-
-        if (!trimmed) {
-            return fallbackAvatar;
-        }
-
-        if (
-            trimmed.startsWith('http://') ||
-            trimmed.startsWith('https://') ||
-            trimmed.startsWith('data:') ||
-            trimmed.startsWith('blob:')
-        ) {
-            return trimmed;
-        }
-
-        if (trimmed.startsWith('/assets/')) {
-            return trimmed;
-        }
-
-        if (trimmed.startsWith('assets/')) {
-            return trimmed;
-        }
-
+        if (!trimmed) return fallbackAvatar;
+        if (this.isExternalAvatar(trimmed) || this.isAssetAvatar(trimmed)) return trimmed;
         return `assets/pictures/${trimmed}`;
+    }
+
+    protected isExternalAvatar(value: string): boolean {
+        return ['http://', 'https://', 'data:', 'blob:'].some((prefix) => value.startsWith(prefix));
+    }
+
+    protected isAssetAvatar(value: string): boolean {
+        return value.startsWith('/assets/') || value.startsWith('assets/');
     }
 
 hasMentionForCurrentUser(message: Message): boolean {

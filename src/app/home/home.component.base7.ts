@@ -77,30 +77,18 @@ export class HomeComponentBase7 extends HomeComponentBase6 {
 
 protected toDate(value: unknown): Date | null {
         if (!value) return null;
-
-        if (value instanceof Date) {
-            return isNaN(value.getTime()) ? null : value;
-        }
-
-        if (
-            typeof value === 'object' && 'toDate' in value &&
-            typeof (value as { toDate: () => Date }).toDate === 'function'
-        ) {
-            const date = (value as { toDate: () => Date }).toDate();
-            return isNaN(date.getTime()) ? null : date;
-        }
-
-        if (typeof value === 'number') {
-            const date = new Date(value);
-            return isNaN(date.getTime()) ? null : date;
-        }
-
-        if (typeof value === 'string') {
-            const date = new Date(value);
-            return isNaN(date.getTime()) ? null : date;
-        }
-
+        if (value instanceof Date) return this.asValidDate(value);
+        if (this.hasToDate(value)) return this.asValidDate(value.toDate());
+        if (typeof value === 'number' || typeof value === 'string') return this.asValidDate(new Date(value));
         return null;
+    }
+
+    protected hasToDate(value: unknown): value is { toDate: () => Date } {
+        return typeof value === 'object' && !!value && 'toDate' in value && typeof value.toDate === 'function';
+    }
+
+    protected asValidDate(value: Date): Date | null {
+        return isNaN(value.getTime()) ? null : value;
     }
 
 protected isSameCalendarDay(a: Date | null, b: Date | null): boolean {
@@ -143,26 +131,20 @@ shouldShowGroupDateSeparator(index: number, group: MessageGroup): boolean {
 
 getDateSeparatorLabel(timestamp: unknown): string {
         const date = this.toDate(timestamp);
-
         if (!date) return '';
+        if (this.isSameCalendarDay(date, new Date())) return 'Heute';
+        if (this.isSameCalendarDay(date, this.getYesterday())) return 'Gestern';
+        return this.formatCalendarDate(date);
+    }
 
-        const today = new Date();
+    protected getYesterday(): Date {
         const yesterday = new Date();
-        yesterday.setDate(today.getDate() - 1);
+        yesterday.setDate(yesterday.getDate() - 1);
+        return yesterday;
+    }
 
-        if (this.isSameCalendarDay(date, today)) {
-            return 'Heute';
-        }
-
-        if (this.isSameCalendarDay(date, yesterday)) {
-            return 'Gestern';
-        }
-
-        return new Intl.DateTimeFormat('de-DE', {
-            day: '2-digit',
-            month: '2-digit',
-            year: 'numeric',
-        }).format(date);
+    protected formatCalendarDate(date: Date): string {
+        return new Intl.DateTimeFormat('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date);
     }
 
 onComposerKeydown(event: KeyboardEvent): void {
@@ -192,23 +174,9 @@ toggleComposerEmojiPicker(event: MouseEvent): void {
 
 toggleMessageEmojiPicker(message: Message, event: MouseEvent): void {
         event.stopPropagation();
-
-        if (!message.id || !this.canWrite) {
-            return;
-        }
-
-        if (
-            this.activeEmojiPicker?.type === 'message' &&
-            this.activeEmojiPicker.messageId === message.id
-        ) {
-            this.closeAllEmojiPickers();
-            return;
-        }
-
-        this.activeEmojiPicker = {
-            type: 'message',
-            messageId: message.id,
-        };
+        if (!message.id || !this.canWrite) return;
+        if (this.isMessageEmojiPickerOpen(message)) return this.closeAllEmojiPickers();
+        this.activeEmojiPicker = { type: 'message', messageId: message.id };
     }
 
 isComposerEmojiPickerOpen(): boolean {
@@ -248,32 +216,27 @@ closeComposerEmojiPicker(): void {
 
 onComposerEmojiSelect(event: any): void {
         const emoji = event?.emoji?.native ?? event?.native ?? '';
-        if (!emoji) {
-            return;
-        }
-
         const textarea = this.composerTextareaRef?.nativeElement;
-        if (!textarea) return;
+        if (!emoji || !textarea) return;
+        const nextCursor = this.insertComposerText(textarea, emoji);
+        this.restoreComposerSelection(textarea, nextCursor);
+        this.closeAllEmojiPickers();
+    }
 
+    protected insertComposerText(textarea: HTMLTextAreaElement, value: string): number {
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
         const currentValue = this.messageControl.value ?? '';
+        this.messageControl.setValue(currentValue.substring(0, start) + value + currentValue.substring(end));
+        return start + value.length;
+    }
 
-        const newValue =
-            currentValue.substring(0, start) +
-            emoji +
-            currentValue.substring(end);
-
-        this.messageControl.setValue(newValue);
-
+    protected restoreComposerSelection(textarea: HTMLTextAreaElement, nextCursor: number): void {
         setTimeout(() => {
             textarea.focus();
-            const nextCursor = start + emoji.length;
             textarea.selectionStart = textarea.selectionEnd = nextCursor;
             this.resizeComposerTextarea();
         }, 0);
-
-        this.closeAllEmojiPickers();
     }
 
 onMessageEmojiSelect(event: any, message: Message): void {
@@ -289,21 +252,13 @@ onMessageEmojiSelect(event: any, message: Message): void {
 insertMentionTrigger(): void {
         const textarea = this.composerTextareaRef?.nativeElement;
         if (!textarea) return;
+        const nextCursor = this.insertComposerText(textarea, '@');
+        this.restoreMentionSelection(textarea, nextCursor);
+    }
 
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const currentValue = this.messageControl.value ?? '';
-
-        const newValue =
-            currentValue.substring(0, start) +
-            '@' +
-            currentValue.substring(end);
-
-        this.messageControl.setValue(newValue);
-
+    protected restoreMentionSelection(textarea: HTMLTextAreaElement, nextCursor: number): void {
         setTimeout(() => {
             textarea.focus();
-            const nextCursor = start + 1;
             textarea.selectionStart = textarea.selectionEnd = nextCursor;
             this.onComposerInput();
         }, 0);

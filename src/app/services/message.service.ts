@@ -284,38 +284,19 @@ export class MessageService {
         text: string,
         senderId: string,
     ): Observable<string> {
-        const cleanParentMessageId = this.requireNonEmpty(
-            parentMessageId,
-            'Missing parentMessageId',
-        );
+        const cleanParentMessageId = this.requireNonEmpty(parentMessageId, 'Missing parentMessageId');
         const cleanText = this.requireNonEmpty(text, 'Thread message text is empty');
         const cleanSenderId = this.requireNonEmpty(senderId, 'Missing senderId');
-
-        return this.firestoreService.addDocument(
-            `messages/${cleanParentMessageId}/threads`,
-            {
-                text: cleanText,
-                senderId: cleanSenderId,
-                timestamp: new Date(),
-            },
-        );
+        return this.firestoreService.addDocument(`messages/${cleanParentMessageId}/threads`, { text: cleanText, senderId: cleanSenderId, timestamp: new Date() });
     }
 
     toggleReaction(messageId: string, emoji: string): Observable<void> {
         const currentUser = this.authService.getCurrentUser();
         if (!currentUser) throw new Error('User not authenticated');
-        return this.firestoreService
-            .getDocument<Message>(this.messagesCollection, messageId)
-            .pipe(
-                map((message) => computeUpdatedReactions(message, emoji, currentUser.uid)),
-                switchMap((reactions) =>
-                    this.firestoreService.updateDocument(
-                        this.messagesCollection,
-                        messageId,
-                        { reactions },
-                    ),
-                ),
-            );
+        return this.firestoreService.getDocument<Message>(this.messagesCollection, messageId).pipe(
+            map((message) => computeUpdatedReactions(message, emoji, currentUser.uid)),
+            switchMap((reactions) => this.firestoreService.updateDocument(this.messagesCollection, messageId, { reactions })),
+        );
     }
 
     private resolveConversationId(otherUserId: string): string | null {

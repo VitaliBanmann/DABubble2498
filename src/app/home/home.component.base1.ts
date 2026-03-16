@@ -92,7 +92,7 @@ protected initializeConversationFromSnapshot(): void {
 
 protected subscribeToAuth(): void {
         this.subscription.add(
-            this.authService.currentUser$.subscribe((incomingUser) =>
+            this.authService.currentUser$.subscribe((incomingUser: FirebaseUser | null) =>
                 this.handleAuthUserChange(incomingUser),
             ),
         );
@@ -100,7 +100,7 @@ protected subscribeToAuth(): void {
 
 protected subscribeToQueryParams(): void {
         this.subscription.add(
-            this.route.queryParamMap.subscribe((params) => {
+            this.route.queryParamMap.subscribe((params: ParamMap) => {
                 const msgId = params.get('msg');
                 if (msgId) {
                     this.pendingScrollToMessageId = msgId;
@@ -113,17 +113,16 @@ protected subscribeToQueryParams(): void {
 protected tryScrollToMessage(): void {
         const msgId = this.pendingScrollToMessageId;
         if (!msgId) return;
-        setTimeout(() => {
-            const el = document.getElementById('msg-' + msgId);
-            if (!el) return;
-            el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-            el.classList.add('message__line--highlight');
-            this.pendingScrollToMessageId = null;
-            setTimeout(
-                () => el.classList.remove('message__line--highlight'),
-                2500,
-            );
-        }, 400);
+        setTimeout(() => this.highlightScrolledMessage(msgId), 400);
+    }
+
+    protected highlightScrolledMessage(msgId: string): void {
+        const el = document.getElementById('msg-' + msgId);
+        if (!el) return;
+        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        el.classList.add('message__line--highlight');
+        this.pendingScrollToMessageId = null;
+        setTimeout(() => el.classList.remove('message__line--highlight'), 2500);
     }
 
 onComposeTargetInput(): void {
@@ -149,7 +148,7 @@ protected updateComposeTargetSuggestions(): void {
     }
 
 protected setChannelSuggestions(query: string): void {
-        const entries = Object.entries(this.channelNames)
+    const entries = (Object.entries(this.channelNames) as Array<[string, string]>)
             .filter(([id, label]) => this.matchesQuery(query, id, label))
             .slice(0, 6)
             .map(([id, label]) => this.toChannelSuggestion(id, label));
@@ -211,7 +210,7 @@ protected moveComposeSelection(step: number): void {
     }
 
 protected setUserSuggestions(query: string): void {
-        const entries = Object.values(this.usersById)
+    const entries = (Object.values(this.usersById) as User[])
             .filter((user) => this.isValidSuggestionUser(user))
             .filter((user) =>
                 this.matchesQuery(query, user.displayName, user.email ?? ''),
@@ -293,7 +292,7 @@ protected deferUiUpdate(update: () => void): void {
 protected subscribeToUsers(): void {
         this.subscription.add(
             this.userService.getAllUsers().subscribe({
-                next: (users) => this.buildUserMap(users),
+                next: (users: User[]) => this.buildUserMap(users),
             }),
         );
     }
@@ -308,13 +307,13 @@ protected buildUserMap(users: User[]): void {
 
 protected subscribeToRouteMessages(): void {
         this.subscription.add(
-            combineLatest([
-                this.authService.currentUser$,
-                this.route.paramMap,
-            ]).subscribe({
-                next: ([user, params]) =>
+            combineLatest({
+                user: this.authService.currentUser$ as Observable<FirebaseUser | null>,
+                params: this.route.paramMap as Observable<ParamMap>,
+            }).subscribe({
+                next: ({ user, params }) =>
                     this.handleRouteMessageContext(user, params),
-                error: (error) => this.handleRouteMessageError(error),
+                error: (error: unknown) => this.handleRouteMessageError(error),
             }),
         );
     }

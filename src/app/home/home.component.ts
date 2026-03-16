@@ -190,7 +190,9 @@ export class HomeComponent extends HomeComponentBase7 implements OnInit, OnDestr
             private readonly ui: UiStateService,
             private readonly unreadStateService: UnreadStateService,
             private readonly cdr: ChangeDetectorRef,
-        ) {}
+        ) {
+        super();
+    }
 
     @ViewChild('messageList') messageListRef?: ElementRef<HTMLElement>;
 

@@ -131,59 +131,46 @@ cancelMessageEdit(): void {
     }
 
 saveMessageEdit(message: Message): void {
-        if (
-            !message.id ||
-            !this.isEditingMessage(message) ||
-            this.isSavingEdit
-        ) {
-            return;
-        }
-
+        if (!this.canSaveMessageEdit(message)) return;
         const nextText = this.editMessageControl.value.trim();
         const currentText = (message.text ?? '').trim();
-
-        if (!nextText) {
-            this.errorMessage = 'Die Nachricht darf nicht leer sein.';
-            return;
-        }
-
-        if (nextText === currentText) {
-            this.cancelMessageEdit();
-            return;
-        }
-
+        if (!nextText) return void this.applyEmptyEditError();
+        if (nextText === currentText) return this.cancelMessageEdit();
         this.isSavingEdit = true;
         this.errorMessage = '';
+        this.messageService.updateMessage(message.id!, { text: nextText }).subscribe({
+            next: () => this.cancelMessageEdit(),
+            error: (error: unknown) => this.handleSaveEditError(error),
+        });
+    }
 
-        this.messageService
-            .updateMessage(message.id, {
-                text: nextText,
-            })
-            .subscribe({
-                next: () => {
-                    this.cancelMessageEdit();
-                },
-                error: (error) => {
-                    this.isSavingEdit = false;
-                    this.errorMessage = this.resolveSendError(error);
-                },
-            });
+    protected canSaveMessageEdit(message: Message): boolean {
+        return !!message.id && this.isEditingMessage(message) && !this.isSavingEdit;
+    }
+
+    protected applyEmptyEditError(): void {
+        this.errorMessage = 'Die Nachricht darf nicht leer sein.';
+    }
+
+    protected handleSaveEditError(error: unknown): void {
+        this.isSavingEdit = false;
+        this.errorMessage = this.resolveSendError(error);
     }
 
 onEditTextareaKeydown(event: KeyboardEvent, message: Message): void {
-        if (event.key === 'Escape') {
-            event.preventDefault();
-            this.cancelMessageEdit();
-            return;
-        }
+        if (event.key === 'Escape') return this.cancelEditFromKeyboard(event);
+        if (!this.isEditSubmitShortcut(event)) return;
+        event.preventDefault();
+        this.saveMessageEdit(message);
+    }
 
-        const isSubmitShortcut =
-            event.key === 'Enter' && (event.ctrlKey || event.metaKey);
+    protected cancelEditFromKeyboard(event: KeyboardEvent): void {
+        event.preventDefault();
+        this.cancelMessageEdit();
+    }
 
-        if (isSubmitShortcut) {
-            event.preventDefault();
-            this.saveMessageEdit(message);
-        }
+    protected isEditSubmitShortcut(event: KeyboardEvent): boolean {
+        return event.key === 'Enter' && (event.ctrlKey || event.metaKey);
     }
 
 protected focusActiveEditTextarea(): void {
@@ -218,16 +205,10 @@ protected seedHelloWorldIfNeeded(): void {
     }
 
 protected resolveCurrentDirectUserName(preferredName = ''): void {
-        if (!this.currentDirectUserId) {
-            this.currentDirectUserName = '';
-            return;
-        }
+        if (!this.currentDirectUserId) return void (this.currentDirectUserName = '');
         this.currentDirectUserName = preferredName || this.currentDirectUserId;
         const knownUser = this.usersById[this.currentDirectUserId];
-        if (knownUser?.displayName) {
-            this.currentDirectUserName = knownUser.displayName;
-            return;
-        }
+        if (knownUser?.displayName) return void (this.currentDirectUserName = knownUser.displayName);
         this.fetchDirectUserName(preferredName);
     }
 
@@ -236,7 +217,7 @@ protected fetchDirectUserName(preferredName: string): void {
             .getUser(this.currentDirectUserId)
             .pipe(take(1))
             .subscribe({
-                next: (user) =>
+                next: (user: User) =>
                     this.applyFetchedDirectUserName(user, preferredName),
                 error: () => this.applyDirectUserFallbackName(preferredName),
             });
@@ -269,7 +250,7 @@ protected extractMentionQuery(value: string): string | null {
     }
 
 protected findMentionCandidates(query: string): MentionCandidate[] {
-        return Object.values(this.usersById)
+    return (Object.values(this.usersById) as User[])
             .filter((user) => !!user.id && user.id !== this.currentUserId)
             .map((user) => ({
                 id: user.id as string,
@@ -303,21 +284,24 @@ protected hideMentionSuggestions(): void {
 protected subscribeToThreadMessages(parentMessageId: string): void {
         this.threadSubscription?.unsubscribe();
         this.threadMessages = [];
-        this.threadSubscription = this.messageService
-            .getChannelThreadMessages(parentMessageId)
-            .subscribe({
-                next: (messages) => {
-                    this.threadMessages = messages;
-                },
-                error: (error) => {
-                    console.error('[THREAD READ ERROR]', error);
-                    this.errorMessage =
-                        'Thread-Nachrichten konnten nicht geladen werden.';
-                },
-            });
+        this.threadSubscription = this.messageService.getChannelThreadMessages(parentMessageId).subscribe({
+            next: (messages: ThreadMessage[]) => (this.threadMessages = messages),
+            error: (error: unknown) => this.handleThreadReadError(error),
+        });
+    }
+
+    protected handleThreadReadError(error: unknown): void {
+        console.error('[THREAD READ ERROR]', error);
+        this.errorMessage = 'Thread-Nachrichten konnten nicht geladen werden.';
     }
 
 protected resetMessageStreams(): void {
+        this.resetLiveCollections();
+        this.resetComposerTransientState();
+        this.resetEditState();
+    }
+
+    protected resetLiveCollections(): void {
         this.liveMessagesSubscription?.unsubscribe();
         this.liveMessagesSubscription = null;
         this.liveMessages = [];
@@ -326,11 +310,17 @@ protected resetMessageStreams(): void {
         this.messageGroups = [];
         this.hasMoreMessages = true;
         this.isLoadingMoreMessages = false;
+    }
+
+    protected resetComposerTransientState(): void {
         this.clearMentionSelection();
         this.selectedAttachments = [];
         this.attachmentError = '';
         this.pendingOlderScrollRestore = null;
         this.showScrollToLatestButton = false;
+    }
+
+    protected resetEditState(): void {
         this.editingMessageId = null;
         this.editMessageControl.setValue('');
         this.isSavingEdit = false;

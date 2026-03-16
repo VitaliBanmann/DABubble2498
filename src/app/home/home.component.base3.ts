@@ -70,27 +70,19 @@ export class HomeComponentBase3 extends HomeComponentBase2 {
         currentGroup: MessageGroup,
         nextMessage: Message,
     ): boolean {
-        const previousMessage =
-            currentGroup.messages[currentGroup.messages.length - 1];
-        if (!previousMessage) {
-            return true;
-        }
+        const previousMessage = this.getPreviousGroupMessage(currentGroup);
+        if (!previousMessage) return true;
+        return this.hasGroupBoundary(currentGroup, nextMessage, previousMessage);
+    }
 
-        if (currentGroup.senderId !== nextMessage.senderId) {
-            return true;
-        }
+    protected getPreviousGroupMessage(group: MessageGroup): Message | null {
+        return group.messages[group.messages.length - 1] ?? null;
+    }
 
-        const previousDate = this.toDate(previousMessage.timestamp);
-        const nextDate = this.toDate(nextMessage.timestamp);
-
-        if (!this.isSameCalendarDay(previousDate, nextDate)) {
-            return true;
-        }
-
-        return !this.isWithinMessageGroupWindow(
-            nextMessage.timestamp,
-            previousMessage.timestamp,
-        );
+    protected hasGroupBoundary(group: MessageGroup, next: Message, previous: Message): boolean {
+        const previousDate = this.toDate(previous.timestamp);
+        const nextDate = this.toDate(next.timestamp);
+        return group.senderId !== next.senderId || !this.isSameCalendarDay(previousDate, nextDate) || !this.isWithinMessageGroupWindow(next.timestamp, previous.timestamp);
     }
 
 protected createMessageGroup(message: Message, index: number): MessageGroup {
@@ -133,24 +125,23 @@ closeThread(): void {
 
 loadOlderMessages(): void {
         if (!this.canLoadOlderMessages()) return;
-
         const oldestLoaded = this.messages[0];
         if (!oldestLoaded?.timestamp) return this.stopOlderLoading();
-
-        const container = this.getMessageListElement();
-        if (container) {
-            this.pendingOlderScrollRestore = {
-                previousScrollTop: container.scrollTop,
-                previousScrollHeight: container.scrollHeight,
-            };
-        }
-
+        this.captureOlderMessagesScroll();
         this.isLoadingMoreMessages = true;
-
         this.createOlderLoader(oldestLoaded.timestamp).subscribe({
-            next: (older) => this.applyOlderMessages(older),
-            error: (error) => this.handleOlderLoadError(error),
+            next: (older: Message[]) => this.applyOlderMessages(older),
+            error: (error: unknown) => this.handleOlderLoadError(error),
         });
+    }
+
+    protected captureOlderMessagesScroll(): void {
+        const container = this.getMessageListElement();
+        if (!container) return;
+        this.pendingOlderScrollRestore = {
+            previousScrollTop: container.scrollTop,
+            previousScrollHeight: container.scrollHeight,
+        };
     }
 
 openThreadForMessage(message: Message): void {
@@ -169,16 +160,18 @@ sendThreadMessage(): void {
         const text = this.threadMessageControl.value.trim();
         if (!text) return;
         this.isThreadSending = true;
-        this.messageService
-            .sendChannelThreadMessage(
-                this.activeThreadParent!.id!,
-                text,
-                this.currentUserId ?? '',
-            )
-            .subscribe({
-                next: () => this.onThreadSendSuccess(),
-                error: (error) => this.onThreadSendError(error),
-            });
+        this.createThreadMessageRequest(text).subscribe({
+            next: () => this.onThreadSendSuccess(),
+            error: (error: unknown) => this.onThreadSendError(error),
+        });
+    }
+
+    protected createThreadMessageRequest(text: string): Observable<string> {
+        return this.messageService.sendChannelThreadMessage(
+            this.activeThreadParent!.id!,
+            text,
+            this.currentUserId ?? '',
+        );
     }
 
 async logout(): Promise<void> {
@@ -186,40 +179,31 @@ async logout(): Promise<void> {
     }
 
 sendMessage(): void {
-        if (this.isSending) {
-            return;
-        }
+        if (this.isSending) return;
+        if (this.isComposeMode) return void this.sendComposeMessage();
+        this.sendPreparedRequest();
+    }
 
-        if (this.isComposeMode) {
-            void this.onComposeTargetSubmit().then(() => {
-                if (!this.composeResolvedTarget) {
-                    this.errorMessage =
-                        'Bitte zuerst einen gueltigen Empfaenger ueber #channel oder @name auswaehlen.';
-                    return;
-                }
+    protected async sendComposeMessage(): Promise<void> {
+        await this.onComposeTargetSubmit();
+        if (!this.composeResolvedTarget) return void this.applyComposeSendError();
+        this.sendPreparedRequest();
+    }
 
-                const request$ = this.prepareSendRequest();
-                if (!request$) return;
-                this.subscribeToSendRequest(request$);
-            });
-            return;
-        }
+    protected applyComposeSendError(): void {
+        this.errorMessage =
+            'Bitte zuerst einen gueltigen Empfaenger ueber #channel oder @name auswaehlen.';
+    }
+
+    protected sendPreparedRequest(): void {
         const request$ = this.prepareSendRequest();
-        if (!request$) {
-            return;
-        }
+        if (!request$) return;
         this.subscribeToSendRequest(request$);
     }
 
 protected prepareSendRequest(): Observable<string> | null {
         const text = this.readMessageText();
-        if (
-            (!text && !this.selectedAttachments.length) ||
-            !this.validateSender()
-        ) {
-            return null;
-        }
-
+        if ((!text && !this.selectedAttachments.length) || !this.validateSender()) return null;
         this.prepareSending();
         return this.buildSendRequest(text);
     }
@@ -243,7 +227,7 @@ onAttachmentSelected(event: Event): void {
 
 removeAttachment(index: number): void {
         this.selectedAttachments = this.selectedAttachments.filter(
-            (_file, currentIndex) => currentIndex !== index,
+            (_file: File, currentIndex: number) => currentIndex !== index,
         );
     }
 
@@ -280,15 +264,15 @@ onComposerInput(): void {
 
 protected resizeComposerTextarea(): void {
         const textarea = this.composerTextareaRef?.nativeElement;
-        if (!textarea) {
-            return;
-        }
-
+        if (!textarea) return;
         textarea.style.height = `${this.composerMinHeightPx}px`;
+        this.applyComposerHeight(textarea);
+    }
+
+    protected applyComposerHeight(textarea: HTMLTextAreaElement): void {
         const nextHeight = Math.min(textarea.scrollHeight, this.composerMaxHeightPx);
         textarea.style.height = `${nextHeight}px`;
-        textarea.style.overflowY =
-            textarea.scrollHeight > this.composerMaxHeightPx ? 'auto' : 'hidden';
+        textarea.style.overflowY = textarea.scrollHeight > this.composerMaxHeightPx ? 'auto' : 'hidden';
     }
 
 protected focusComposerTextarea(): void {
@@ -305,20 +289,13 @@ protected focusComposerTextarea(): void {
 protected subscribeToSendRequest(request$: Observable<string>): void {
         request$.subscribe({
             next: () => this.onSendSuccess(),
-            error: (error) => this.onSendError(error),
+            error: (error: unknown) => this.onSendError(error),
         });
     }
 
 protected validateSender(): boolean {
-        if (!this.activeAuthUser)
-            return this.rejectSender(
-                'Du bist nicht angemeldet. Bitte melde dich erneut an.',
-            );
-        if (this.activeAuthUser.isAnonymous || !this.currentUserId) {
-            return this.rejectSender(
-                'Als Gast kannst du keine Nachrichten senden.',
-            );
-        }
+        if (!this.activeAuthUser) return this.rejectSender('Du bist nicht angemeldet. Bitte melde dich erneut an.');
+        if (this.activeAuthUser.isAnonymous || !this.currentUserId) return this.rejectSender('Als Gast kannst du keine Nachrichten senden.');
         return true;
     }
 
@@ -330,14 +307,8 @@ protected prepareSending(): void {
 
 protected buildSendRequest(text: string): Observable<string> | null {
         try {
-            if (this.isComposeMode) {
-                return this.buildComposeSendRequest(text);
-            }
-
-            if (this.isDirectMessage) {
-                return this.buildDirectSendRequest(text);
-            }
-
+            if (this.isComposeMode) return this.buildComposeSendRequest(text);
+            if (this.isDirectMessage) return this.buildDirectSendRequest(text);
             return this.buildChannelSendRequest(text);
         } catch (error) {
             this.onSendError(error);

@@ -37,17 +37,7 @@ export function buildMessagePayload(message: Message): Message {
     const mentions = sanitizeMentions(message.mentions, senderId);
     const attachments = sanitizeAttachments(message.attachments);
     ensureHasContent(text, attachments);
-
-    return {
-        ...message,
-        text,
-        senderId,
-        mentions,
-        attachments,
-        searchTokens: buildMessageSearchTokens(text, attachments),
-        timestamp: new Date(),
-        read: false,
-    };
+    return { ...message, text, senderId, mentions, attachments, searchTokens: buildMessageSearchTokens(text, attachments), timestamp: new Date(), read: false };
 }
 
 export function buildDirectMessagePayload(
@@ -61,13 +51,5 @@ export function buildDirectMessagePayload(
     const cleanSenderId = requireNonEmpty(senderId, 'Missing senderId');
     const cleanAttachments = sanitizeAttachments(attachments);
     ensureHasContent(cleanText, cleanAttachments);
-
-    return {
-        text: cleanText,
-        senderId: cleanSenderId,
-        receiverId: otherUserId,
-        conversationId: createConversationId(cleanSenderId, otherUserId),
-        mentions: sanitizeMentions(mentions, cleanSenderId),
-        attachments: cleanAttachments,
-    };
+    return { text: cleanText, senderId: cleanSenderId, receiverId: otherUserId, conversationId: createConversationId(cleanSenderId, otherUserId), mentions: sanitizeMentions(mentions, cleanSenderId), attachments: cleanAttachments };
 }

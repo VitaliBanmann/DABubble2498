@@ -89,40 +89,31 @@ export function mapSearchResults(
     channels: any[],
     users: any[],
     messages: any[],
-): {
-    channels: SearchChannelResult[];
-    users: SearchUserResult[];
-    messages: SearchMessageResult[];
-} {
+) {
     return {
-        channels: channels
-            .filter((channel) => !!channel.id)
-            .map((channel) => ({ id: channel.id as string, name: channel.name }))
-            .slice(0, 5),
-        users: users
-            .filter((user) => !!user.id)
-            .map((user) => ({
-                id: user.id as string,
-                name: user.displayName,
-                email: user.email,
-            }))
-            .slice(0, 5),
-        messages: messages
-            .filter(
-                (message) =>
-                    !!message.id &&
-                    (message.channelId || message.conversationId),
-            )
-            .map((message) => ({
-                id: message.id as string,
-                text: message.text,
-                kind: (message.kind ?? 'channel') as 'channel' | 'dm',
-                channelId: message.channelId,
-                conversationId: message.conversationId,
-                partnerUserId: message.partnerUserId,
-            }))
-            .slice(0, 5),
+        channels: mapChannelResults(channels),
+        users: mapUserResults(users),
+        messages: mapMessageResults(messages),
     };
+}
+
+function mapChannelResults(channels: any[]): SearchChannelResult[] {
+    return channels.filter((channel) => !!channel?.id).map((channel) => ({ id: channel.id as string, name: channel.name })).slice(0, 5);
+}
+
+function mapUserResults(users: any[]): SearchUserResult[] {
+    return users.filter((user) => !!user?.id).map((user) => ({ id: user.id as string, name: user.displayName, email: user.email })).slice(0, 5);
+}
+
+function mapMessageResults(messages: any[]): SearchMessageResult[] {
+    return messages.filter((message) => !!message?.id && (message.channelId || message.conversationId)).map((message) => ({
+        id: message.id as string,
+        text: message.text,
+        kind: (message.kind ?? 'channel') as 'channel' | 'dm',
+        channelId: message.channelId,
+        conversationId: message.conversationId,
+        partnerUserId: message.partnerUserId,
+    })).slice(0, 5);
 }
 
 export function mergeWithDefaults(channels: any[]): SearchChannelResult[] {
@@ -150,10 +141,11 @@ export function createSearchStream(
         cachedUsers: User[];
     },
 ) {
-    const channelResults$ = buildChannelResults$(token, deps);
-    const userResults$ = buildUserResults$(token, deps);
-    const messageResults$ = buildMessageResults$(token, deps);
-    return combineLatest([channelResults$, userResults$, messageResults$]);
+    return combineLatest([
+        buildChannelResults(token, deps),
+        buildUserResults(token, deps),
+        buildMessageResults(token, deps),
+    ]);
 }
 
 function matchesSearch(parts: Array<unknown>, token: string): boolean {
@@ -162,51 +154,41 @@ function matchesSearch(parts: Array<unknown>, token: string): boolean {
     );
 }
 
-function buildChannelResults$(
+function buildChannelResults(
     token: string,
     deps: {
         channelService: ChannelService;
         cachedChannels: SearchChannelResult[];
     },
 ) {
-    const fallback = deps.cachedChannels.filter((channel) =>
-        matchesSearch([channel.name], token),
-    );
-
+    const fallback = deps.cachedChannels.filter((channel) => matchesSearch([channel.name], token));
     return deps.channelService.getAllChannels().pipe(
-        startWith(null as any),
-        map((channels) =>
-            (channels ? mergeWithDefaults(channels) : deps.cachedChannels).filter(
-                (channel) => matchesSearch([channel.name], token),
-            ),
-        ),
+        startWith(null),
+        map((channels) => filterChannelResults(channels ? mergeWithDefaults(channels) : deps.cachedChannels, token)),
         catchError(() => of(fallback)),
     );
 }
 
-function buildUserResults$(
+function filterChannelResults(channels: SearchChannelResult[], token: string): SearchChannelResult[] {
+    return channels.filter((channel) => matchesSearch([channel.name], token));
+}
+
+function buildUserResults(
     token: string,
     deps: {
         cachedUsers: User[];
         userService: UserService;
     },
 ) {
-    const fallback = deps.cachedUsers.filter((user) =>
-        matchesSearch([user?.displayName, user?.email], token),
-    );
-
+    const fallback = deps.cachedUsers.filter((user) => matchesSearch([user?.displayName, user?.email], token));
     return deps.userService.getAllUsersRealtime().pipe(
         startWith(deps.cachedUsers),
-        map((users) =>
-            users.filter((user) =>
-                matchesSearch([user?.displayName, user?.email], token),
-            ),
-        ),
+        map((users) => users.filter((user) => matchesSearch([user?.displayName, user?.email], token))),
         catchError(() => of(fallback)),
     );
 }
 
-function buildMessageResults$(
+function buildMessageResults(
     token: string,
     deps: {
         authService: AuthService;
@@ -216,24 +198,20 @@ function buildMessageResults$(
     },
 ) {
     return combineLatest([
-        buildChannelMessageResults$(token, deps).pipe(startWith([] as any[])),
-        buildDmMessageResults$(token, deps).pipe(startWith([] as any[])),
+        buildChannelMessageResults(token, deps).pipe(startWith([] as any[])),
+        buildDmMessageResults(token, deps).pipe(startWith([] as any[])),
     ] as [Observable<any[]>, Observable<any[]>]).pipe(
         debounceTime(200),
-        map(([channelMessages, directMessages]) =>
-            [...channelMessages, ...directMessages]
-                .sort(
-                    (left, right) =>
-                        new Date(right?.timestamp ?? 0).getTime() -
-                        new Date(left?.timestamp ?? 0).getTime(),
-                )
-                .slice(0, 20),
-        ),
+        map(([channelMessages, directMessages]) => mergeSearchMessages(channelMessages, directMessages)),
         catchError(() => of([])),
     );
 }
 
-function buildChannelMessageResults$(
+function mergeSearchMessages(channelMessages: any[], directMessages: any[]): any[] {
+    return [...channelMessages, ...directMessages].sort((left, right) => new Date(right?.timestamp ?? 0).getTime() - new Date(left?.timestamp ?? 0).getTime()).slice(0, 20);
+}
+
+function buildChannelMessageResults(
     token: string,
     deps: {
         channelService: ChannelService;
@@ -242,31 +220,20 @@ function buildChannelMessageResults$(
 ) {
     return getSearchableChannelIds(deps.channelService).pipe(
         distinctUntilChanged((left, right) => left.join(',') === right.join(',')),
-        switchMap((channelIds) => {
-            if (!channelIds.length) return of([]);
-
-            return combineLatest(
-                channelIds.map((channelId) =>
-                    deps.messageService.streamLatestChannelMessages(channelId, 200).pipe(
-                        map((messages) =>
-                            messages
-                                .filter((message) => matchesSearch([message?.text], token))
-                                .map((message) => ({
-                                    ...message,
-                                    kind: 'channel' as const,
-                                    channelId,
-                                })),
-                        ),
-                        catchError(() => of([] as any[])),
-                    ),
-                ),
-            ).pipe(map((grouped) => grouped.flat()));
-        }),
+        switchMap((channelIds) => loadChannelMessageResults(channelIds, token, deps.messageService)),
         catchError(() => of([])),
     );
 }
 
-function buildDmMessageResults$(
+function loadChannelMessageResults(channelIds: string[], token: string, messageService: MessageService): Observable<any[]> {
+    if (!channelIds.length) return of([]);
+    return combineLatest(channelIds.map((channelId) => messageService.streamLatestChannelMessages(channelId, 200).pipe(
+        map((messages) => messages.filter((message) => matchesSearch([message?.text], token)).map((message) => ({ ...message, kind: 'channel' as const, channelId }))),
+        catchError(() => of([] as any[])),
+    ))).pipe(map((grouped) => grouped.flat()));
+}
+
+function buildDmMessageResults(
     token: string,
     deps: {
         authService: AuthService;
@@ -277,32 +244,23 @@ function buildDmMessageResults$(
     return deps.userService.getAllUsersRealtime().pipe(
         map((users) => users.map((user) => user.id as string).filter(Boolean).sort()),
         distinctUntilChanged((left, right) => left.join(',') === right.join(',')),
-        switchMap((userIds) => {
-            const currentUser = deps.authService.getCurrentUser();
-            if (!currentUser) return of([]);
-
-            const otherIds = userIds.filter((id) => id !== currentUser.uid);
-            if (!otherIds.length) return of([]);
-
-            return combineLatest(
-                otherIds.map((userId) =>
-                    deps.messageService.streamLatestDirectMessages(userId, 200).pipe(
-                        map((messages) =>
-                            messages
-                                .filter((message) => matchesSearch([message?.text], token))
-                                .map((message) => ({
-                                    ...message,
-                                    kind: 'dm' as const,
-                                    partnerUserId: userId,
-                                })),
-                        ),
-                        catchError(() => of([])),
-                    ),
-                ),
-            ).pipe(map((grouped) => grouped.flat()));
-        }),
+        switchMap((userIds) => loadDmMessageResults(userIds, token, deps)),
         catchError(() => of([])),
     );
+}
+
+function loadDmMessageResults(
+    userIds: string[],
+    token: string,
+    deps: { authService: AuthService; messageService: MessageService },
+): Observable<any[]> {
+    const currentUser = deps.authService.getCurrentUser();
+    const otherIds = currentUser ? userIds.filter((id) => id !== currentUser.uid) : [];
+    if (!currentUser || !otherIds.length) return of([]);
+    return combineLatest(otherIds.map((userId) => deps.messageService.streamLatestDirectMessages(userId, 200).pipe(
+        map((messages) => messages.filter((message) => matchesSearch([message?.text], token)).map((message) => ({ ...message, kind: 'dm' as const, partnerUserId: userId }))),
+        catchError(() => of([])),
+    ))).pipe(map((grouped) => grouped.flat()));
 }
 
 function getSearchableChannelIds(channelService: ChannelService) {

@@ -83,37 +83,32 @@ export class HomeComponentBase2 extends HomeComponentBase1 {
 async onComposeTargetSubmit(): Promise<void> {
         const raw = this.composeTargetControl.value.trim();
         if (!raw) {
-            this.errorMessage =
-                'Bitte gib ein Ziel ein (#channel, @user oder E-Mail).';
-            this.composeResolvedTarget = null;
+            this.applyComposeTargetError(
+                'Bitte gib ein Ziel ein (#channel, @user oder E-Mail).',
+            );
             return;
         }
-
         this.hideComposeTargetSuggestions();
+        this.resolveComposeTarget(raw);
+    }
 
+    protected resolveComposeTarget(raw: string): void {
         const channelId = this.resolveChannelTarget(raw);
-        if (channelId) {
-            this.composeResolvedTarget = { kind: 'channel', channelId };
-            this.errorMessage = '';
-            return;
-        }
-
+        if (channelId) return this.applyComposeChannelTarget(channelId);
         const user = this.resolveDirectTarget(raw);
-        if (user?.id) {
-            if (user.id === this.currentUserId) {
-                this.errorMessage =
-                    'Direktnachricht an dich selbst ist nicht noetig.';
-                this.composeResolvedTarget = null;
-                return;
-            }
+        if (!user?.id) return this.applyComposeTargetError('Ziel nicht gefunden. Nutze #channel, @Name oder E-Mail.');
+        if (user.id === this.currentUserId) return this.applyComposeTargetError('Direktnachricht an dich selbst ist nicht noetig.');
+        this.composeResolvedTarget = { kind: 'user', userId: user.id };
+        this.errorMessage = '';
+    }
 
-            this.composeResolvedTarget = { kind: 'user', userId: user.id };
-            this.errorMessage = '';
-            return;
-        }
+    protected applyComposeChannelTarget(channelId: string): void {
+        this.composeResolvedTarget = { kind: 'channel', channelId };
+        this.errorMessage = '';
+    }
 
-        this.errorMessage =
-            'Ziel nicht gefunden. Nutze #channel, @Name oder E-Mail.';
+    protected applyComposeTargetError(message: string): void {
+        this.errorMessage = message;
         this.composeResolvedTarget = null;
     }
 
@@ -126,7 +121,7 @@ protected resolveChannelTarget(input: string): string | null {
         );
         if (channelById) return channelById;
 
-        const channelByLabel = Object.entries(this.channelNames).find(
+        const channelByLabel = (Object.entries(this.channelNames) as Array<[string, string]>).find(
             ([, label]) => label.toLowerCase() === token,
         );
         return channelByLabel?.[0] ?? null;
@@ -135,23 +130,29 @@ protected resolveChannelTarget(input: string): string | null {
 protected resolveDirectTarget(input: string): User | null {
         const token = input.replace(/^@/, '').trim().toLowerCase();
         if (!token) return null;
+    const allUsers = Object.values(this.usersById) as User[];
+        return this.findDirectTargetMatch(allUsers, token);
+    }
 
-        const allUsers = Object.values(this.usersById);
-
-        const byEmail = allUsers.find(
-            (u) => (u.email ?? '').trim().toLowerCase() === token,
+    protected findDirectTargetMatch(users: User[], token: string): User | null {
+        return (
+            this.findUserByEmail(users, token) ||
+            this.findUserByName(users, token) ||
+            this.findUserByPartialName(users, token) ||
+            null
         );
-        if (byEmail) return byEmail;
+    }
 
-        const byExactName = allUsers.find(
-            (u) => (u.displayName ?? '').trim().toLowerCase() === token,
-        );
-        if (byExactName) return byExactName;
+    protected findUserByEmail(users: User[], token: string): User | undefined {
+        return users.find((user) => (user.email ?? '').trim().toLowerCase() === token);
+    }
 
-        const byPartialName = allUsers.find((u) =>
-            (u.displayName ?? '').trim().toLowerCase().includes(token),
-        );
-        return byPartialName ?? null;
+    protected findUserByName(users: User[], token: string): User | undefined {
+        return users.find((user) => (user.displayName ?? '').trim().toLowerCase() === token);
+    }
+
+    protected findUserByPartialName(users: User[], token: string): User | undefined {
+        return users.find((user) => (user.displayName ?? '').trim().toLowerCase().includes(token));
     }
 
 protected setupDirectMessages(userId: string, name: string): void {
@@ -160,8 +161,8 @@ protected setupDirectMessages(userId: string, name: string): void {
         this.liveMessagesSubscription = this.createDirectLiveStream(
             userId,
         ).subscribe({
-            next: (messages) => this.applyLiveMessages(messages),
-            error: (error) => this.handleRouteMessageError(error),
+            next: (messages: Message[]) => this.applyLiveMessages(messages),
+            error: (error: unknown) => this.handleRouteMessageError(error),
         });
         this.markCurrentContextAsRead();
     }
@@ -172,8 +173,8 @@ protected setupChannelMessages(params: ParamMap): void {
         this.liveMessagesSubscription = this.createChannelLiveStream(
             this.currentChannelId,
         ).subscribe({
-            next: (messages) => this.applyLiveMessages(messages),
-            error: (error) => this.handleRouteMessageError(error),
+            next: (messages: Message[]) => this.applyLiveMessages(messages),
+            error: (error: unknown) => this.handleRouteMessageError(error),
         });
         this.markCurrentContextAsRead();
     }
@@ -200,42 +201,25 @@ protected applyLiveMessages(messages: Message[]): void {
 protected rebuildMessageList(): void {
         const wasNearBottom = this.isNearBottom();
         const previousLastMessageKey = this.lastRenderedMessageKey;
-
-        this.messages = this.mergeUniqueMessages(
-            this.olderMessages,
-            this.liveMessages,
-        );
+        this.messages = this.mergeUniqueMessages(this.olderMessages, this.liveMessages);
         this.messageGroups = this.buildMessageGroups(this.messages);
         this.seedHelloWorldIfNeeded();
+        this.updateRenderedMessageState(previousLastMessageKey, wasNearBottom);
+    }
 
-        const nextLastMessageKey = this.getLastMessageKey(this.messages);
-        const hasNewBottomMessage =
-            !!nextLastMessageKey &&
-            nextLastMessageKey !== previousLastMessageKey;
+    protected updateRenderedMessageState(previousKey: string, wasNearBottom: boolean): void {
+        const nextKey = this.getLastMessageKey(this.messages);
+        const hasNewMessage = !!nextKey && nextKey !== previousKey;
+        this.lastRenderedMessageKey = nextKey;
+        if (this.pendingScrollToMessageId) return this.tryScrollToMessage();
+        if (this.pendingOlderScrollRestore) return this.restoreOlderMessagesScrollPosition();
+        if (this.forceScrollToBottomOnNextRender || wasNearBottom) return this.scrollAfterRender();
+        this.showScrollToLatestButton = hasNewMessage;
+    }
 
-        this.lastRenderedMessageKey = nextLastMessageKey;
-
-        if (this.pendingScrollToMessageId) {
-            this.tryScrollToMessage();
-            return;
-        }
-
-        if (this.pendingOlderScrollRestore) {
-            this.restoreOlderMessagesScrollPosition();
-            return;
-        }
-
-        if (this.forceScrollToBottomOnNextRender || wasNearBottom) {
-            this.forceScrollToBottomOnNextRender = false;
-            this.scrollToBottom();
-            return;
-        }
-
-        if (hasNewBottomMessage) {
-            this.showScrollToLatestButton = true;
-        }
-
-        //this.scrollToBottom();
+    protected scrollAfterRender(): void {
+        this.forceScrollToBottomOnNextRender = false;
+        this.scrollToBottom();
     }
 
 protected getMessageListElement(): HTMLElement | null {
@@ -244,16 +228,12 @@ protected getMessageListElement(): HTMLElement | null {
 
 protected isNearBottom(): boolean {
         const container = this.getMessageListElement();
-        if (!container) {
-            return true;
-        }
+        if (!container) return true;
+        return this.getDistanceFromBottom(container) <= this.nearBottomThresholdPx;
+    }
 
-        const distanceFromBottom =
-            container.scrollHeight -
-            container.scrollTop -
-            container.clientHeight;
-
-        return distanceFromBottom <= this.nearBottomThresholdPx;
+    protected getDistanceFromBottom(container: HTMLElement): number {
+        return container.scrollHeight - container.scrollTop - container.clientHeight;
     }
 
 protected getLastMessageKey(messages: Message[]): string {
@@ -282,19 +262,20 @@ protected scrollToBottom(): void {
 
 protected restoreOlderMessagesScrollPosition(): void {
         setTimeout(() => {
-            const container = this.getMessageListElement();
             const snapshot = this.pendingOlderScrollRestore;
-
-            if (!container || !snapshot) {
-                return;
-            }
-
-            const heightDelta =
-                container.scrollHeight - snapshot.previousScrollHeight;
-
-            container.scrollTop = snapshot.previousScrollTop + heightDelta;
-            this.pendingOlderScrollRestore = null;
+            const container = this.getMessageListElement();
+            if (!container || !snapshot) return;
+            this.restoreScrollPosition(container, snapshot);
         }, 0);
+    }
+
+    protected restoreScrollPosition(
+        container: HTMLElement,
+        snapshot: { previousScrollTop: number; previousScrollHeight: number },
+    ): void {
+        const heightDelta = container.scrollHeight - snapshot.previousScrollHeight;
+        container.scrollTop = snapshot.previousScrollTop + heightDelta;
+        this.pendingOlderScrollRestore = null;
     }
 
 onMessageListScroll(): void {
@@ -310,18 +291,18 @@ scrollToLatestMessages(): void {
 
 protected buildMessageGroups(messages: Message[]): MessageGroup[] {
         const groups: MessageGroup[] = [];
-
         for (const message of messages) {
-            const lastGroup = groups[groups.length - 1];
-
-            if (!lastGroup || this.shouldStartNewGroup(lastGroup, message)) {
-                groups.push(this.createMessageGroup(message, groups.length));
-                continue;
-            }
-
-            lastGroup.messages.push(message);
+            this.appendMessageGroup(groups, message);
         }
-
         return groups;
+    }
+
+    protected appendMessageGroup(groups: MessageGroup[], message: Message): void {
+        const lastGroup = groups[groups.length - 1];
+        if (!lastGroup || this.shouldStartNewGroup(lastGroup, message)) {
+            groups.push(this.createMessageGroup(message, groups.length));
+            return;
+        }
+        lastGroup.messages.push(message);
     }
 }

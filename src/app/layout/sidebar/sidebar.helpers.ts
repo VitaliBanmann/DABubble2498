@@ -49,23 +49,16 @@ export function normalizeDirectMessageLabel(label: string): string {
 }
 
 export function resolveSidebarRouteState(url: string): SidebarRouteState {
-    const channelMatch = /\/app\/channel\/([^/?#]+)/.exec(url);
-    if (channelMatch?.[1]) {
-        return {
-            activeChannelId: decodeURIComponent(channelMatch[1]),
-            activeDirectMessageId: null,
-        };
-    }
-
-    const directMessageMatch = /\/app\/dm\/([^/?#]+)/.exec(url);
-    if (directMessageMatch?.[1]) {
-        return {
-            activeChannelId: null,
-            activeDirectMessageId: decodeURIComponent(directMessageMatch[1]),
-        };
-    }
-
+    const channelId = extractRouteSegment(url, /\/app\/channel\/([^/?#]+)/);
+    if (channelId) return { activeChannelId: channelId, activeDirectMessageId: null };
+    const directId = extractRouteSegment(url, /\/app\/dm\/([^/?#]+)/);
+    if (directId) return { activeChannelId: null, activeDirectMessageId: directId };
     return { activeChannelId: null, activeDirectMessageId: null };
+}
+
+function extractRouteSegment(url: string, pattern: RegExp): string | null {
+    const match = pattern.exec(url);
+    return match?.[1] ? decodeURIComponent(match[1]) : null;
 }
 
 export function mapSidebarDirectMessages(
@@ -76,29 +69,35 @@ export function mapSidebarDirectMessages(
     mentionByDirectId: Record<string, boolean>,
 ): SidebarDirectMessage[] {
     return getUniqueMembers(members, currentUserId)
-        .sort((left, right) =>
-            left.displayName.localeCompare(right.displayName, 'de'),
-        )
+        .sort((left, right) => left.displayName.localeCompare(right.displayName, 'de'))
         .filter((member) => !!member.id)
-        .map((member) => {
-            const id = member.id ?? '';
-            const isSelf = id === currentUserId;
-            const avatar = member.avatar ?? null;
-            return {
-                id,
-                label: isSelf
-                    ? `${member.displayName} (Du)`
-                    : member.displayName,
-                isOnline: member.presenceStatus === 'online',
-                isSelf,
-                avatar,
-                hasAvatar: !!avatar,
-                isActive: routeState.activeDirectMessageId === id,
-                hasUnread: !isSelf && !!unreadByDirectId[id],
-                hasMention: !isSelf && !!mentionByDirectId[id],
-            } satisfies SidebarDirectMessage;
-        })
+        .map((member) => toSidebarDirectMessage(member, currentUserId, routeState, unreadByDirectId, mentionByDirectId))
         .sort(compareDirectMessages);
+}
+
+function toSidebarDirectMessage(
+    member: User,
+    currentUserId: string,
+    routeState: SidebarRouteState,
+    unreadByDirectId: Record<string, boolean>,
+    mentionByDirectId: Record<string, boolean>,
+): SidebarDirectMessage {
+    const id = member.id ?? '', isSelf = id === currentUserId;
+    return {
+        id,
+        label: formatDirectLabel(member.displayName, isSelf),
+        isOnline: member.presenceStatus === 'online',
+        isSelf,
+        avatar: member.avatar ?? null,
+        hasAvatar: !!member.avatar,
+        isActive: routeState.activeDirectMessageId === id,
+        hasUnread: !isSelf && !!unreadByDirectId[id],
+        hasMention: !isSelf && !!mentionByDirectId[id],
+    };
+}
+
+function formatDirectLabel(displayName: string, isSelf: boolean): string {
+    return isSelf ? `${displayName} (Du)` : displayName;
 }
 
 export function createUniqueChannelId(
@@ -140,11 +139,14 @@ function mergeUniqueMember(
 ): void {
     const key = getMemberKey(member);
     if (!key) return;
-
     const existing = map.get(key);
-    if (!existing || scoreMemberRecord(member, currentUserId) > scoreMemberRecord(existing, currentUserId)) {
+    if (!existing || hasBetterMemberScore(member, existing, currentUserId)) {
         map.set(key, member);
     }
+}
+
+function hasBetterMemberScore(candidate: User, current: User, currentUserId: string): boolean {
+    return scoreMemberRecord(candidate, currentUserId) > scoreMemberRecord(current, currentUserId);
 }
 
 function scoreMemberRecord(member: User, currentUserId: string): number {
