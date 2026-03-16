@@ -9,54 +9,28 @@ import {
 import { Observable, catchError, map, of, switchMap, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
 import { FirestoreService } from './firestore.service';
-import { buildSearchTokens, normalizeSearchToken } from './search-token.util';
+import { normalizeSearchToken } from './search-token.util';
+import {
+    computeUpdatedReactions,
+} from './message.helpers';
+import {
+    Message,
+    MessageAttachment,
+    ThreadMessage,
+} from './message.models';
+import {
+    buildDirectMessagePayload,
+    buildMessagePayload,
+    createConversationId,
+    requireNonEmpty,
+} from './message.payload.util';
 
-export interface MessageReaction extends Record<string, unknown> {
-    emoji: string;
-    userIds: string[];
-}
-
-export interface MessageAttachment extends Record<string, unknown> {
-    name: string;
-    path: string;
-    url: string;
-    size: number;
-    contentType: string;
-    isImage: boolean;
-}
-
-export interface Message extends Record<string, unknown> {
-    id?: string;
-    text: string;
-    senderId: string;
-    receiverId?: string;
-    channelId?: string;
-    conversationId?: string;
-    timestamp: Timestamp | Date;
-    read?: boolean;
-    edited?: boolean;
-    editedAt?: Date;
-    reactions?: MessageReaction[];
-    mentions?: string[];
-    attachments?: MessageAttachment[];
-    searchTokens?: string[];
-}
-
-export interface ThreadMessage extends Record<string, unknown> {
-    id?: string;
-    text: string;
-    senderId: string;
-    timestamp: Timestamp | Date;
-}
-
-interface DirectMessagePayload {
-    text: string;
-    senderId: string;
-    receiverId: string;
-    conversationId: string;
-    mentions: string[];
-    attachments: MessageAttachment[];
-}
+export type {
+    Message,
+    MessageAttachment,
+    MessageReaction,
+    ThreadMessage,
+} from './message.models';
 
 @Injectable({
     providedIn: 'root',
@@ -77,7 +51,7 @@ export class MessageService {
     sendMessage(message: Message): Observable<string> {
         return this.firestoreService.addDocument(
             this.messagesCollection,
-            this.buildMessagePayload(message),
+            buildMessagePayload(message),
         );
     }
 
@@ -86,7 +60,7 @@ export class MessageService {
     }
 
     sendMessageWithId(messageId: string, message: Message): Observable<string> {
-        const payload = this.buildMessagePayload(message);
+        const payload = buildMessagePayload(message);
         return this.firestoreService
             .setDocument(this.messagesCollection, messageId, payload)
             .pipe(map(() => messageId));
@@ -193,7 +167,7 @@ export class MessageService {
         attachments: MessageAttachment[] = [],
     ): Observable<string> {
         return this.sendMessage({
-            ...this.buildDirectMessagePayload(
+            ...buildDirectMessagePayload(
                 otherUserId,
                 text,
                 senderId,
@@ -232,7 +206,7 @@ export class MessageService {
         attachments: MessageAttachment[] = [],
     ): Observable<string> {
         return this.sendMessageWithId(messageId, {
-            ...this.buildDirectMessagePayload(
+            ...buildDirectMessagePayload(
                 otherUserId,
                 text,
                 senderId,
@@ -314,14 +288,8 @@ export class MessageService {
             parentMessageId,
             'Missing parentMessageId',
         );
-        const cleanText = this.requireNonEmpty(
-            text,
-            'Thread message text is empty',
-        );
-        const cleanSenderId = this.requireNonEmpty(
-            senderId,
-            'Missing senderId',
-        );
+        const cleanText = this.requireNonEmpty(text, 'Thread message text is empty');
+        const cleanSenderId = this.requireNonEmpty(senderId, 'Missing senderId');
 
         return this.firestoreService.addDocument(
             `messages/${cleanParentMessageId}/threads`,
@@ -339,13 +307,7 @@ export class MessageService {
         return this.firestoreService
             .getDocument<Message>(this.messagesCollection, messageId)
             .pipe(
-                map((message) =>
-                    this.computeUpdatedReactions(
-                        message,
-                        emoji,
-                        currentUser.uid,
-                    ),
-                ),
+                map((message) => computeUpdatedReactions(message, emoji, currentUser.uid)),
                 switchMap((reactions) =>
                     this.firestoreService.updateDocument(
                         this.messagesCollection,
@@ -356,193 +318,13 @@ export class MessageService {
             );
     }
 
-    private createConversationId(
-        firstUserId: string,
-        secondUserId: string,
-    ): string {
-        return [firstUserId, secondUserId].sort().join('__');
-    }
-
-    private sanitizeMentions(
-        mentions: string[] | undefined,
-        senderId: string,
-    ): string[] {
-        if (!mentions?.length) {
-            return [];
-        }
-
-        const unique = new Set(
-            mentions
-                .map((id) => (id ?? '').trim())
-                .filter((id) => !!id && id !== senderId),
-        );
-
-        return Array.from(unique);
-    }
-
-    private sanitizeAttachments(
-        attachments: MessageAttachment[] | undefined,
-    ): MessageAttachment[] {
-        if (!attachments?.length) return [];
-        return attachments
-            .filter((item) => !!item?.name && !!item?.url && !!item?.path)
-            .map((item) => this.normalizeAttachment(item));
-    }
-
-    private buildMessagePayload(message: Message): Message {
-        const text = (message.text ?? '').trim();
-        const senderId = this.requireNonEmpty(
-            message.senderId ?? '',
-            'Missing senderId',
-        );
-        const mentions = this.sanitizeMentions(message.mentions, senderId);
-        const attachments = this.sanitizeAttachments(message.attachments);
-        this.ensureHasContent(text, attachments);
-        return this.composeMessagePayload(
-            message,
-            text,
-            senderId,
-            mentions,
-            attachments,
-        );
-    }
-
-    private buildDirectMessagePayload(
-        otherUserId: string,
-        text: string,
-        senderId: string,
-        mentions: string[],
-        attachments: MessageAttachment[],
-    ): DirectMessagePayload {
-        const cleanText = (text ?? '').trim();
-        const cleanSenderId = this.requireNonEmpty(
-            senderId,
-            'Missing senderId',
-        );
-        const cleanAttachments = this.sanitizeAttachments(attachments);
-        this.ensureHasContent(cleanText, cleanAttachments);
-        const conversationId = this.createConversationId(
-            cleanSenderId,
-            otherUserId,
-        );
-        return this.composeDirectPayload(
-            cleanText,
-            cleanSenderId,
-            otherUserId,
-            conversationId,
-            mentions,
-            cleanAttachments,
-        );
-    }
-
-    private composeMessagePayload(
-        message: Message,
-        text: string,
-        senderId: string,
-        mentions: string[],
-        attachments: MessageAttachment[],
-    ): Message {
-        return {
-            ...message,
-            text,
-            senderId,
-            mentions,
-            attachments,
-            searchTokens: this.buildMessageSearchTokens(text, attachments),
-            timestamp: new Date(),
-            read: false,
-        };
-    }
-
-    private composeDirectPayload(
-        text: string,
-        senderId: string,
-        receiverId: string,
-        conversationId: string,
-        mentions: string[],
-        attachments: MessageAttachment[],
-    ): DirectMessagePayload {
-        return {
-            text,
-            senderId,
-            receiverId,
-            conversationId,
-            mentions: this.sanitizeMentions(mentions, senderId),
-            attachments,
-        };
-    }
-
     private resolveConversationId(otherUserId: string): string | null {
         const currentUser = this.authService.getCurrentUser();
         if (!currentUser || !otherUserId) return null;
-        return this.createConversationId(currentUser.uid, otherUserId);
+        return createConversationId(currentUser.uid, otherUserId);
     }
 
     private requireNonEmpty(value: string, errorMessage: string): string {
-        const cleaned = (value ?? '').trim();
-        if (!cleaned) throw new Error(errorMessage);
-        return cleaned;
-    }
-
-    private ensureHasContent(
-        text: string,
-        attachments: MessageAttachment[],
-    ): void {
-        if (!text && !attachments.length) {
-            throw new Error('Message requires text or attachments');
-        }
-    }
-
-    private normalizeAttachment(item: MessageAttachment): MessageAttachment {
-        return {
-            name: item.name,
-            path: item.path,
-            url: item.url,
-            size: Number(item.size ?? 0),
-            contentType: item.contentType ?? '',
-            isImage: !!item.isImage,
-        };
-    }
-
-    private computeUpdatedReactions(
-        message: Message | null,
-        emoji: string,
-        userId: string,
-    ): MessageReaction[] {
-        if (!message) throw new Error('Message not found');
-        const existing = (message.reactions ?? []).map((reaction) => ({
-            ...reaction,
-            userIds: [...reaction.userIds],
-        }));
-        const reactionIndex = existing.findIndex(
-            (reaction) => reaction.emoji === emoji,
-        );
-        if (reactionIndex < 0)
-            return [...existing, { emoji, userIds: [userId] }];
-        return this.toggleUserReaction(existing, reactionIndex, userId);
-    }
-
-    private toggleUserReaction(
-        reactions: MessageReaction[],
-        reactionIndex: number,
-        userId: string,
-    ): MessageReaction[] {
-        const next = [...reactions];
-        const target = next[reactionIndex];
-        if (!target.userIds.includes(userId)) {
-            target.userIds.push(userId);
-            return next;
-        }
-        target.userIds = target.userIds.filter((id) => id !== userId);
-        if (!target.userIds.length) next.splice(reactionIndex, 1);
-        return next;
-    }
-
-    private buildMessageSearchTokens(
-        text: string,
-        attachments: MessageAttachment[],
-    ): string[] {
-        const attachmentNames = attachments.map((item) => item.name ?? '');
-        return buildSearchTokens([text, ...attachmentNames]);
+        return requireNonEmpty(value, errorMessage);
     }
 }

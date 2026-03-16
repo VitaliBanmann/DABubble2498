@@ -5,7 +5,7 @@
         "ng": "ng",
         "start": "ng serve",
         "build": "ng build",
-        "predeploy:check": "node scripts/security-check.mjs && node scripts/predeploy-check.mjs && node scripts/redundancy-check.mjs && npm run build",
+        "predeploy:check": "node scripts/security-check.mjs && node scripts/predeploy-check.mjs && node scripts/redundancy-check.mjs && node scripts/line-limit-check.mjs && npm run build",
         "watch": "ng build --watch --configuration development",
         "test": "ng test",
         "serve:ssr:da-bubble": "node dist/da-bubble/server/server.mjs"

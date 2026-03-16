@@ -11,26 +11,11 @@ import { AuthFlowService } from './services/auth-flow.service';
 import { AuthService } from './services/auth.service';
 import { PresenceService } from './services/presence.service';
 import { UserService } from './services/user.service';
-
-const AUTH_ERROR_MESSAGES: Record<string, string> = {
-    'auth/popup-closed-by-user':
-        'Google-Popup wurde geschlossen. Bitte erneut versuchen.',
-    'auth/popup-blocked':
-        'Popup wurde blockiert. Bitte Popup-Blocker deaktivieren und erneut versuchen.',
-    'auth/unauthorized-domain':
-        'Domain nicht autorisiert. Bitte Firebase Authorized Domains prüfen.',
-    'auth/operation-not-allowed':
-        'Anmeldemethode ist in Firebase nicht aktiviert.',
-    'auth/admin-restricted-operation':
-        'Diese Anmeldung ist aktuell eingeschränkt. Firebase-Konfiguration prüfen.',
-    'auth/invalid-email':
-        'Ungültige E-Mail-Adresse. Bitte überprüfe deine Eingabe.',
-    'auth/wrong-password': 'Falsches Passwort. Bitte versuche es erneut.',
-    'auth/user-not-found': 'Kein Konto mit dieser E-Mail gefunden.',
-    'auth/email-already-in-use': 'Diese E-Mail ist bereits registriert.',
-    'auth/network-request-failed':
-        'Netzwerkfehler. Bitte Internet/Firebase-Setup prüfen.',
-};
+import {
+    AUTH_ERROR_MESSAGES,
+    formatFallbackError,
+    parseFirebaseError,
+} from './app-auth.util';
 
 @Component({
     selector: 'app-root',
@@ -159,11 +144,9 @@ export class AppComponent {
     }
 
     private ensureValidLoginForm(): boolean {
-        if (this.loginForm.invalid) {
-            this.loginForm.markAllAsTouched();
-            return false;
-        }
-        return true;
+        if (!this.loginForm.invalid) return true;
+        this.loginForm.markAllAsTouched();
+        return false;
     }
 
     private startSubmitting(): void {
@@ -231,16 +214,11 @@ export class AppComponent {
     }
 
     private resolveSubmitError(mode: 'login' | 'register', error: unknown): string {
-        if (mode === 'login') {
-            return this.getAuthErrorMessage(
-                error,
-                'Anmeldung fehlgeschlagen. Bitte überprüfe E-Mail und Passwort.',
-            );
-        }
-
         return this.getAuthErrorMessage(
             error,
-            'Registrierung fehlgeschlagen. Bitte versuche es erneut.',
+            mode === 'login'
+                ? 'Anmeldung fehlgeschlagen. Bitte überprüfe E-Mail und Passwort.'
+                : 'Registrierung fehlgeschlagen. Bitte versuche es erneut.',
         );
     }
 
@@ -287,13 +265,9 @@ export class AppComponent {
 
     get showPasswordError(): boolean {
         const password = this.passwordControl.value ?? '';
-
-        return (
-            this.passwordControl.touched &&
-            (
-                this.passwordControl.invalid ||
-                (this.isRegisterMode && !!password && !this.isRegisterPasswordValid(password))
-            )
+        return this.passwordControl.touched && (
+            this.passwordControl.invalid ||
+            (this.isRegisterMode && !!password && !this.isRegisterPasswordValid(password))
         );
     }
 
@@ -321,10 +295,7 @@ export class AppComponent {
     }
 
     private resolveGoogleError(error: unknown): string {
-        return this.getAuthErrorMessage(
-            error,
-            'Google-Anmeldung fehlgeschlagen. Bitte versuche es erneut.',
-        );
+        return this.getAuthErrorMessage(error, 'Google-Anmeldung fehlgeschlagen. Bitte versuche es erneut.');
     }
 
     async onGuestLogin(): Promise<void> {
@@ -372,11 +343,9 @@ export class AppComponent {
     }
 
     private ensureValidResetForm(): boolean {
-        if (this.forgotPasswordForm.invalid) {
-            this.forgotPasswordForm.markAllAsTouched();
-            return false;
-        }
-        return true;
+        if (!this.forgotPasswordForm.invalid) return true;
+        this.forgotPasswordForm.markAllAsTouched();
+        return false;
     }
 
     private startResetSubmitting(): void {
@@ -414,33 +383,14 @@ export class AppComponent {
     }
 
     private getAuthErrorMessage(error: unknown, fallback: string): string {
-        const { code, message } = this.parseFirebaseError(error);
-        if (!code) {
-            return message ? `${fallback} (${message})` : fallback;
-        }
+        const { code, message } = parseFirebaseError(error);
+        if (!code) return message ? `${fallback} (${message})` : fallback;
 
         const mapped = AUTH_ERROR_MESSAGES[code];
         if (mapped) {
             return mapped;
         }
 
-        return this.formatFallbackError(fallback, code, message);
+        return formatFallbackError(fallback, code, message);
     }
-
-    private formatFallbackError(fallback: string, code: string, message: string): string {
-        return message ? `${fallback} (${code}: ${message})` : `${fallback} (${code})`;
-    }
-
-    private parseFirebaseError(error: unknown): { code: string; message: string } {
-        const firebaseError = error as {
-            code?: string;
-            message?: string;
-        } | null;
-
-        return {
-            code: firebaseError?.code ?? '',
-            message: firebaseError?.message ?? '',
-        };
-    }
-
 }

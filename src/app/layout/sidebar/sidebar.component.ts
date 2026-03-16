@@ -21,26 +21,16 @@ import { Channel, ChannelService } from '../../services/channel.service';
 import { UnreadStateService } from '../../services/unread-state.service';
 import { User, UserService } from '../../services/user.service';
 import { UiStateService } from '../../services/ui-state.service';
-
-interface SidebarChannel {
-    id: string;
-    label: string;
-    description?: string;
-    hasUnread?: boolean;
-    hasMention?: boolean;
-}
-
-interface SidebarDirectMessage {
-    id: string;
-    label: string;
-    isOnline: boolean;
-    isSelf: boolean;
-    avatar: string | null;
-    hasAvatar: boolean;
-    isActive: boolean;
-    hasUnread?: boolean;
-    hasMention?: boolean;
-}
+import {
+    createUniqueChannelId,
+    getUniqueMembers,
+    mapSidebarDirectMessages,
+    mapSidebarChannel,
+    normalizeDirectMessageLabel,
+    resolveSidebarRouteState,
+    SidebarChannel,
+    SidebarDirectMessage,
+} from './sidebar.helpers';
 
 @Component({
     selector: 'app-sidebar',
@@ -81,13 +71,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
     activeChannelId: string | null = null;
     activeDirectMessageId: string | null = null;
     private readonly subscription = new Subscription();
-    private unreadSubscription: Subscription | null = null;
     currentUserId = '';
     private unreadByChannelId: Record<string, boolean> = {};
     private unreadByDirectId: Record<string, boolean> = {};
     private mentionByChannelId: Record<string, boolean> = {};
     private mentionByDirectId: Record<string, boolean> = {};
-    
 
     isChannelsSectionOpen = true;
     isDirectMessagesSectionOpen = true;
@@ -119,7 +107,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
     readonly availableMembers$ = this.userService.getAllUsersRealtime().pipe(
         catchError(() => of([] as User[])),
         map((members) =>
-            this.getUniqueMembers(members).sort((left, right) =>
+            getUniqueMembers(members, this.currentUserId).sort((left, right) =>
                 left.displayName.localeCompare(right.displayName, 'de'),
             ),
         ),
@@ -164,30 +152,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         filter((event) => event instanceof NavigationEnd),
         startWith(null),
         map(() => this.router.url),
-        map((url) => {
-            const channelMatch = /\/app\/channel\/([^/?#]+)/.exec(url);
-            if (channelMatch?.[1]) {
-                return {
-                    activeChannelId: decodeURIComponent(channelMatch[1]),
-                    activeDirectMessageId: null as string | null,
-                };
-            }
-
-            const directMessageMatch = /\/app\/dm\/([^/?#]+)/.exec(url);
-            if (directMessageMatch?.[1]) {
-                return {
-                    activeChannelId: null as string | null,
-                    activeDirectMessageId: decodeURIComponent(
-                        directMessageMatch[1],
-                    ),
-                };
-            }
-
-            return {
-                activeChannelId: null as string | null,
-                activeDirectMessageId: null as string | null,
-            };
-        }),
+        map((url) => resolveSidebarRouteState(url)),
     );
 
     readonly directMessages$ = combineLatest([
@@ -205,45 +170,22 @@ export class SidebarComponent implements OnInit, OnDestroy {
             this.canCreateChannel = !!user && !user.isAnonymous;
             this.activeChannelId = routeState.activeChannelId;
             this.activeDirectMessageId = routeState.activeDirectMessageId;
-
-            return this.getUniqueMembers(members)
-                .sort((left, right) =>
-                    left.displayName.localeCompare(right.displayName, 'de'),
-                )
-                .filter((member) => !!member.id)
-                .map((member) => {
-                    const id = member.id ?? '';
-                    const isSelf = id === this.currentUserId;
-                    const avatar = member.avatar ?? null;
-
-                    return {
-                        id,
-                        label: isSelf
-                            ? `${member.displayName} (Du)`
-                            : member.displayName,
-                        isOnline: member.presenceStatus === 'online',
-                        isSelf,
-                        avatar,
-                        hasAvatar: !!avatar,
-                        isActive: routeState.activeDirectMessageId === id,
-                        hasUnread: !isSelf && !!this.unreadByDirectId[id],
-                        hasMention: !isSelf && !!this.mentionByDirectId[id],
-                    } satisfies SidebarDirectMessage;
-                })
-                .sort((left, right) => this.compareDirectMessages(left, right));
+            return mapSidebarDirectMessages(
+                members,
+                this.currentUserId,
+                routeState,
+                this.unreadByDirectId,
+                this.mentionByDirectId,
+            );
         }),
     );
 
     ngOnDestroy(): void {
-        this.unreadSubscription?.unsubscribe();
         this.subscription.unsubscribe();
     }
 
     openCreateChannelDialog(): void {
-        if (!this.canCreateChannel) {
-            return;
-        }
-
+        if (!this.canCreateChannel) return;
         this.showCreateChannelDialog = true;
         this.saveError = '';
         this.channelNameControl.setValue('');
@@ -258,20 +200,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
     }
 
     get isCreateDisabled(): boolean {
-        return (
-            this.isSaving ||
-            !this.canCreateChannel ||
-            this.channelNameControl.invalid
-        );
+        return this.isSaving || !this.canCreateChannel || this.channelNameControl.invalid;
     }
 
     toggleMemberSelection(memberId: string): void {
-        if (this.selectedMemberIds.has(memberId)) {
-            this.selectedMemberIds.delete(memberId);
-            return;
-        }
-
-        this.selectedMemberIds.add(memberId);
+        this.selectedMemberIds.has(memberId)
+            ? this.selectedMemberIds.delete(memberId)
+            : this.selectedMemberIds.add(memberId);
     }
 
     openMemberProfile(member: User): void {
@@ -304,7 +239,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
         void this.router.navigate(['/app/dm', userId], {
             queryParams: {
-                name: this.normalizeDirectMessageLabel(member.label),
+                name: normalizeDirectMessageLabel(member.label),
                 compose: null,
             },
             queryParamsHandling: 'merge',
@@ -313,23 +248,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
     getInitials(displayName: string): string {
         const parts = (displayName || '').trim().split(/\s+/).filter(Boolean);
-        if (!parts.length) {
-            return '?';
-        }
-
-        if (parts.length === 1) {
-            return parts[0].charAt(0).toUpperCase();
-        }
-
+        if (!parts.length) return '?';
+        if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
         return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase();
     }
 
     createChannel(): void {
         const draft = this.buildChannelDraft();
-        if (!draft) {
-            return;
-        }
-
+        if (!draft) return;
         this.saveChannelDraft(draft.id, draft.payload);
     }
 
@@ -344,38 +270,15 @@ export class SidebarComponent implements OnInit, OnDestroy {
         );
     }
 
-    private getUniqueMembers(members: User[]): User[] {
-        const map = new Map<string, User>();
-        members.forEach((member) => this.mergeUniqueMember(map, member));
-        return Array.from(map.values());
-    }
-
-    private scoreMemberRecord(member: User): number {
-        let score = 0;
-        if (member.id === this.currentUserId) {
-            score += 100;
-        }
-        if (member.presenceStatus) {
-            score += 10;
-        }
-        if (member.avatar) {
-            score += 2;
-        }
-        return score;
-    }
-
     private setDefaultChannels(): void {
         this.channels.splice(0, this.channels.length, ...this.defaultChannels);
     }
 
     private buildChannelDraft(): { id: string; payload: Channel } | null {
         const channelName = this.getValidatedChannelName();
-        if (!channelName || !this.ensureCurrentUser()) {
-            return null;
-        }
-
+        if (!channelName || !this.ensureCurrentUser()) return null;
         return {
-            id: this.createUniqueChannelId(channelName),
+            id: createUniqueChannelId(channelName, this.channels),
             payload: this.createChannelPayload(channelName),
         };
     }
@@ -385,12 +288,8 @@ export class SidebarComponent implements OnInit, OnDestroy {
             this.channelNameControl.markAsTouched();
             return '';
         }
-
         const channelName = this.channelNameControl.value.trim();
-        if (channelName) {
-            return channelName;
-        }
-
+        if (channelName) return channelName;
         this.markInvalidChannelName();
         return '';
     }
@@ -401,10 +300,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
     }
 
     private ensureCurrentUser(): boolean {
-        if (this.currentUserId) {
-            return true;
-        }
-
+        if (this.currentUserId) return true;
         this.saveError = 'Bitte erneut anmelden und dann Channel erstellen.';
         return false;
     }
@@ -422,26 +318,18 @@ export class SidebarComponent implements OnInit, OnDestroy {
         };
     }
 
-    private startSaving(): void {
+    private saveChannelDraft(channelId: string, payload: Channel): void {
         this.isSaving = true;
         this.saveError = '';
-    }
-
-    private saveChannelDraft(channelId: string, payload: Channel): void {
-        this.startSaving();
         this.subscription.add(
             this.channelService
                 .createChannelWithId(channelId, payload)
-                .pipe(finalize(() => this.finishSaving()))
+                .pipe(finalize(() => (this.isSaving = false)))
                 .subscribe({
                     next: () => this.handleChannelCreated(channelId, payload),
                     error: (error) => this.handleCreateChannelError(error),
                 }),
         );
-    }
-
-    private finishSaving(): void {
-        this.isSaving = false;
     }
 
     private handleChannelCreated(channelId: string, payload: Channel): void {
@@ -475,17 +363,19 @@ export class SidebarComponent implements OnInit, OnDestroy {
         merged: SidebarChannel[],
         channel: Channel,
     ): SidebarChannel[] {
-        if (!channel.id) {
-            return merged;
-        }
-
+        if (!channel.id) return merged;
         const existingIndex = merged.findIndex(
             (item) => item.id === channel.id,
         );
         this.upsertMergedChannel(
             merged,
             existingIndex,
-            this.mapSidebarChannel(channel),
+            mapSidebarChannel(
+                channel,
+                this.canonicalChannelLabels,
+                this.unreadByChannelId,
+                this.mentionByChannelId,
+            ),
         );
         return merged;
     }
@@ -495,93 +385,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
         index: number,
         channel: SidebarChannel,
     ): void {
-        if (index >= 0) {
-            merged[index] = channel;
-            return;
-        }
-
-        merged.push(channel);
-    }
-
-    private mapSidebarChannel(channel: Channel): SidebarChannel {
-        return {
-            id: channel.id ?? '',
-            label:
-                this.canonicalChannelLabels[channel.id ?? ''] ?? channel.name,
-            description: channel.description,
-            hasUnread: !!this.unreadByChannelId[channel.id ?? ''],
-            hasMention: !!this.mentionByChannelId[channel.id ?? ''],
-        };
-    }
-
-    private mergeUniqueMember(map: Map<string, User>, member: User): void {
-        const key = this.getMemberKey(member);
-        if (!key) {
-            return;
-        }
-
-        const existing = map.get(key);
-        if (
-            !existing ||
-            this.scoreMemberRecord(member) > this.scoreMemberRecord(existing)
-        ) {
-            map.set(key, member);
-        }
-    }
-
-    private getMemberKey(member: User): string {
-        const value = member.email || member.displayName || member.id || '';
-        return value.toString().trim().toLowerCase();
-    }
-
-    private compareDirectMessages(
-        left: SidebarDirectMessage,
-        right: SidebarDirectMessage,
-    ): number {
-        if (left.isSelf) {
-            return -1;
-        }
-        if (right.isSelf) {
-            return 1;
-        }
-        return left.label.localeCompare(right.label, 'de');
-    }
-
-    private normalizeDirectMessageLabel(label: string): string {
-        return label.replace(' (Du)', '').trim();
+        if (index >= 0) merged[index] = channel;
+        else merged.push(channel);
     }
 
     private sortChannels(): void {
         this.channels.sort((left, right) =>
             left.label.localeCompare(right.label, 'de'),
         );
-    }
-
-    private createUniqueChannelId(name: string): string {
-        const base = this.slugify(name);
-        if (!this.channels.some((channel) => channel.id === base)) {
-            return base;
-        }
-
-        let index = 2;
-        while (
-            this.channels.some((channel) => channel.id === `${base}-${index}`)
-        ) {
-            index += 1;
-        }
-
-        return `${base}-${index}`;
-    }
-
-    private slugify(value: string): string {
-        const normalized = value
-            .toLowerCase()
-            .normalize('NFKD')
-            .replace(/[\u0300-\u036f]/g, '')
-            .replace(/[^a-z0-9]+/g, '-')
-            .replace(/^-+|-+$/g, '')
-            .slice(0, 40);
-
-        return normalized || 'channel';
     }
 }
