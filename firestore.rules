@@ -194,11 +194,14 @@ service cloud.firestore {
         }
 
         function canUpdateMessage() {
-          return canReadMessage(resource.data)
-            && messageCoreFieldsUnchanged()
-            && (
-              request.auth.uid == resource.data.senderId
-              || request.resource.data.diff(resource.data).changedKeys().hasOnly(['reactions', 'read', 'updatedAt'])
+            return canReadMessage(resource.data)
+                && messageCoreFieldsUnchanged()
+                && (
+                    request.auth.uid == resource.data.senderId
+                    || (
+                        request.resource.data.diff(resource.data).changedKeys().hasOnly(['reactions', 'read', 'updatedAt'])
+                        && request.resource.data.reactions is list
+                    )
             );
         }
 

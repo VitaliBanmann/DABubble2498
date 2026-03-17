@@ -299,20 +299,32 @@ export class MessageService {
     }
 
     toggleReaction(params: ToggleReactionParams): Observable<void> {
-        const {
-            messageId,
-            emoji,
-            isDirectMessage,
-            channelId,
-            directUserId,
-        } = params;
+        const { messageId, emoji } = params;
 
         const currentUser = this.authService.getCurrentUser();
         if (!currentUser) throw new Error('User not authenticated');
-        return this.firestoreService.getDocument<Message>(this.messagesCollection, messageId).pipe(
-            map((message) => computeUpdatedReactions(message, emoji, currentUser.uid)),
-            switchMap((reactions) => this.firestoreService.updateDocument(this.messagesCollection, messageId, { reactions })),
-        );
+
+        return this.firestoreService
+            .getDocument<Message>(this.messagesCollection, messageId)
+            .pipe(
+                map((message) => {
+                    const reactions = computeUpdatedReactions(
+                        message,
+                        emoji,
+                        currentUser.uid,
+                    );
+                    console.log('[TOGGLE REACTION] messageId:', messageId);
+                    console.log('[TOGGLE REACTION] reactions:', reactions);
+                    return reactions;
+                }),
+                switchMap((reactions) =>
+                    this.firestoreService.updateDocument(
+                        this.messagesCollection,
+                        messageId,
+                        { reactions },
+                    ),
+                ),
+            );
     }
 
     private resolveConversationId(otherUserId: string): string | null {
