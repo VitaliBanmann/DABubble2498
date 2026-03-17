@@ -462,13 +462,15 @@
                                 <span class="toolbar-emoji">✅</span>
                             </button>
 
-                            <button
-                                type="button"
-                                class="message-toolbar__btn message-toolbar__btn--picker"
-                                aria-label="Emoji auswählen"
-                                (click)="toggleMessageEmojiPicker(group.messages[group.messages.length - 1], $event)"
-                            >
-                                <img src="assets/pictures/add_reaction.svg" alt="" aria-hidden="true" />
+                            <div class="message-toolbar__picker-wrap">
+                                <button
+                                    type="button"
+                                    class="message-toolbar__btn message-toolbar__btn--picker"
+                                    aria-label="Emoji auswählen"
+                                    (click)="toggleMessageEmojiPicker(group.messages[group.messages.length - 1], $event)"
+                                >
+                                    <img src="assets/pictures/add_reaction.svg" alt="" aria-hidden="true" />
+                                </button>
 
                                 @if (isMessageEmojiPickerOpen(group.messages[group.messages.length - 1])) {
                                     <div class="emoji-picker-popover" (click)="$event.stopPropagation()">
@@ -479,7 +481,7 @@
                                         ></emoji-mart>
                                     </div>
                                 }
-                            </button>
+                            </div>
 
                             @if (
                                 canOpenThreadFromToolbar(

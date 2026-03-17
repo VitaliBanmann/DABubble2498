@@ -124,10 +124,7 @@
     max-width: 90%;
     word-break: break-word;
     align-self: flex-start;
-    border-top-left-radius: 0;
-    border-top-right-radius: 24px;
-    border-bottom-right-radius: 24px;
-    border-bottom-left-radius: 24px;
+    border-radius: 0 24px 24px 24px;
 
     p {
         margin: 0;
@@ -139,9 +136,14 @@
 
 .message.own {
     align-self: flex-end;
-    background: #eceefe;
-
+    background: #797EF3;
     border-radius: 24px 0 24px 24px;
+
+    > div {
+        > p {
+            color: #000000;
+        }
+    }
 }
 
 .message--group {
@@ -366,6 +368,13 @@
 .message-toolbar--own {
     left: 16px;
     right: auto;
+}
+
+.message-toolbar__picker-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .article__container:hover .message-toolbar,
