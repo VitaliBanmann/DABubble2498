@@ -1,14 +1,17 @@
 <main class="home-page">
     <section class="chat-pane">
+        <!-- =========================================================
+             Header
+        ========================================================== -->
         <header class="home-header">
             <div class="home-header__title">
                 <h1>
                     {{
                         isComposeMode
-                            ? "Neue Nachricht"
+                            ? 'Neue Nachricht'
                             : isDirectMessage
-                              ? "@ " + currentConversationTitle
-                              : "# " + currentConversationTitle
+                                ? '@ ' + currentConversationTitle
+                                : '# ' + currentConversationTitle
                     }}
                 </h1>
             </div>
@@ -30,8 +33,8 @@
 
                         @if (remainingChannelMembersCount > 0) {
                             <span class="members-avatar__more">
-                    +{{ remainingChannelMembersCount }}
-                </span>
+                                +{{ remainingChannelMembersCount }}
+                            </span>
                         }
                     </button>
 
@@ -74,33 +77,23 @@
                         <div class="compose-target-suggestions">
                             @for (
                                 item of composeTargetSuggestions;
-                                track item.kind + "-" + item.id
-                            ) {
+                                track item.kind + '-' + item.id
+                                ) {
                                 <button
                                     type="button"
                                     class="compose-target-option"
-                                    [class.active]="
-                                        composeTargetActiveIndex === $index
-                                    "
-                                    (mouseenter)="
-                                        composeTargetActiveIndex = $index
-                                    "
-                                    (mousedown)="
-                                        onComposeTargetOptionMouseDown(
-                                            item,
-                                            $event
-                                        )
-                                    "
+                                    [class.active]="composeTargetActiveIndex === $index"
+                                    (mouseenter)="composeTargetActiveIndex = $index"
+                                    (mousedown)="onComposeTargetOptionMouseDown(item, $event)"
                                 >
-                                    <span
-                                        class="compose-target-option__label"
-                                        >{{ item.label }}</span
-                                    >
+                                    <span class="compose-target-option__label">
+                                        {{ item.label }}
+                                    </span>
+
                                     @if (item.subtitle) {
-                                        <span
-                                            class="compose-target-option__sub"
-                                            >{{ item.subtitle }}</span
-                                        >
+                                        <span class="compose-target-option__sub">
+                                            {{ item.subtitle }}
+                                        </span>
                                     }
                                 </button>
                             }
@@ -109,12 +102,11 @@
                 </form>
             }
         </header>
+
+        <!-- =========================================================
+             Message List / Chat Content
+        ========================================================== -->
         @if (!isComposeMode) {
-            <!--@if (latestMessageSummary) {
-                <p class="latest-message-summary">
-                    Letzte Nachricht: {{ latestMessageSummary }}
-                </p>
-            }-->
             @if (showScrollToLatestButton) {
                 <button
                     type="button"
@@ -131,6 +123,9 @@
                 #messageList
                 (scroll)="onMessageListScroll()"
             >
+                <!-- =========================================================
+                     Load Older Messages
+                ========================================================== -->
                 @if (hasMoreMessages) {
                     <div class="loadMessages">
                         <button
@@ -141,20 +136,32 @@
                         >
                             {{
                                 isLoadingMoreMessages
-                                    ? "Lade ältere Nachrichten..."
-                                    : "Ältere Nachrichten laden"
+                                    ? 'Lade ältere Nachrichten...'
+                                    : 'Ältere Nachrichten laden'
                             }}
                         </button>
                     </div>
                 }
 
+                <!-- =========================================================
+                     Empty State
+                ========================================================== -->
                 @if (!messages.length) {
                     <p class="empty-state">
                         Noch keine Nachrichten in diesem Channel.
                     </p>
                 }
 
+                <!-- =========================================================
+                     Message Groups
+                ========================================================== -->
                 @for (group of messageGroups; track group.id) {
+                    @let firstMessage = group.messages[0];
+                    @let lastMessage = getLastMessageOfGroup(group);
+
+                    <!-- =========================================================
+                         Date Separator
+                    ========================================================== -->
                     @if (shouldShowGroupDateSeparator($index, group)) {
                         <div class="date-separator" aria-hidden="true">
                             <span class="date-separator__label">
@@ -163,37 +170,40 @@
                         </div>
                     }
 
+                    <!-- =========================================================
+                         Message Group Container
+                    ========================================================== -->
                     <div
                         class="article__container"
                         [class.article__container--own]="group.isOwn"
                     >
                         <img
-                            [src]="getMessageAvatar(group.messages[0])"
-                            [alt]="
-                                getSenderLabel(group.messages[0]) + ' Avatar'
-                            "
+                            [src]="getMessageAvatar(firstMessage)"
+                            [alt]="getSenderLabel(firstMessage) + ' Avatar'"
                         />
 
                         <div
                             class="message__container"
                             [class.message__container--own]="group.isOwn"
                         >
+                            <!-- =========================================================
+                                 Message Group Meta
+                            ========================================================== -->
                             <div
                                 class="message__meta"
                                 [class.message__meta--own]="group.isOwn"
                             >
-                                <span class="sender__name">{{
-                                    getSenderLabel(group.messages[0])
-                                }}</span>
+                                <span class="sender__name">
+                                    {{ getSenderLabel(firstMessage) }}
+                                </span>
                                 <span class="sender__timestamp">
-                                    {{
-                                        formatTimestamp(
-                                            group.messages[0].timestamp
-                                        )
-                                    }}
+                                    {{ formatTimestamp(firstMessage.timestamp) }}
                                 </span>
                             </div>
 
+                            <!-- =========================================================
+                                 Message Group Body
+                            ========================================================== -->
                             <article
                                 class="message message--group"
                                 [class.own]="group.isOwn"
@@ -201,52 +211,34 @@
                                 @for (
                                     groupMessage of group.messages;
                                     track trackMessage($index, groupMessage)
-                                ) {
+                                    ) {
                                     <div
-                                        [id]="
-                                            groupMessage.id
-                                                ? 'msg-' + groupMessage.id
-                                                : null
-                                        "
+                                        [id]="groupMessage.id ? 'msg-' + groupMessage.id : null"
                                         class="message__line"
-                                        [class.message__line--own]="
-                                            isOwnMessage(groupMessage)
-                                        "
+                                        [class.message__line--own]="isOwnMessage(groupMessage)"
                                     >
+                                        <!-- =========================================================
+                                             Edit Mode
+                                        ========================================================== -->
                                         @if (isEditingMessage(groupMessage)) {
                                             <div
                                                 class="message-edit-box"
-                                                (click)="
-                                                    $event.stopPropagation()
-                                                "
+                                                (click)="$event.stopPropagation()"
                                             >
                                                 <textarea
                                                     #editMessageTextarea
                                                     class="message-edit-box__input"
-                                                    [formControl]="
-                                                        editMessageControl
-                                                    "
+                                                    [formControl]="editMessageControl"
                                                     rows="3"
-                                                    (keydown)="
-                                                        onEditTextareaKeydown(
-                                                            $event,
-                                                            groupMessage
-                                                        )
-                                                    "
+                                                    (keydown)="onEditTextareaKeydown($event, groupMessage)"
                                                 ></textarea>
 
-                                                <div
-                                                    class="message-edit-box__actions"
-                                                >
+                                                <div class="message-edit-box__actions">
                                                     <button
                                                         type="button"
                                                         class="message-edit-box__btn message-edit-box__btn--secondary"
-                                                        (click)="
-                                                            cancelMessageEdit()
-                                                        "
-                                                        [disabled]="
-                                                            isSavingEdit
-                                                        "
+                                                        (click)="cancelMessageEdit()"
+                                                        [disabled]="isSavingEdit"
                                                     >
                                                         Abbrechen
                                                     </button>
@@ -254,137 +246,99 @@
                                                     <button
                                                         type="button"
                                                         class="message-edit-box__btn message-edit-box__btn--primary"
-                                                        (click)="
-                                                            saveMessageEdit(
-                                                                groupMessage
-                                                            )
-                                                        "
-                                                        [disabled]="
-                                                            isSavingEdit
-                                                        "
+                                                        (click)="saveMessageEdit(groupMessage)"
+                                                        [disabled]="isSavingEdit"
                                                     >
                                                         {{
                                                             isSavingEdit
-                                                                ? "Speichere..."
-                                                                : "Speichern"
+                                                                ? 'Speichere...'
+                                                                : 'Speichern'
                                                         }}
                                                     </button>
 
-                                                    <p
-                                                        class="message-edit-box__hint"
-                                                    >
-                                                        Esc zum Abbrechen ·
-                                                        Ctrl/Cmd + Enter zum
+                                                    <p class="message-edit-box__hint">
+                                                        Esc zum Abbrechen · Ctrl/Cmd + Enter zum
                                                         Speichern
                                                     </p>
                                                 </div>
                                             </div>
                                         } @else {
+                                            <!-- =========================================================
+                                                 Message Text
+                                            ========================================================== -->
                                             <p>{{ groupMessage.text }}</p>
 
                                             @if (groupMessage.edited) {
-                                                <span
-                                                    class="message__edited-label"
-                                                    >(bearbeitet)</span
-                                                >
+                                                <span class="message__edited-label">
+                                                    (bearbeitet)
+                                                </span>
                                             }
 
-                                            @if (
-                                                groupMessage.attachments?.length
-                                            ) {
-                                                <div
-                                                    class="message-attachments"
-                                                >
+                                            <!-- =========================================================
+                                                 Attachments
+                                            ========================================================== -->
+                                            @if (groupMessage.attachments?.length) {
+                                                <div class="message-attachments">
                                                     @for (
                                                         attachment of groupMessage.attachments;
                                                         track attachment.path
-                                                    ) {
+                                                        ) {
                                                         <a
                                                             class="attachment-item"
-                                                            [href]="
-                                                                attachment.url
-                                                            "
+                                                            [href]="attachment.url"
                                                             target="_blank"
                                                             rel="noopener noreferrer"
                                                         >
-                                                            @if (
-                                                                attachment.isImage
-                                                            ) {
+                                                            @if (attachment.isImage) {
                                                                 <img
                                                                     class="attachment-image"
-                                                                    [src]="
-                                                                        attachment.url
-                                                                    "
-                                                                    [alt]="
-                                                                        attachment.name
-                                                                    "
+                                                                    [src]="attachment.url"
+                                                                    [alt]="attachment.name"
                                                                     loading="lazy"
                                                                 />
                                                             }
-                                                            <span
-                                                                class="attachment-name"
-                                                                >{{
-                                                                    attachment.name
-                                                                }}</span
-                                                            >
-                                                            <span
-                                                                class="attachment-download"
-                                                                >Download</span
-                                                            >
+
+                                                            <span class="attachment-name">
+                                                                {{ attachment.name }}
+                                                            </span>
+                                                            <span class="attachment-download">
+                                                                Download
+                                                            </span>
                                                         </a>
                                                     }
                                                 </div>
                                             }
 
-                                            @if (
-                                                hasMentionForCurrentUser(
-                                                    groupMessage
-                                                )
-                                            ) {
-                                                <span class="mention-pill"
-                                                    >Erwähnt dich</span
-                                                >
+                                            <!-- =========================================================
+                                                 Mentions
+                                            ========================================================== -->
+                                            @if (hasMentionForCurrentUser(groupMessage)) {
+                                                <span class="mention-pill">
+                                                    Erwähnt dich
+                                                </span>
                                             }
 
-                                            @if (
-                                                groupMessage.reactions?.length
-                                            ) {
-                                                @let visibleReactions =
-                                                    getVisibleReactions(
-                                                        groupMessage
-                                                    );
-                                                @let hiddenCount =
-                                                    getHiddenReactionCount(
-                                                        groupMessage
-                                                    );
+                                            <!-- =========================================================
+                                                 Reactions
+                                            ========================================================== -->
+                                            @if (groupMessage.reactions?.length) {
+                                                @let visibleReactions = getSortedVisibleReactions(groupMessage);
+                                                @let hiddenCount = getHiddenReactionCount(groupMessage);
+                                                @let totalReactions = groupMessage.reactions?.length ?? 0;
 
                                                 <div class="message__reactions">
                                                     @for (
                                                         reaction of visibleReactions;
                                                         track reaction.emoji
-                                                    ) {
+                                                        ) {
                                                         <button
                                                             type="button"
                                                             class="reaction"
-                                                            [class.active]="
-                                                                hasCurrentUserReacted(
-                                                                    reaction
-                                                                )
-                                                            "
-                                                            (click)="
-                                                                toggleReaction(
-                                                                    groupMessage,
-                                                                    reaction.emoji
-                                                                )
-                                                            "
+                                                            [class.active]="hasCurrentUserReacted(reaction)"
+                                                            (click)="toggleReaction(groupMessage, reaction.emoji)"
                                                         >
-                                                            <span>{{
-                                                                reaction.emoji
-                                                            }}</span>
-                                                            <span>{{
-                                                                reaction.userIds
-                                                                    .length
-                                                            }}</span>
+                                                            <span>{{ reaction.emoji }}</span>
+                                                            <span>{{ reaction.userIds.length }}</span>
                                                         </button>
                                                     }
 
@@ -392,29 +346,15 @@
                                                         <button
                                                             type="button"
                                                             class="reaction more"
-                                                            (click)="
-                                                                toggleReactionList(
-                                                                    groupMessage
-                                                                )
-                                                            "
+                                                            (click)="toggleReactionList(groupMessage)"
                                                         >
-                                                            +{{
-                                                                hiddenCount
-                                                            }}
-                                                            weitere
+                                                            +{{ hiddenCount }} weitere
                                                         </button>
-                                                    } @else if (
-                                                        (groupMessage.reactions
-                                                            ?.length ?? 0) > 20
-                                                    ) {
+                                                    } @else if (totalReactions > 20) {
                                                         <button
                                                             type="button"
                                                             class="reaction more"
-                                                            (click)="
-                                                                toggleReactionList(
-                                                                    groupMessage
-                                                                )
-                                                            "
+                                                            (click)="toggleReactionList(groupMessage)"
                                                         >
                                                             weniger anzeigen
                                                         </button>
@@ -426,119 +366,104 @@
                                 }
                             </article>
                         </div>
-                        <div
-                            class="message-toolbar"
-                            [class.message-toolbar--own]="group.isOwn"
-                        >
-                            <button
-                                type="button"
-                                class="message-toolbar__btn"
-                                aria-label="Mit Daumen hoch reagieren"
-                                (click)="
-                                    toggleReaction(
-                                        group.messages[
-                                            group.messages.length - 1
-                                        ],
-                                        '👍'
-                                    )
-                                "
-                            >
-                                <span class="toolbar-emoji">👍</span>
-                            </button>
 
-                            <button
-                                type="button"
-                                class="message-toolbar__btn"
-                                aria-label="Mit Haken reagieren"
-                                (click)="
-                                    toggleReaction(
-                                        group.messages[
-                                            group.messages.length - 1
-                                        ],
-                                        '✅'
-                                    )
-                                "
+                        <!-- =========================================================
+                             Message Toolbar
+                        ========================================================== -->
+                        @if (lastMessage) {
+                            <div
+                                class="message-toolbar"
+                                [class.message-toolbar--own]="group.isOwn"
                             >
-                                <span class="toolbar-emoji">✅</span>
-                            </button>
-
-                            <div class="message-toolbar__picker-wrap">
                                 <button
                                     type="button"
-                                    class="message-toolbar__btn message-toolbar__btn--picker"
-                                    aria-label="Emoji auswählen"
-                                    (click)="toggleMessageEmojiPicker(group.messages[group.messages.length - 1], $event)"
+                                    class="message-toolbar__btn"
+                                    aria-label="Mit Daumen hoch reagieren"
+                                    (click)="toggleReaction(lastMessage, '👍')"
                                 >
-                                    <img src="assets/pictures/add_reaction.svg" alt="" aria-hidden="true" />
+                                    <span class="toolbar-emoji">👍</span>
                                 </button>
 
-                                @if (isMessageEmojiPickerOpen(group.messages[group.messages.length - 1])) {
-                                    <div class="emoji-picker-popover" (click)="$event.stopPropagation()">
-                                        <emoji-mart
-                                            (emojiSelect)="onMessageEmojiSelect($event, group.messages[group.messages.length - 1])"
-                                            [showPreview]="false"
-                                            [perLine]="8"
-                                        ></emoji-mart>
-                                    </div>
+                                <button
+                                    type="button"
+                                    class="message-toolbar__btn"
+                                    aria-label="Mit Haken reagieren"
+                                    (click)="toggleReaction(lastMessage, '✅')"
+                                >
+                                    <span class="toolbar-emoji">✅</span>
+                                </button>
+
+                                <div class="message-toolbar__picker-wrap">
+                                    <button
+                                        type="button"
+                                        class="message-toolbar__btn message-toolbar__btn--picker"
+                                        aria-label="Emoji auswählen"
+                                        (click)="toggleMessageEmojiPicker(lastMessage, $event)"
+                                    >
+                                        <img
+                                            src="assets/pictures/add_reaction.svg"
+                                            alt=""
+                                            aria-hidden="true"
+                                        />
+                                    </button>
+
+                                    @if (isMessageEmojiPickerOpen(lastMessage)) {
+                                        <div
+                                            class="emoji-picker-popover"
+                                            (click)="$event.stopPropagation()"
+                                        >
+                                            <emoji-mart
+                                                (emojiSelect)="onMessageEmojiSelect($event, lastMessage)"
+                                                [showPreview]="false"
+                                                [perLine]="8"
+                                            ></emoji-mart>
+                                        </div>
+                                    }
+                                </div>
+
+                                @if (canOpenThreadFromToolbar(lastMessage)) {
+                                    <button
+                                        type="button"
+                                        class="message-toolbar__btn"
+                                        aria-label="Thread öffnen"
+                                        (click)="openThreadForMessage(lastMessage)"
+                                    >
+                                        <img
+                                            src="assets/pictures/answer.svg"
+                                            alt=""
+                                            aria-hidden="true"
+                                        />
+                                    </button>
+                                }
+
+                                @if (canEditMessage(lastMessage)) {
+                                    <button
+                                        type="button"
+                                        class="message-toolbar__btn"
+                                        aria-label="Nachricht bearbeiten"
+                                        (click)="onEditMessageClick(lastMessage)"
+                                    >
+                                        <img
+                                            src="assets/pictures/edit_message.svg"
+                                            alt=""
+                                            aria-hidden="true"
+                                        />
+                                    </button>
                                 }
                             </div>
-
-                            @if (
-                                canOpenThreadFromToolbar(
-                                    group.messages[group.messages.length - 1]
-                                )
-                            ) {
-                                <button
-                                    type="button"
-                                    class="message-toolbar__btn"
-                                    aria-label="Thread öffnen"
-                                    (click)="
-                                        openThreadForMessage(
-                                            group.messages[
-                                                group.messages.length - 1
-                                            ]
-                                        )
-                                    "
-                                >
-                                    <img
-                                        src="assets/pictures/answer.svg"
-                                        alt=""
-                                        aria-hidden="true"
-                                    />
-                                </button>
-                            }
-
-                            @if (
-                                canEditMessage(
-                                    group.messages[group.messages.length - 1]
-                                )
-                            ) {
-                                <button
-                                    type="button"
-                                    class="message-toolbar__btn"
-                                    aria-label="Nachricht bearbeiten"
-                                    (click)="
-                                        onEditMessageClick(
-                                            group.messages[
-                                                group.messages.length - 1
-                                            ]
-                                        )
-                                    "
-                                >
-                                    <img
-                                        src="assets/pictures/edit_message.svg"
-                                        alt=""
-                                        aria-hidden="true"
-                                    />
-                                </button>
-                            }
-                        </div>
+                        }
                     </div>
                 }
             </section>
         }
 
+        <!-- =========================================================
+             Composer
+        ========================================================== -->
         <form class="composer" novalidate (ngSubmit)="sendMessage()">
+            <!-- =========================================================
+                 Mention Chips
+            ========================================================== -->
             @if (selectedMentionsList().length) {
                 <div class="mention-chip-list">
                     @for (candidate of selectedMentionsList(); track candidate.id) {
@@ -553,9 +478,15 @@
                 </div>
             }
 
+            <!-- =========================================================
+                 Attachment Chips
+            ========================================================== -->
             @if (selectedAttachments.length) {
                 <div class="attachment-chip-list">
-                    @for (attachment of selectedAttachments; track attachment.name + "-" + $index) {
+                    @for (
+                        attachment of selectedAttachments;
+                        track attachment.name + '-' + $index
+                        ) {
                         <button
                             type="button"
                             class="attachment-chip"
@@ -567,6 +498,9 @@
                 </div>
             }
 
+            <!-- =========================================================
+                 Composer Shell
+            ========================================================== -->
             <div class="composer-shell">
                 <textarea
                     #composerTextarea
@@ -582,6 +516,9 @@
                     "
                 ></textarea>
 
+                <!-- =========================================================
+                     Composer Left Actions
+                ========================================================== -->
                 <div class="composer-bottom composer-bottom--left">
                     <button
                         type="button"
@@ -589,7 +526,11 @@
                         aria-label="Emoji auswählen"
                         (click)="toggleComposerEmojiPicker($event)"
                     >
-                        <img src="assets/pictures/add_reaction.svg" alt="" aria-hidden="true" />
+                        <img
+                            src="assets/pictures/add_reaction.svg"
+                            alt=""
+                            aria-hidden="true"
+                        />
                     </button>
 
                     <button
@@ -602,13 +543,20 @@
                     </button>
                 </div>
 
+                <!-- =========================================================
+                     Composer Right Actions
+                ========================================================== -->
                 <div class="composer-bottom composer-bottom--right">
                     <label
                         class="composer-action-btn composer-action-btn--upload"
                         for="message-attachment-input"
                         aria-label="Datei anhängen"
                     >
-                        <img src="assets/pictures/add_reaction.svg" alt="" aria-hidden="true" />
+                        <img
+                            src="assets/pictures/add_reaction.svg"
+                            alt=""
+                            aria-hidden="true"
+                        />
                     </label>
 
                     <button
@@ -622,6 +570,9 @@
                     </button>
                 </div>
 
+                <!-- =========================================================
+                     File Input
+                ========================================================== -->
                 <input
                     id="message-attachment-input"
                     type="file"
@@ -630,6 +581,9 @@
                     accept="image/*,.pdf,.docx,.txt"
                 />
 
+                <!-- =========================================================
+                     Mention Suggestions
+                ========================================================== -->
                 @if (showMentionSuggestions) {
                     <div class="mention-suggestions">
                         @for (candidate of mentionSuggestions; track candidate.id) {
@@ -644,8 +598,14 @@
                     </div>
                 }
 
+                <!-- =========================================================
+                     Composer Emoji Picker
+                ========================================================== -->
                 @if (isComposerEmojiPickerOpen()) {
-                    <div class="composer-emoji-picker" (click)="$event.stopPropagation()">
+                    <div
+                        class="composer-emoji-picker"
+                        (click)="$event.stopPropagation()"
+                    >
                         <emoji-mart
                             (emojiSelect)="onComposerEmojiSelect($event)"
                             [showPreview]="false"
@@ -656,6 +616,9 @@
             </div>
         </form>
 
+        <!-- =========================================================
+             Status / Hint / Error Messages
+        ========================================================== -->
         @if (attachmentError) {
             <p class="error">{{ attachmentError }}</p>
         }

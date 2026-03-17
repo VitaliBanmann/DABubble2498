@@ -32,6 +32,14 @@ export type {
     ThreadMessage,
 } from './message.models';
 
+interface ToggleReactionParams {
+    messageId: string;
+    emoji: string;
+    isDirectMessage: boolean;
+    channelId?: string;
+    directUserId?: string;
+}
+
 @Injectable({
     providedIn: 'root',
 })
@@ -290,7 +298,15 @@ export class MessageService {
         return this.firestoreService.addDocument(`messages/${cleanParentMessageId}/threads`, { text: cleanText, senderId: cleanSenderId, timestamp: new Date() });
     }
 
-    toggleReaction(messageId: string, emoji: string): Observable<void> {
+    toggleReaction(params: ToggleReactionParams): Observable<void> {
+        const {
+            messageId,
+            emoji,
+            isDirectMessage,
+            channelId,
+            directUserId,
+        } = params;
+
         const currentUser = this.authService.getCurrentUser();
         if (!currentUser) throw new Error('User not authenticated');
         return this.firestoreService.getDocument<Message>(this.messagesCollection, messageId).pipe(

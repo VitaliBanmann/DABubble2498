@@ -600,6 +600,7 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.editingMessageId = null;
         this.editMessageControl.setValue('');
         this.isSavingEdit = false;
+        this.expandedReactionMessages.clear();
     }
 
     loadOlderMessages(): void {
@@ -1651,8 +1652,32 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.closeAllEmojiPickers();
     }
 
+    hasReactions(message: Message): boolean {
+        return (message.reactions?.length ?? 0) > 0;
+    }
+
+    trackReaction(index: number, reaction: MessageReaction): string {
+        return `${reaction.emoji}-${index}`;
+    }
+
+    getSortedVisibleReactions(message: Message): MessageReaction[] {
+        const reactions = [...this.getVisibleReactions(message)];
+
+        return reactions.sort((a, b) => {
+            const countA = a.userIds.length;
+            const countB = b.userIds.length;
+
+            if (countB !== countA) {
+                return countB - countA;
+            }
+
+            return a.emoji.localeCompare(b.emoji);
+        });
+    }
+
     getVisibleReactions(message: Message): MessageReaction[] {
-        const reactions = message.reactions ?? [];
+        const reactions = [...(message.reactions ?? [])];
+
         if (!message.id || this.expandedReactionMessages.has(message.id)) {
             return reactions;
         }
@@ -1687,12 +1712,23 @@ export class HomeComponent implements OnInit, OnDestroy {
             return;
         }
 
-        this.messageService.toggleReaction(message.id, emoji).subscribe({
-            error: () => {
-                this.errorMessage =
-                    'Reaktion konnte nicht aktualisiert werden.';
-            },
-        });
+        this.messageService
+            .toggleReaction({
+                messageId: message.id,
+                emoji,
+                isDirectMessage: this.isDirectMessage,
+                channelId: this.isDirectMessage ? undefined : this.currentChannelId,
+                directUserId: this.isDirectMessage
+                    ? this.currentDirectUserId
+                    : undefined,
+            })
+            .subscribe({
+                error: (error) => {
+                    console.error('[REACTION TOGGLE ERROR]', error);
+                    this.errorMessage =
+                        'Reaktion konnte nicht aktualisiert werden.';
+                },
+            });
     }
 
     hasCurrentUserReacted(reaction: MessageReaction): boolean {
@@ -1850,6 +1886,10 @@ export class HomeComponent implements OnInit, OnDestroy {
             const valueLength = textarea.value.length;
             textarea.setSelectionRange(valueLength, valueLength);
         }, 0);
+    }
+
+    getLastMessageOfGroup(group: MessageGroup): Message | null {
+        return group.messages[group.messages.length - 1] ?? null;
     }
 
     // =========================================================

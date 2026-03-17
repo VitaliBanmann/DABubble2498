@@ -1158,3 +1158,54 @@
         --shadow: 0 12px 30px rgba(0,0,0,0.15);
     }
 }
+
+/* ========================================
+   Message Reactions
+======================================== */
+.message-reactions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.reaction-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    min-height: 36px;
+    padding: 6px 12px;
+    border: 1px solid #d8ddef;
+    border-radius: 999px;
+    background: #ffffff;
+    cursor: pointer;
+    transition:
+        transform 120ms ease,
+        border-color 120ms ease,
+        box-shadow 120ms ease;
+
+    &:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    }
+
+    &--active {
+        border-color: #797ef3;
+        box-shadow: 0 0 0 2px rgba(121, 126, 243, 0.14);
+    }
+
+    &--more {
+        font-weight: 500;
+    }
+}
+
+.reaction-chip__emoji {
+    font-size: 18px;
+    line-height: 1;
+}
+
+.reaction-chip__count {
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1;
+}
