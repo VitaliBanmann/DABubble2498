@@ -308,14 +308,7 @@ export class MessageService {
             .getDocument<Message>(this.messagesCollection, messageId)
             .pipe(
                 map((message) => {
-                    const reactions = computeUpdatedReactions(
-                        message,
-                        emoji,
-                        currentUser.uid,
-                    );
-                    console.log('[TOGGLE REACTION] messageId:', messageId);
-                    console.log('[TOGGLE REACTION] reactions:', reactions);
-                    return reactions;
+                    return computeUpdatedReactions(message, emoji, currentUser.uid);
                 }),
                 switchMap((reactions) =>
                     this.firestoreService.updateDocument(

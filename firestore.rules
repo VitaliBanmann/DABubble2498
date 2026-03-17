@@ -187,21 +187,28 @@ service cloud.firestore {
 
         function messageCoreFieldsUnchanged() {
           return request.resource.data.senderId == resource.data.senderId
-            && request.resource.data.channelId == resource.data.channelId
-            && request.resource.data.receiverId == resource.data.receiverId
-            && request.resource.data.conversationId == resource.data.conversationId
-            && request.resource.data.timestamp == resource.data.timestamp;
+            && request.resource.data.timestamp == resource.data.timestamp
+            && (
+              (
+                hasField(resource.data, 'channelId')
+                && request.resource.data.channelId == resource.data.channelId
+              )
+              ||
+              (
+                hasField(resource.data, 'receiverId')
+                && hasField(resource.data, 'conversationId')
+                && request.resource.data.receiverId == resource.data.receiverId
+                && request.resource.data.conversationId == resource.data.conversationId
+              )
+            );
         }
 
         function canUpdateMessage() {
-            return canReadMessage(resource.data)
-                && messageCoreFieldsUnchanged()
-                && (
-                    request.auth.uid == resource.data.senderId
-                    || (
-                        request.resource.data.diff(resource.data).changedKeys().hasOnly(['reactions', 'read', 'updatedAt'])
-                        && request.resource.data.reactions is list
-                    )
+          return canReadMessage(resource.data)
+            && messageCoreFieldsUnchanged()
+            && (
+              request.auth.uid == resource.data.senderId
+              || request.resource.data.diff(resource.data).changedKeys().hasOnly(['reactions', 'read'])
             );
         }
 
