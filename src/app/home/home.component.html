@@ -4,7 +4,15 @@
              Header
         ========================================================== -->
         <header class="home-header">
-            <div class="home-header__title">
+            <div
+                #channelTitleTrigger
+                class="home-header__title"
+                role="button"
+                tabindex="0"
+                (click)="openChannelPopup()"
+                (keydown.enter)="openChannelPopup()"
+                (keydown.space)="$event.preventDefault(); openChannelPopup()"
+            >
                 <h1>
                     {{
                         isComposeMode
@@ -14,6 +22,18 @@
                                 : '# ' + currentConversationTitle
                     }}
                 </h1>
+                <img
+                    class="home-header__dropdown-icon home-header__dropdown-icon--default"
+                    src="assets/pictures/keyboard_arrow_down.svg"
+                    alt=""
+                    aria-hidden="true"
+                />
+                <img
+                    class="home-header__dropdown-icon home-header__dropdown-icon--hover"
+                    src="assets/pictures/expand_more.svg"
+                    alt=""
+                    aria-hidden="true"
+                />
             </div>
 
             @if (!isComposeMode && !isDirectMessage) {
@@ -605,4 +625,13 @@
             <p class="error">{{ errorMessage }}</p>
         }
     </section>
+
+    @if (isChannelPopupOpen) {
+        <app-channel-popup
+            [channelName]="currentConversationTitle"
+            [left]="channelPopupLeft"
+            [top]="channelPopupTop"
+            (close)="closeChannelPopup()"
+        />
+    }
 </main>

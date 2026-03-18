@@ -1,0 +1,49 @@
+<section class="channel-popup-overlay" (click)="onClose()">
+    <article
+        class="channel-popup"
+        [ngStyle]="{ left: left + 'px', top: top + 'px' }"
+        (click)="$event.stopPropagation()"
+    >
+        <header class="channel-popup__header">
+            <div class="channel-popup__title">
+                <img src="assets/pictures/hashtag.svg" alt="" aria-hidden="true" />
+                <h2>{{ channelName }}</h2>
+            </div>
+
+            <button
+                type="button"
+                class="channel-popup__close-btn"
+                (click)="onClose()"
+                aria-label="Popup schließen"
+            >
+                <img src="assets/pictures/close.svg" alt="" aria-hidden="true" />
+            </button>
+        </header>
+
+        <section class="channel-popup__card">
+            <div class="channel-popup__row">
+                <h3>Channel-Name</h3>
+                <button type="button" class="channel-popup__edit-btn">Bearbeiten</button>
+            </div>
+            <p class="channel-popup__name">
+                <img src="assets/pictures/hashtag.svg" alt="" aria-hidden="true" />
+                <span>{{ channelName }}</span>
+            </p>
+        </section>
+
+        <section class="channel-popup__card">
+            <div class="channel-popup__row">
+                <h3>Beschreibung</h3>
+                <button type="button" class="channel-popup__edit-btn">Bearbeiten</button>
+            </div>
+            <p class="channel-popup__description">{{ description }}</p>
+            <div class="channel-popup__divider"></div>
+            <h4>Erstellt von</h4>
+            <p class="channel-popup__creator">{{ createdBy }}</p>
+        </section>
+
+        <div class="channel-popup__actions">
+            <button type="button" class="channel-popup__leave-btn">Channel verlassen</button>
+        </div>
+    </article>
+</section>

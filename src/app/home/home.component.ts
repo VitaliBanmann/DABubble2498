@@ -39,6 +39,7 @@ import { User, UserService } from '../services/user.service';
 import { User as FirebaseUser } from 'firebase/auth';
 import { PickerComponent } from '@ctrl/ngx-emoji-mart';
 import { Channel, ChannelService } from '../services/channel.service';
+import { ChannelPopupComponent } from '../layout/shell/channel-popup/channel-popup.component';
 
 interface MentionCandidate {
     id: string;
@@ -64,7 +65,13 @@ interface MessageGroup {
 @Component({
     selector: 'app-home',
     standalone: true,
-    imports: [CommonModule, ReactiveFormsModule, PickerComponent, FormsModule],
+    imports: [
+        CommonModule,
+        ReactiveFormsModule,
+        PickerComponent,
+        FormsModule,
+        ChannelPopupComponent,
+    ],
     templateUrl: './home.component.html',
     styleUrl: './home.component.scss',
 })
@@ -93,6 +100,8 @@ export class HomeComponent implements OnInit, OnDestroy {
     ]);
 
     @ViewChild('messageList') messageListRef?: ElementRef<HTMLElement>;
+    @ViewChild('channelTitleTrigger')
+    channelTitleTriggerRef?: ElementRef<HTMLElement>;
     @ViewChild('composerTextarea')
     composerTextareaRef?: ElementRef<HTMLTextAreaElement>;
 
@@ -184,6 +193,9 @@ export class HomeComponent implements OnInit, OnDestroy {
     canWrite = false;
     authResolved = false;
     showScrollToLatestButton = false;
+    isChannelPopupOpen = false;
+    channelPopupLeft = 24;
+    channelPopupTop = 100;
     editingMessageId: string | null = null;
     isSavingEdit = false;
 
@@ -257,6 +269,32 @@ export class HomeComponent implements OnInit, OnDestroy {
         this.subscribeToQueryParams();
         this.syncComposerState();
         setTimeout(() => this.resizeComposerTextarea(), 0);
+    }
+
+    openChannelPopup(): void {
+        if (this.isComposeMode || this.isDirectMessage) {
+            return;
+        }
+        this.updateChannelPopupPosition();
+        this.isChannelPopupOpen = true;
+    }
+
+    closeChannelPopup(): void {
+        this.isChannelPopupOpen = false;
+    }
+
+    private updateChannelPopupPosition(): void {
+        const triggerElement = this.channelTitleTriggerRef?.nativeElement;
+        if (!triggerElement) {
+            return;
+        }
+
+        const triggerRect = triggerElement.getBoundingClientRect();
+        const popupWidth = Math.min(760, window.innerWidth - 48);
+        const maxLeft = Math.max(24, window.innerWidth - popupWidth - 24);
+
+        this.channelPopupLeft = Math.max(24, Math.min(triggerRect.left, maxLeft));
+        this.channelPopupTop = triggerRect.bottom + 4;
     }
 
     ngOnDestroy(): void {

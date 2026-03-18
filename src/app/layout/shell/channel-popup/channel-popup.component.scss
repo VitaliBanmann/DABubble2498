@@ -1,0 +1,156 @@
+@font-face {
+    font-family: 'Nunito';
+    src: url('../../../../assets/fonts/Nunito/Nunito-VariableFont_wght.ttf')
+        format('truetype');
+    font-style: normal;
+    font-weight: 200 1000;
+    font-display: swap;
+}
+
+.channel-popup-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    z-index: 40;
+}
+
+.channel-popup {
+    position: absolute;
+    width: min(760px, calc(100vw - 48px));
+    border-radius: 0 22px 22px 22px;
+    background: #ffffff;
+    box-shadow: 0 8px 24px rgba(26, 36, 87, 0.28);
+    padding: 26px 30px 28px;
+    font-family: 'Nunito', sans-serif;
+}
+
+.channel-popup__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+}
+
+.channel-popup__title {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+
+    img {
+        width: 22px;
+        height: 22px;
+    }
+
+    h2 {
+        margin: 0;
+        color: #000000;
+        font-size: 20px;
+        font-weight: 700;
+    }
+}
+
+.channel-popup__close-btn {
+    border: 0;
+    background: transparent;
+    padding: 0;
+    border-radius: 50%;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+
+    &:hover {
+        background: #eceefe;
+    }
+}
+
+.channel-popup__card {
+    border: 1px solid #b8bde7;
+    border-radius: 16px;
+    padding: 16px 18px;
+}
+
+.channel-popup__card + .channel-popup__card {
+    margin-top: 16px;
+}
+
+.channel-popup__row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 16px;
+
+    h3 {
+        margin: 0;
+        color: #000000;
+        font-size: 18px;
+        font-weight: 700;
+    }
+}
+
+.channel-popup__edit-btn {
+    border: 0;
+    background: transparent;
+    color: #545af1;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 0;
+}
+
+.channel-popup__name {
+    margin: 14px 0 0;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    color: #2b2d42;
+    font-size: 18px;
+
+    img {
+        width: 18px;
+        height: 18px;
+    }
+}
+
+.channel-popup__description {
+    margin: 14px 0 0;
+    color: #2b2d42;
+    font-size: 18px;
+}
+
+.channel-popup__divider {
+    height: 1px;
+    background: #d8dcf5;
+    margin: 18px 0 16px;
+}
+
+.channel-popup__card h4 {
+    margin: 0;
+    color: #000000;
+    font-size: 18px;
+    font-weight: 700;
+}
+
+.channel-popup__creator {
+    margin: 10px 0 0;
+    color: #535af3;
+    font-size: 24px;
+}
+
+.channel-popup__actions {
+    margin-top: 18px;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.channel-popup__leave-btn {
+    border: 0;
+    border-radius: 999px;
+    padding: 16px 24px;
+    background: #595ff2;
+    color: #ffffff;
+    font-family: 'Nunito', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    cursor: pointer;
+}
