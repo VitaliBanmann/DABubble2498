@@ -85,6 +85,12 @@ export class HomeComponent implements OnInit, OnDestroy {
         allgemein: 'Allgemein',
         entwicklerteam: 'Entwicklerteam',
     };
+    readonly channelDescriptions: Record<string, string> = {
+        allgemein:
+            'Dieser Channel ist für alles rund um #dfsdf vorgesehen. Hier kannst du zusammen mit deinem Team Meetings abhalten, Dokumente teilen und Entscheidungen treffen.',
+        entwicklerteam:
+            'Dieser Channel ist für alles rund um #dfsdf vorgesehen. Hier kannst du zusammen mit deinem Team Meetings abhalten, Dokumente teilen und Entscheidungen treffen.',
+    };
 
     private readonly composerMinHeightPx = 145;
     private readonly composerMaxHeightPx = 180;
@@ -129,6 +135,13 @@ export class HomeComponent implements OnInit, OnDestroy {
         }
 
         return this.currentChannelName;
+    }
+
+    get currentChannelDescription(): string {
+        return (
+            this.channelDescriptions[this.currentChannelId] ??
+            'Dieser Channel ist für alles rund um #dfsdf vorgesehen. Hier kannst du zusammen mit deinem Team Meetings abhalten, Dokumente teilen und Entscheidungen treffen.'
+        );
     }
 
     get latestMessageSummary(): string {
@@ -281,6 +294,29 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     closeChannelPopup(): void {
         this.isChannelPopupOpen = false;
+    }
+
+    onChannelNameChanged(nextName: string): void {
+        const normalizedName = nextName.trim();
+        if (!normalizedName || this.isDirectMessage || this.isComposeMode) {
+            return;
+        }
+
+        this.channelNames[this.currentChannelId] = normalizedName;
+    }
+
+    onChannelDescriptionChanged(nextDescription: string): void {
+        const normalizedDescription = nextDescription.trim();
+        if (
+            !normalizedDescription ||
+            this.isDirectMessage ||
+            this.isComposeMode
+        ) {
+            return;
+        }
+
+        this.channelDescriptions[this.currentChannelId] =
+            normalizedDescription;
     }
 
     private updateChannelPopupPosition(): void {

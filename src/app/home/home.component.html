@@ -629,8 +629,11 @@
     @if (isChannelPopupOpen) {
         <app-channel-popup
             [channelName]="currentConversationTitle"
+            [description]="currentChannelDescription"
             [left]="channelPopupLeft"
             [top]="channelPopupTop"
+            (channelNameChange)="onChannelNameChanged($event)"
+            (descriptionChange)="onChannelDescriptionChanged($event)"
             (close)="closeChannelPopup()"
         />
     }

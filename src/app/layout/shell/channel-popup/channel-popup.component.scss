@@ -70,6 +70,11 @@
     padding: 16px 18px;
 }
 
+.channel-popup__card--editing {
+    border: 1px solid transparent;
+    padding: 16px 0;
+}
+
 .channel-popup__card + .channel-popup__card {
     margin-top: 16px;
 }
@@ -93,9 +98,14 @@
     background: transparent;
     color: #545af1;
     font-size: 18px;
-    font-weight: 600;
+    font-weight: 500;
     cursor: pointer;
     padding: 0;
+    transition: font-weight 120ms ease;
+
+    &:hover {
+        font-weight: 900;
+    }
 }
 
 .channel-popup__name {
@@ -112,10 +122,62 @@
     }
 }
 
+.channel-popup__name-input-wrap {
+    margin-top: 14px;
+    border: 1px solid #b8bde7;
+    border-radius: 999px;
+    padding: 10px 16px;
+    height: 65px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+}
+
+.channel-popup__name-hashtag {
+    color: #000000;
+    font-size: 24px;
+    font-weight: 700;
+    line-height: 1;
+}
+
+.channel-popup__name-input {
+    border: 0;
+    outline: 0;
+    width: 100%;
+    background: transparent;
+    color: #727272;
+    font-family: 'Nunito', sans-serif;
+    font-size: 18px;
+    font-weight: 500;
+}
+
 .channel-popup__description {
     margin: 14px 0 0;
     color: #2b2d42;
     font-size: 18px;
+}
+
+.channel-popup__description-input-wrap {
+    margin-top: 14px;
+    border: 1px solid #b8bde7;
+    border-radius: 999px;
+    padding: 10px 16px;
+    height: 65px;
+    box-sizing: border-box;
+    display: flex;
+    align-items: center;
+}
+
+.channel-popup__description-input {
+    width: 100%;
+    border: 0;
+    outline: 0;
+    background: transparent;
+    color: #727272;
+    font-family: 'Nunito', sans-serif;
+    font-size: 18px;
+    font-weight: 500;
 }
 
 .channel-popup__divider {
@@ -153,4 +215,9 @@
     font-size: 18px;
     font-weight: 700;
     cursor: pointer;
+    transition: opacity 120ms ease;
+
+    &:hover {
+        opacity: 0.85;
+    }
 }

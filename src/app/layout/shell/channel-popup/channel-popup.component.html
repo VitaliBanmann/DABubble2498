@@ -7,7 +7,7 @@
         <header class="channel-popup__header">
             <div class="channel-popup__title">
                 <img src="assets/pictures/hashtag.svg" alt="" aria-hidden="true" />
-                <h2>{{ channelName }}</h2>
+                <h2>{{ currentChannelName }}</h2>
             </div>
 
             <button
@@ -20,23 +20,71 @@
             </button>
         </header>
 
-        <section class="channel-popup__card">
+        <section
+            class="channel-popup__card"
+            [class.channel-popup__card--editing]="isEditingChannelName"
+        >
             <div class="channel-popup__row">
                 <h3>Channel-Name</h3>
-                <button type="button" class="channel-popup__edit-btn">Bearbeiten</button>
+                <button
+                    type="button"
+                    class="channel-popup__edit-btn"
+                    (click)="onToggleChannelNameEdit()"
+                >
+                    {{ isEditingChannelName ? 'Speichern' : 'Bearbeiten' }}
+                </button>
             </div>
-            <p class="channel-popup__name">
-                <img src="assets/pictures/hashtag.svg" alt="" aria-hidden="true" />
-                <span>{{ channelName }}</span>
-            </p>
+
+            @if (!isEditingChannelName) {
+                <p class="channel-popup__name">
+                    <img
+                        src="assets/pictures/hashtag.svg"
+                        alt=""
+                        aria-hidden="true"
+                    />
+                    <span>{{ currentChannelName }}</span>
+                </p>
+            } @else {
+                <div class="channel-popup__name-input-wrap">
+                    <span class="channel-popup__name-hashtag">#</span>
+                    <input
+                        type="text"
+                        class="channel-popup__name-input"
+                        [(ngModel)]="editableChannelName"
+                        (keydown.enter)="onToggleChannelNameEdit()"
+                    />
+                </div>
+            }
         </section>
 
-        <section class="channel-popup__card">
+        <section
+            class="channel-popup__card"
+            [class.channel-popup__card--editing]="isEditingDescription"
+        >
             <div class="channel-popup__row">
                 <h3>Beschreibung</h3>
-                <button type="button" class="channel-popup__edit-btn">Bearbeiten</button>
+                <button
+                    type="button"
+                    class="channel-popup__edit-btn"
+                    (click)="onToggleDescriptionEdit()"
+                >
+                    {{ isEditingDescription ? 'Speichern' : 'Bearbeiten' }}
+                </button>
             </div>
-            <p class="channel-popup__description">{{ description }}</p>
+
+            @if (!isEditingDescription) {
+                <p class="channel-popup__description">{{ currentDescription }}</p>
+            } @else {
+                <div class="channel-popup__description-input-wrap">
+                    <input
+                        type="text"
+                        class="channel-popup__description-input"
+                        [(ngModel)]="editableDescription"
+                        placeholder="Dein Text hier"
+                        (keydown.enter)="onToggleDescriptionEdit()"
+                    />
+                </div>
+            }
             <div class="channel-popup__divider"></div>
             <h4>Erstellt von</h4>
             <p class="channel-popup__creator">{{ createdBy }}</p>
