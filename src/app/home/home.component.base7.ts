@@ -1,66 +1,7 @@
-﻿import { CommonModule } from '@angular/common';
-import {
-    ChangeDetectorRef,
-    Component,
-    Directive,
-    ElementRef,
-    HostListener,
-    OnDestroy,
-    OnInit,
-    QueryList,
-    ViewChild,
-    ViewChildren,
-} from '@angular/core';
-import { FormControl, ReactiveFormsModule } from '@angular/forms';
-import { ActivatedRoute, ParamMap, Router } from '@angular/router';
-import {
-    combineLatest,
-    of,
-    Observable,
-    retry,
-    Subscription,
-    switchMap,
-    take,
-    throwError,
-    timer,
-} from 'rxjs';
-import { AuthFlowService } from '../services/auth-flow.service';
-import { AuthService } from '../services/auth.service';
-import {
-    Message,
-    MessageAttachment,
-    MessageReaction,
-    MessageService,
-    ThreadMessage,
-} from '../services/message.service';
-import { AttachmentService } from '../services/attachment.service';
-import { UiStateService } from '../services/ui-state.service';
-import { UnreadStateService } from '../services/unread-state.service';
-import { User, UserService } from '../services/user.service';
-import { User as FirebaseUser } from 'firebase/auth';
-import { PickerComponent } from '@ctrl/ngx-emoji-mart';
+﻿import { Directive, HostListener } from '@angular/core';
+import { Message } from '../services/message.service';
+import { MessageGroup } from './home.component.models';
 import { HomeComponentBase6 } from './home.component.base6';
-
-interface MentionCandidate {
-    id: string;
-    label: string;
-}
-
-interface ComposeTargetSuggestion {
-    kind: 'channel' | 'user';
-    id: string;
-    label: string;
-    value: string;
-    subtitle: string;
-}
-
-interface MessageGroup {
-    id: string;
-    senderId: string;
-    isOwn: boolean;
-    startedAt: Message['timestamp'];
-    messages: Message[];
-}
 
 @Directive()
 export class HomeComponentBase7 extends HomeComponentBase6 {

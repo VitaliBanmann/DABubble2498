@@ -1,21 +1,17 @@
 import { CommonModule } from '@angular/common';
 import { ChangeDetectorRef, Component, NgZone } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
-import {
-    NavigationEnd,
-    Router,
-    RouterLink,
-    RouterOutlet,
-} from '@angular/router';
-import { AuthFlowService } from './services/auth-flow.service';
-import { AuthService } from './services/auth.service';
-import { PresenceService } from './services/presence.service';
-import { UserService } from './services/user.service';
+import { NavigationEnd, Router, RouterLink, RouterOutlet } from '@angular/router';
 import {
     AUTH_ERROR_MESSAGES,
     formatFallbackError,
     parseFirebaseError,
 } from './app-auth.util';
+import { AuthFlowService } from './services/auth-flow.service';
+import { AuthService } from './services/auth.service';
+import { PasswordResetFlowService } from './services/password-reset-flow.service';
+import { PresenceService } from './services/presence.service';
+import { UserService } from './services/user.service';
 
 @Component({
     selector: 'app-root',
@@ -30,6 +26,11 @@ export class AppComponent {
     showPassword = false;
     showForgotPasswordOverlay = false;
     isRegisterMode = false;
+    isSubmitting = false;
+    errorMessage = '';
+    successMessage = '';
+    forgotPasswordMessage = '';
+    forgotPasswordError = '';
 
     loginForm = this.formBuilder.group({
         displayName: ['', [Validators.maxLength(30)]],
@@ -42,25 +43,18 @@ export class AppComponent {
         email: ['', [Validators.required, Validators.email]],
     });
 
-    isSubmitting = false;
-    errorMessage = '';
-    successMessage = '';
-    forgotPasswordMessage = '';
-    forgotPasswordError = '';
-
     constructor(
         private readonly formBuilder: FormBuilder,
         private readonly authFlow: AuthFlowService,
         private readonly authService: AuthService,
         private readonly userService: UserService,
+        readonly resetFlow: PasswordResetFlowService,
         private readonly presenceService: PresenceService,
         private readonly router: Router,
         private readonly cdr: ChangeDetectorRef,
         private readonly ngZone: NgZone,
     ) {
         this.presenceService.startTracking();
-
-        // Splash ausblenden (zuverlässig, auch wenn Angular/Zone mal "spinnt")
         setTimeout(() => {
             this.ngZone.run(() => {
                 this.showSplash = false;
@@ -68,17 +62,14 @@ export class AppComponent {
             });
         }, 3500);
 
-        // initial
         this.updateAuthScreenVisibility(this.router.url);
-
-        // route changes
+        this.handleResetLinkFromUrl(this.router.url);
         this.router.events.subscribe((event) => {
-            if (event instanceof NavigationEnd) {
-                this.updateAuthScreenVisibility(event.urlAfterRedirects);
-            }
+            if (!(event instanceof NavigationEnd)) return;
+            this.updateAuthScreenVisibility(event.urlAfterRedirects);
+            this.handleResetLinkFromUrl(event.urlAfterRedirects);
         });
 
-        // auth state
         this.authService.currentUser$.subscribe((user) => {
             void this.authFlow.handleAuthState(user, this.router.url);
         });
@@ -96,22 +87,11 @@ export class AppComponent {
         this.successMessage = '';
     }
 
-    private updateAuthScreenVisibility(url: string): void {
-        const pathname = (url || '').split('?')[0];
-
-        // Auth-Screen NUR auf "/"
-        this.showAuthScreen = pathname === '/' || pathname === '';
-    }
-
     async onSubmit(mode: 'login' | 'register'): Promise<void> {
         this.isRegisterMode = mode === 'register';
-
-        if (!this.ensureValidLoginForm()) {
-            return;
-        }
+        if (!this.ensureValidLoginForm()) return;
 
         const { displayName, email, password } = this.readLoginCredentials();
-
         if (mode === 'register' && !this.isRegisterPasswordValid(password)) {
             this.errorMessage =
                 'Das Passwort erfüllt nicht die Anforderungen für die Registrierung.';
@@ -125,15 +105,6 @@ export class AppComponent {
         }
 
         this.startSubmitting();
-        await this.runSubmit(mode, displayName, email, password);
-    }
-
-    private async runSubmit(
-        mode: 'login' | 'register',
-        displayName: string,
-        email: string,
-        password: string,
-    ): Promise<void> {
         try {
             await this.authenticate(mode, displayName, email, password);
         } catch (error) {
@@ -143,9 +114,213 @@ export class AppComponent {
         }
     }
 
+    async onGoogleLogin(): Promise<void> {
+        this.startSubmitting();
+        try {
+            const result = await this.authService.loginWithGoogle();
+            this.successMessage = 'Erfolgreich mit Google angemeldet.';
+            await this.authFlow.syncEmailFromAuth(result.email ?? '');
+            await this.authFlow.navigateAfterLogin();
+        } catch (error) {
+            this.errorMessage = this.getAuthErrorMessage(
+                error,
+                'Google-Anmeldung fehlgeschlagen. Bitte versuche es erneut.',
+            );
+        } finally {
+            this.isSubmitting = false;
+        }
+    }
+
+    async onGuestLogin(): Promise<void> {
+        this.startSubmitting();
+        try {
+            await this.authService.loginAsGuest();
+            this.successMessage = 'Erfolgreich als Gast angemeldet.';
+            void this.router.navigateByUrl('/app');
+        } catch (error) {
+            this.errorMessage = this.getAuthErrorMessage(
+                error,
+                'Gast-Anmeldung fehlgeschlagen. Bitte versuche es erneut.',
+            );
+        } finally {
+            this.isSubmitting = false;
+        }
+    }
+
+    openForgotPasswordOverlay(): void {
+        this.showForgotPasswordOverlay = true;
+        this.forgotPasswordMessage = '';
+        this.forgotPasswordError = '';
+        const loginEmail = this.loginForm.value.email?.trim() ?? '';
+        this.forgotPasswordForm.patchValue({ email: loginEmail });
+    }
+
+    closeForgotPasswordOverlay(): void {
+        this.showForgotPasswordOverlay = false;
+        this.forgotPasswordForm.reset();
+        this.forgotPasswordMessage = '';
+        this.forgotPasswordError = '';
+    }
+
+    async sendPasswordResetEmail(): Promise<void> {
+        if (!this.ensureValidResetForm()) return;
+
+        this.isSubmitting = true;
+        this.forgotPasswordMessage = '';
+        this.forgotPasswordError = '';
+        const email = (this.forgotPasswordForm.value.email ?? '').trim();
+
+        try {
+            await this.authService.sendPasswordResetEmail(email);
+            this.forgotPasswordMessage =
+                'E-Mail gesendet. Bitte überprüfe dein Postfach.';
+            setTimeout(() => this.closeForgotPasswordOverlay(), 3000);
+        } catch (error) {
+            this.forgotPasswordError = this.getAuthErrorMessage(
+                error,
+                'Fehler beim Senden der E-Mail. Bitte versuche es erneut.',
+            );
+        } finally {
+            this.isSubmitting = false;
+        }
+    }
+
+    openResetPasswordOverlay(code: string): void {
+        this.showForgotPasswordOverlay = false;
+        this.resetFlow.open(code);
+    }
+
+    closeResetPasswordOverlay(): void {
+        this.resetFlow.close();
+        void this.router.navigate([], {
+            queryParams: { mode: null, oobCode: null },
+            queryParamsHandling: 'merge',
+            replaceUrl: true,
+        });
+    }
+
+    async confirmPasswordResetFromLink(): Promise<void> {
+        await this.resetFlow.submit(
+            (error, fallback) => this.getAuthErrorMessage(error, fallback),
+            (password) => this.isRegisterPasswordValid(password),
+        );
+        if (this.resetFlow.message) {
+            setTimeout(() => this.closeResetPasswordOverlay(), 2000);
+        }
+    }
+
+    togglePasswordVisibility(): void {
+        this.showPassword = !this.showPassword;
+    }
+
+    toggleNewPasswordVisibility(): void {
+        this.resetFlow.toggleNewPasswordVisibility();
+    }
+
+    toggleConfirmPasswordVisibility(): void {
+        this.resetFlow.toggleConfirmPasswordVisibility();
+    }
+
+    get emailControl() {
+        return this.loginForm.controls.email;
+    }
+
+    get passwordControl() {
+        return this.loginForm.controls.password;
+    }
+
+    get displayNameControl() {
+        return this.loginForm.controls.displayName;
+    }
+
+    get forgotPasswordEmailControl() {
+        return this.forgotPasswordForm.controls.email;
+    }
+
+    get showResetPasswordOverlay(): boolean {
+        return this.resetFlow.showOverlay;
+    }
+
+    get resetPasswordForm() {
+        return this.resetFlow.form;
+    }
+
+    get showResetPasswordError(): boolean {
+        return this.resetFlow.hasUiError((p) => this.isRegisterPasswordValid(p));
+    }
+
+    get resetPasswordErrorMessage(): string {
+        return this.resetFlow.buildUiErrorMessage((p) => this.isRegisterPasswordValid(p));
+    }
+
+    get resetPasswordMessage(): string {
+        return this.resetFlow.message;
+    }
+
+    get resetPasswordError(): string {
+        return this.resetFlow.error;
+    }
+
+    get showNewPassword(): boolean {
+        return this.resetFlow.showNewPassword;
+    }
+
+    get showConfirmPassword(): boolean {
+        return this.resetFlow.showConfirmPassword;
+    }
+
+    get passwordChecks() {
+        const value = this.passwordControl.value ?? '';
+        return {
+            minLength: value.length >= 8,
+            uppercase: /[A-ZÄÖÜ]/.test(value),
+            specialChar: /[^A-Za-z0-9]/.test(value),
+        };
+    }
+
+    get passwordErrorMessage(): string {
+        const password = this.passwordControl.value ?? '';
+        if (!password) {
+            return this.isRegisterMode
+                ? 'Bitte gib ein Passwort ein.'
+                : 'Bitte gib dein Passwort ein.';
+        }
+        if (this.isRegisterMode && !this.isRegisterPasswordValid(password)) {
+            return 'Das Passwort muss mindestens 8 Zeichen, 1 Großbuchstaben und 1 Sonderzeichen enthalten.';
+        }
+        if (password.length < 6) return 'Das Passwort muss mindestens 6 Zeichen lang sein.';
+        return '';
+    }
+
+    get showPasswordError(): boolean {
+        const password = this.passwordControl.value ?? '';
+        return this.passwordControl.touched && (
+            this.passwordControl.invalid ||
+            (this.isRegisterMode && !!password && !this.isRegisterPasswordValid(password))
+        );
+    }
+
+    private updateAuthScreenVisibility(url: string): void {
+        const pathname = (url || '').split('?')[0];
+        this.showAuthScreen = pathname === '/' || pathname === '';
+    }
+
+    private handleResetLinkFromUrl(url: string): void {
+        const params = new URLSearchParams((url.split('?')[1] ?? '').trim());
+        const mode = params.get('mode') ?? '';
+        const code = params.get('oobCode') ?? '';
+        if (mode === 'resetPassword' && code) this.openResetPasswordOverlay(code);
+    }
+
     private ensureValidLoginForm(): boolean {
         if (!this.loginForm.invalid) return true;
         this.loginForm.markAllAsTouched();
+        return false;
+    }
+
+    private ensureValidResetForm(): boolean {
+        if (!this.forgotPasswordForm.invalid) return true;
+        this.forgotPasswordForm.markAllAsTouched();
         return false;
     }
 
@@ -182,33 +357,14 @@ export class AppComponent {
         password: string,
     ): Promise<void> {
         if (mode === 'login') {
-            await this.loginUser(email, password);
-            return;
+            await this.authService.loginWithEmailAndPassword(email, password);
+            this.successMessage = 'Angemeldet.';
+        } else {
+            await this.authService.registerWithEmailAndPassword(email, password);
+            await this.userService.updateCurrentUserProfile({ displayName, email });
+            this.successMessage = 'Konto erfolgreich erstellt.';
         }
 
-        await this.registerUser(displayName, email, password);
-    }
-
-    private async loginUser(email: string, password: string): Promise<void> {
-        await this.authService.loginWithEmailAndPassword(email, password);
-        this.successMessage = 'Angemeldet.';
-        await this.authFlow.syncEmailFromAuth(email);
-        await this.authFlow.navigateAfterLogin();
-    }
-
-    private async registerUser(
-        displayName: string,
-        email: string,
-        password: string,
-    ): Promise<void> {
-        await this.authService.registerWithEmailAndPassword(email, password);
-
-        await this.userService.updateCurrentUserProfile({
-            displayName,
-            email,
-        });
-
-        this.successMessage = 'Konto erfolgreich erstellt.';
         await this.authFlow.syncEmailFromAuth(email);
         await this.authFlow.navigateAfterLogin();
     }
@@ -222,175 +378,11 @@ export class AppComponent {
         );
     }
 
-    get emailControl() {
-        return this.loginForm.controls.email;
-    }
-
-    get passwordControl() {
-        return this.loginForm.controls.password;
-    }
-
-    get displayNameControl() {
-        return this.loginForm.controls.displayName;
-    }
-
-    get passwordChecks() {
-        const value = this.passwordControl.value ?? '';
-        return {
-            minLength: value.length >= 8,
-            uppercase: /[A-ZÄÖÜ]/.test(value),
-            specialChar: /[^A-Za-z0-9]/.test(value),
-        };
-    }
-
-    get passwordErrorMessage(): string {
-        const password = this.passwordControl.value ?? '';
-
-        if (!password) {
-            return this.isRegisterMode
-                ? 'Bitte gib ein Passwort ein.'
-                : 'Bitte gib dein Passwort ein.';
-        }
-
-        if (this.isRegisterMode && !this.isRegisterPasswordValid(password)) {
-            return 'Das Passwort muss mindestens 8 Zeichen, 1 Großbuchstaben und 1 Sonderzeichen enthalten.';
-        }
-
-        if (password.length < 6) {
-            return 'Das Passwort muss mindestens 6 Zeichen lang sein.';
-        }
-
-        return '';
-    }
-
-    get showPasswordError(): boolean {
-        const password = this.passwordControl.value ?? '';
-        return this.passwordControl.touched && (
-            this.passwordControl.invalid ||
-            (this.isRegisterMode && !!password && !this.isRegisterPasswordValid(password))
-        );
-    }
-
-    togglePasswordVisibility(): void {
-        this.showPassword = !this.showPassword;
-    }
-
-    async onGoogleLogin(): Promise<void> {
-        this.startSubmitting();
-
-        try {
-            await this.loginWithGoogleAndNavigate();
-        } catch (error) {
-            this.errorMessage = this.resolveGoogleError(error);
-        } finally {
-            this.isSubmitting = false;
-        }
-    }
-
-    private async loginWithGoogleAndNavigate(): Promise<void> {
-        const result = await this.authService.loginWithGoogle();
-        this.successMessage = 'Erfolgreich mit Google angemeldet.';
-        await this.authFlow.syncEmailFromAuth(result.email ?? '');
-        await this.authFlow.navigateAfterLogin();
-    }
-
-    private resolveGoogleError(error: unknown): string {
-        return this.getAuthErrorMessage(error, 'Google-Anmeldung fehlgeschlagen. Bitte versuche es erneut.');
-    }
-
-    async onGuestLogin(): Promise<void> {
-        this.isSubmitting = true;
-        this.errorMessage = '';
-        this.successMessage = '';
-
-        try {
-            await this.authService.loginAsGuest();
-            this.successMessage = 'Erfolgreich als Gast angemeldet.';
-            void this.router.navigateByUrl('/app');
-        } catch (error) {
-            this.errorMessage = this.getAuthErrorMessage(
-                error,
-                'Gast-Anmeldung fehlgeschlagen. Bitte versuche es erneut.',
-            );
-        } finally {
-            this.isSubmitting = false;
-        }
-    }
-
-    openForgotPasswordOverlay(): void {
-        this.showForgotPasswordOverlay = true;
-        this.forgotPasswordMessage = '';
-        this.forgotPasswordError = '';
-        // E-Mail aus Login-Form übernehmen falls vorhanden
-        const loginEmail = this.loginForm.value.email?.trim() || '';
-        this.forgotPasswordForm.patchValue({ email: loginEmail });
-    }
-
-    closeForgotPasswordOverlay(): void {
-        this.showForgotPasswordOverlay = false;
-        this.forgotPasswordForm.reset();
-        this.forgotPasswordMessage = '';
-        this.forgotPasswordError = '';
-    }
-
-    async sendPasswordResetEmail(): Promise<void> {
-        if (!this.ensureValidResetForm()) {
-            return;
-        }
-
-        this.startResetSubmitting();
-        await this.executeResetRequest();
-    }
-
-    private ensureValidResetForm(): boolean {
-        if (!this.forgotPasswordForm.invalid) return true;
-        this.forgotPasswordForm.markAllAsTouched();
-        return false;
-    }
-
-    private startResetSubmitting(): void {
-        this.isSubmitting = true;
-        this.forgotPasswordMessage = '';
-        this.forgotPasswordError = '';
-    }
-
-    private async executeResetRequest(): Promise<void> {
-        const email = (this.forgotPasswordForm.value.email ?? '').trim();
-        try {
-            await this.authService.sendPasswordResetEmail(email);
-            this.handleResetSuccess();
-        } catch (error) {
-            this.forgotPasswordError = this.resolveResetError(error);
-        } finally {
-            this.isSubmitting = false;
-        }
-    }
-
-    private handleResetSuccess(): void {
-        this.forgotPasswordMessage = 'E-Mail gesendet. Bitte überprüfe dein Postfach.';
-        setTimeout(() => this.closeForgotPasswordOverlay(), 3000);
-    }
-
-    private resolveResetError(error: unknown): string {
-        return this.getAuthErrorMessage(
-            error,
-            'Fehler beim Senden der E-Mail. Bitte versuche es erneut.',
-        );
-    }
-
-    get forgotPasswordEmailControl() {
-        return this.forgotPasswordForm.controls.email;
-    }
-
     private getAuthErrorMessage(error: unknown, fallback: string): string {
         const { code, message } = parseFirebaseError(error);
         if (!code) return message ? `${fallback} (${message})` : fallback;
-
         const mapped = AUTH_ERROR_MESSAGES[code];
-        if (mapped) {
-            return mapped;
-        }
-
+        if (mapped) return mapped;
         return formatFallbackError(fallback, code, message);
     }
 }

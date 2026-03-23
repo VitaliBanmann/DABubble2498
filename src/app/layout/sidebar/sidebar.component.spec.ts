@@ -1,38 +1,16 @@
 import { ComponentFixture, TestBed } from '@angular/core/testing';
-import { of } from 'rxjs';
 
 import { SidebarComponent } from './sidebar.component';
 import { AuthService } from '../../services/auth.service';
 import { ChannelService } from '../../services/channel.service';
 import { UnreadStateService } from '../../services/unread-state.service';
 import { UserService } from '../../services/user.service';
-
-class AuthServiceMock {
-  authReady$ = of(true);
-  currentUser$ = of(null);
-
-  getCurrentUser() {
-    return null;
-  }
-}
-
-class ChannelServiceMock {
-  getAllChannels() {
-    return of([]);
-  }
-}
-
-class UserServiceMock {
-  getAllUsersRealtime() {
-    return of([]);
-  }
-}
-
-class UnreadStateServiceMock {
-  observeUnreadState() {
-    return of([]);
-  }
-}
+import {
+  AuthServiceMock,
+  ChannelServiceMock,
+  UnreadStateServiceMock,
+  UserServiceMock,
+} from '../testing/layout-service-mocks';
 
 describe('SidebarComponent', () => {
   let component: SidebarComponent;

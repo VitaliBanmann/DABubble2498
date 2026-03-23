@@ -314,4 +314,106 @@
     </div>
 }
 
+@if (showResetPasswordOverlay) {
+    <div class="overlay" (click)="closeResetPasswordOverlay()">
+        <div class="overlay-card" (click)="$event.stopPropagation()">
+            <button
+                type="button"
+                class="close-btn"
+                aria-label="Schließen"
+                (click)="closeResetPasswordOverlay()"
+            >
+                ×
+            </button>
+
+            <h2>Neues Passwort setzen</h2>
+            <p class="overlay-subtitle">
+                Wähle ein neues Passwort für dein Konto.
+            </p>
+
+            <form
+                [formGroup]="resetPasswordForm"
+                (ngSubmit)="confirmPasswordResetFromLink()"
+                novalidate
+            >
+                <label class="field" for="new-password">
+                    <span class="icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+                            <path
+                                d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 1 1 4 0v2h-4V7zm7 12H7v-8h10v8z"
+                            />
+                        </svg>
+                    </span>
+                    <input
+                        id="new-password"
+                        [type]="showNewPassword ? 'text' : 'password'"
+                        formControlName="newPassword"
+                        placeholder="Neues Passwort"
+                        autocomplete="new-password"
+                    />
+                    <button
+                        type="button"
+                        class="password-toggle"
+                        [attr.aria-label]="showNewPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                        [disabled]="resetFlow.isSubmitting"
+                        (click)="toggleNewPasswordVisibility()"
+                    >
+                        <span class="material-symbols-outlined" aria-hidden="true">
+                            {{ showNewPassword ? 'visibility_off' : 'visibility' }}
+                        </span>
+                    </button>
+                </label>
+
+                <label class="field" for="confirm-new-password">
+                    <span class="icon" aria-hidden="true">
+                        <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+                            <path
+                                d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 1 1 4 0v2h-4V7zm7 12H7v-8h10v8z"
+                            />
+                        </svg>
+                    </span>
+                    <input
+                        id="confirm-new-password"
+                        [type]="showConfirmPassword ? 'text' : 'password'"
+                        formControlName="confirmPassword"
+                        placeholder="Passwort wiederholen"
+                        autocomplete="new-password"
+                    />
+                    <button
+                        type="button"
+                        class="password-toggle"
+                        [attr.aria-label]="showConfirmPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                        [disabled]="resetFlow.isSubmitting"
+                        (click)="toggleConfirmPasswordVisibility()"
+                    >
+                        <span class="material-symbols-outlined" aria-hidden="true">
+                            {{ showConfirmPassword ? 'visibility_off' : 'visibility' }}
+                        </span>
+                    </button>
+                </label>
+
+                @if (showResetPasswordError) {
+                    <p class="field-error">{{ resetPasswordErrorMessage }}</p>
+                }
+
+                @if (resetPasswordError) {
+                    <p class="message error">{{ resetPasswordError }}</p>
+                }
+
+                @if (resetPasswordMessage) {
+                    <p class="message success">{{ resetPasswordMessage }}</p>
+                }
+
+                <button
+                    type="submit"
+                    class="primary"
+                    [disabled]="resetFlow.isSubmitting"
+                >
+                    Passwort speichern
+                </button>
+            </form>
+        </div>
+    </div>
+}
+
 <router-outlet></router-outlet>
