@@ -83,41 +83,58 @@ export class PasswordResetFlowService {
         isRegisterPasswordValid: (password: string) => boolean,
     ): Promise<void> {
         if (!this.canSubmit(isRegisterPasswordValid)) return;
-
-        this.isSubmitting = true;
-        this.message = '';
-        this.error = '';
-        const newPassword = this.passwordControl.value ?? '';
-
+        const newPassword = this.prepareSubmit();
         try {
-            await this.authService.confirmPasswordReset(this.resetCode, newPassword);
-            this.message = 'Passwort erfolgreich aktualisiert. Du kannst dich jetzt anmelden.';
+            await this.submitConfirmReset(newPassword);
         } catch (error) {
-            this.error = getAuthErrorMessage(
-                error,
-                'Passwort konnte nicht zurückgesetzt werden. Bitte fordere einen neuen Link an.',
-            );
+            this.error = this.resolveSubmitError(error, getAuthErrorMessage);
         } finally {
             this.isSubmitting = false;
         }
     }
 
+    private prepareSubmit(): string {
+        this.isSubmitting = true;
+        this.message = '';
+        this.error = '';
+        return this.passwordControl.value ?? '';
+    }
+
+    private async submitConfirmReset(newPassword: string): Promise<void> {
+        await this.authService.confirmPasswordReset(this.resetCode, newPassword);
+        this.message = 'Passwort erfolgreich aktualisiert. Du kannst dich jetzt anmelden.';
+    }
+
+    private resolveSubmitError(
+        error: unknown,
+        getAuthErrorMessage: (error: unknown, fallback: string) => string,
+    ): string {
+        return getAuthErrorMessage(
+            error,
+            'Passwort konnte nicht zurückgesetzt werden. Bitte fordere einen neuen Link an.',
+        );
+    }
+
     private canSubmit(isRegisterPasswordValid: (password: string) => boolean): boolean {
-        if (!this.resetCode) {
-            this.error = 'Der Reset-Link ist ungültig. Bitte fordere einen neuen Link an.';
-            return false;
-        }
-
-        if (this.form.invalid) {
-            this.form.markAllAsTouched();
-            return false;
-        }
-
+        if (!this.hasResetCode()) return false;
+        if (!this.isFormReady()) return false;
         const newPassword = this.passwordControl.value ?? '';
         const confirmPassword = this.confirmPasswordControl.value ?? '';
         if (!isRegisterPasswordValid(newPassword)) return false;
         if (newPassword === confirmPassword) return true;
         this.confirmPasswordControl.markAsTouched();
+        return false;
+    }
+
+    private hasResetCode(): boolean {
+        if (!!this.resetCode) return true;
+        this.error = 'Der Reset-Link ist ungültig. Bitte fordere einen neuen Link an.';
+        return false;
+    }
+
+    private isFormReady(): boolean {
+        if (!this.form.invalid) return true;
+        this.form.markAllAsTouched();
         return false;
     }
 }
