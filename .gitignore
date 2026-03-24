@@ -4,3 +4,6 @@ dist/
 .angular/
 .firebase/
 .DS_Store
+
+# Lokale Dokumentation – nur für Entwickler, nicht im Repo
+FIREBASE_EMAIL_TEMPLATE.md

@@ -192,7 +192,7 @@ export class AppComponent {
     }
     private async runSendResetEmail(email: string): Promise<void> {
         await this.authService.sendPasswordResetEmail(email);
-        this.forgotPasswordMessage = 'E-Mail gesendet. Bitte überprüfe dein Postfach.';
+        this.forgotPasswordMessage = 'Wenn für diese E-Mail ein Konto mit Passwort-Anmeldung existiert, wurde eine Reset-E-Mail versendet. Bitte überprüfe dein Postfach (auch Spam-Ordner).';
         setTimeout(() => this.closeForgotPasswordOverlay(), 3000);
     }
     private resolveSendResetError(error: unknown): string {
