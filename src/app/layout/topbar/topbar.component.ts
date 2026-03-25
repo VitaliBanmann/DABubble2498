@@ -3,8 +3,11 @@ import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import {
     combineLatest,
+    Subject,
     Subscription,
     catchError,
+    debounceTime,
+    distinctUntilChanged,
     map,
     of,
     switchMap,
@@ -50,6 +53,9 @@ export class TopbarComponent implements OnInit, OnDestroy {
     showProfile = false;
     searchTerm = '';
     showSearchResults = false;
+    isSearching = false;
+    activeResultIndex = -1;
+    private readonly searchInput$ = new Subject<string>();
     channelResults: SearchChannelResult[] = [];
     userResults: SearchUserResult[] = [];
     messageResults: SearchMessageResult[] = [];
@@ -79,6 +85,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
         this.trackAuthReady();
         this.trackUserProfile();
         this.warmSearchCache();
+        this.initSearchPipeline();
     }
 
     get initials(): string {
@@ -114,6 +121,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
     ngOnDestroy(): void {
         this.searchSubscription?.unsubscribe();
         this.subscription.unsubscribe();
+        this.searchInput$.complete();
     }
 
     toggleUserMenu(): void {
@@ -122,32 +130,107 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
     onSearchInput(value: string): void {
         this.searchTerm = value;
-        const query = this.extractSearchQuery(value);
-        if (query.length < 2) {
-            this.showSearchResults = false;
-            this.channelResults = [];
-            this.userResults = [];
-            this.messageResults = [];
-            return;
-        }
-        this.showSearchResults = true;
-        this.runIndexedSearch(query);
+        if (!value.trim()) this.clearSearchResults();
+        this.searchInput$.next(value);
+    }
+
+    onSearchFocus(): void {
+        if (this.searchTerm.trim().length >= 2) this.showSearchResults = true;
     }
 
     onSearchEnter(event: Event): void {
         event.preventDefault();
-        if (this.channelResults[0])
-            return this.navigateToChannel(this.channelResults[0].id);
-        if (this.userResults[0])
-            return this.navigateToUser(this.userResults[0]);
-        if (this.messageResults[0])
-            return this.navigateToMessage(this.messageResults[0]);
+        const target =
+            this.allResults[this.activeResultIndex] ?? this.allResults[0];
+        if (target) this.navigateByResult(target);
     }
 
     onSearchBlur(): void {
         setTimeout(() => {
             this.showSearchResults = false;
-        }, 120);
+            this.activeResultIndex = -1;
+        }, 150);
+    }
+
+    onSearchKeydown(event: KeyboardEvent): void {
+        if (event.key === 'Escape') {
+            this.closeSearchResults();
+            return;
+        }
+        if (event.key === 'Enter') {
+            if (this.allResults.length > 0) {
+                this.onSearchEnter(event);
+            } else {
+                this.triggerImmediateSearch();
+            }
+            return;
+        }
+        if (!this.showSearchResults) return;
+        const total = this.allResults.length;
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            this.activeResultIndex = Math.min(
+                this.activeResultIndex + 1,
+                total - 1,
+            );
+        } else if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            this.activeResultIndex = Math.max(this.activeResultIndex - 1, -1);
+        }
+    }
+
+    get allResults(): Array<{
+        kind: 'channel' | 'user' | 'message';
+        item: any;
+    }> {
+        return [
+            ...this.channelResults.map((item) => ({
+                kind: 'channel' as const,
+                item,
+            })),
+            ...this.userResults.map((item) => ({
+                kind: 'user' as const,
+                item,
+            })),
+            ...this.messageResults.map((item) => ({
+                kind: 'message' as const,
+                item,
+            })),
+        ];
+    }
+
+    private initSearchPipeline(): void {
+        this.subscription.add(
+            this.searchInput$
+                .pipe(debounceTime(300), distinctUntilChanged())
+                .subscribe((value) => {
+                    const query = normalizeSearchToken(value.trim());
+                    if (query.length < 2) {
+                        this.clearSearchResults();
+                        return;
+                    }
+                    this.activeResultIndex = -1;
+                    this.isSearching = true;
+                    this.showSearchResults = true;
+                    this.runIndexedSearch(query);
+                }),
+        );
+    }
+
+    private triggerImmediateSearch(): void {
+        const query = normalizeSearchToken(this.searchTerm.trim());
+        if (query.length < 2) return;
+        this.activeResultIndex = -1;
+        this.isSearching = true;
+        this.showSearchResults = true;
+        this.runIndexedSearch(query);
+    }
+
+    private navigateByResult(result: { kind: string; item: any }): void {
+        if (result.kind === 'channel')
+            return this.navigateToChannel(result.item.id);
+        if (result.kind === 'user') return this.navigateToUser(result.item);
+        this.navigateToMessage(result.item);
     }
 
     navigateToChannel(channelId: string): void {
@@ -179,6 +262,7 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
     closeSearchResults(): void {
         this.showSearchResults = false;
+        this.activeResultIndex = -1;
     }
 
     closeUserMenu(): void {
@@ -207,8 +291,12 @@ export class TopbarComponent implements OnInit, OnDestroy {
         const token = normalizeSearchToken(rawQuery);
         if (!token) return this.clearSearchResults();
         this.searchSubscription?.unsubscribe();
-        this.searchSubscription = createSearchStream(token, this.getSearchDependencies())
-            .subscribe(([channels, users, messages]) => this.applySearchResults(channels, users, messages));
+        this.searchSubscription = createSearchStream(
+            token,
+            this.getSearchDependencies(),
+        ).subscribe(([channels, users, messages]) =>
+            this.applySearchResults(channels, users, messages),
+        );
     }
 
     private getSearchDependencies() {
@@ -230,6 +318,8 @@ export class TopbarComponent implements OnInit, OnDestroy {
 
     private clearSearchResults(): void {
         this.showSearchResults = false;
+        this.isSearching = false;
+        this.activeResultIndex = -1;
         this.searchTerm = '';
         this.channelResults = [];
         this.userResults = [];
@@ -330,12 +420,28 @@ export class TopbarComponent implements OnInit, OnDestroy {
         if (!data?.profile) return;
         const profile = data.profile;
         const user = data.user;
-        this.deferUiUpdate(() => this.applyResolvedProfile(...this.resolveProfileValues(profile, user)));
+        this.deferUiUpdate(() =>
+            this.applyResolvedProfile(
+                ...this.resolveProfileValues(profile, user),
+            ),
+        );
     }
 
-    private resolveProfileValues(profile: any, user: any): [string, string, string | null, PresenceStatus] {
-        const name = profile.displayName?.trim() || user.displayName?.trim() || user.email?.split('@')[0] || 'Gast';
-        return [name, resolveProfileEmail(profile) || user.email || '', profile.avatar || user.photoURL || null, profile.presenceStatus ?? 'online'];
+    private resolveProfileValues(
+        profile: any,
+        user: any,
+    ): [string, string, string | null, PresenceStatus] {
+        const name =
+            profile.displayName?.trim() ||
+            user.displayName?.trim() ||
+            user.email?.split('@')[0] ||
+            'Gast';
+        return [
+            name,
+            resolveProfileEmail(profile) || user.email || '',
+            profile.avatar || user.photoURL || null,
+            profile.presenceStatus ?? 'online',
+        ];
     }
 
     private applyResolvedProfile(
@@ -373,15 +479,12 @@ export class TopbarComponent implements OnInit, OnDestroy {
         this.cachedChannels = mergeWithDefaults(channels);
     }
 
-    private applySearchResults(
-        channels: any[],
-        users: any[],
-        messages: any[],
-    ): void {
+    private applySearchResults(channels: any[], users: any[], messages: any[]): void {
         const mapped = mapSearchResults(channels, users, messages);
         this.channelResults = mapped.channels;
         this.userResults = mapped.users;
         this.messageResults = mapped.messages;
-        this.showSearchResults = !!this.extractSearchQuery(this.searchTerm);
+        this.isSearching = false; // NEU
+        this.showSearchResults = this.searchTerm.trim().length > 0;
     }
 }

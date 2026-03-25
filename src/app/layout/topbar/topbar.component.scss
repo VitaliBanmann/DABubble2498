@@ -105,6 +105,36 @@
     background: #f4f6ff;
 }
 
+.search-results button.active {
+    background: #edf0ff;
+    outline: 2px solid #444df2;
+    outline-offset: -2px;
+}
+
+.search-results__loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    font-size: 13px;
+    color: #7a8096;
+}
+
+.search-results__spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #e2e6f4;
+    border-top-color: #444df2;
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    flex-shrink: 0;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
 .topbar__user {
     display: flex;
     gap: 10px;

@@ -2,7 +2,6 @@ import {
     combineLatest,
     Observable,
     catchError,
-    debounceTime,
     distinctUntilChanged,
     map,
     of,
@@ -85,6 +84,11 @@ export function resolveAvatarUrl(avatar: string): string {
     return `assets/pictures/${trimmed.replace(/^\/+/, '')}`;
 }
 
+export function truncateText(text: string, maxLength = 60): string {
+    const trimmed = (text ?? '').trim();
+    return trimmed.length > maxLength ? `${trimmed.slice(0, maxLength)}…` : trimmed;
+}
+
 export function mapSearchResults(
     channels: any[],
     users: any[],
@@ -108,7 +112,7 @@ function mapUserResults(users: any[]): SearchUserResult[] {
 function mapMessageResults(messages: any[]): SearchMessageResult[] {
     return messages.filter((message) => !!message?.id && (message.channelId || message.conversationId)).map((message) => ({
         id: message.id as string,
-        text: message.text,
+        text: truncateText(message.text),
         kind: (message.kind ?? 'channel') as 'channel' | 'dm',
         channelId: message.channelId,
         conversationId: message.conversationId,
@@ -201,7 +205,6 @@ function buildMessageResults(
         buildChannelMessageResults(token, deps).pipe(startWith([] as any[])),
         buildDmMessageResults(token, deps).pipe(startWith([] as any[])),
     ] as [Observable<any[]>, Observable<any[]>]).pipe(
-        debounceTime(200),
         map(([channelMessages, directMessages]) => mergeSearchMessages(channelMessages, directMessages)),
         catchError(() => of([])),
     );
