@@ -1,0 +1,37 @@
+<section class="add-member-overlay" (click)="onClose()">
+    <article class="add-member-popup" (click)="$event.stopPropagation()">
+        <header class="add-member-popup__header">
+            <div class="add-member-popup__title-group">
+                <h2>Leute hinzufügen</h2>
+                <p>
+                    <span class="add-member-popup__hash">#</span>
+                    <span>{{ channelName }}</span>
+                </p>
+            </div>
+
+            <button
+                type="button"
+                class="add-member-popup__close-btn"
+                aria-label="Popup schließen"
+                (click)="onClose()"
+            >
+                <img src="assets/pictures/close.svg" alt="" aria-hidden="true" />
+            </button>
+        </header>
+
+        <div class="add-member-popup__body">
+            <input
+                type="text"
+                class="add-member-popup__input"
+                placeholder="Name eingeben"
+                aria-label="Name eingeben"
+            />
+
+            <div class="add-member-popup__actions">
+                <button type="button" class="add-member-popup__submit-btn">
+                    Hinzufügen
+                </button>
+            </div>
+        </div>
+    </article>
+</section>

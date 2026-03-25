@@ -15,6 +15,7 @@ import { Subscription } from 'rxjs';
 import { User as FirebaseUser } from 'firebase/auth';
 import { PickerComponent } from '@ctrl/ngx-emoji-mart';
 import { ChannelPopupComponent } from '../layout/shell/channel-popup/channel-popup.component';
+import { AddMemberToChannelComponent } from '../layout/shell/add-member-to-channel/add-member-to-channel.component';
 import { AttachmentService } from '../services/attachment.service';
 import { AuthFlowService } from '../services/auth-flow.service';
 import { AuthService } from '../services/auth.service';
@@ -45,6 +46,7 @@ import { HomeComponentBase7 } from './home.component.base7';
         PickerComponent,
         FormsModule,
         ChannelPopupComponent,
+        AddMemberToChannelComponent,
     ],
     templateUrl: './home.component.html',
     styleUrl: './home.component.scss',
@@ -133,6 +135,7 @@ export class HomeComponent extends HomeComponentBase7 implements OnInit, OnDestr
     authResolved = false;
     showScrollToLatestButton = false;
     isChannelPopupOpen = false;
+    isAddMemberPopupOpen = false;
     channelPopupLeft = 24;
     channelPopupTop = 100;
     editingMessageId: string | null = null;
@@ -185,5 +188,13 @@ export class HomeComponent extends HomeComponentBase7 implements OnInit, OnDestr
         protected readonly channelService: ChannelService,
     ) {
         super();
+    }
+
+    onAddMemberClick(): void {
+        this.isAddMemberPopupOpen = true;
+    }
+
+    closeAddMemberPopup(): void {
+        this.isAddMemberPopupOpen = false;
     }
 }

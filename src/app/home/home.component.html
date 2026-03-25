@@ -72,6 +72,13 @@
                             src="assets/pictures/add_members.svg"
                             alt=""
                             aria-hidden="true"
+                            class="add-member-icon add-member-icon--default"
+                        />
+                        <img
+                            src="assets/pictures/add-member-hover.svg"
+                            alt=""
+                            aria-hidden="true"
+                            class="add-member-icon add-member-icon--hover"
                         />
                     </button>
                 </div>
@@ -623,6 +630,13 @@
             (channelNameChange)="onChannelNameChanged($event)"
             (descriptionChange)="onChannelDescriptionChanged($event)"
             (close)="closeChannelPopup()"
+        />
+    }
+
+    @if (isAddMemberPopupOpen) {
+        <app-add-member-to-channel
+            [channelName]="currentConversationTitle"
+            (close)="closeAddMemberPopup()"
         />
     }
 </main>
