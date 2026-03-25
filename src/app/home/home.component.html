@@ -184,7 +184,7 @@
                 ========================================================== -->
                 @for (group of messageGroups; track group.id) {
                     @let firstMessage = group.messages[0];
-                    @let lastMessage = getLastMessageOfGroup(group);
+<!--                    @let lastMessage = getLastMessageOfGroup(group);-->
 
                     @if (shouldShowGroupDateSeparator($index, group)) {
                         <div class="date-separator" aria-hidden="true">
@@ -342,7 +342,7 @@
                                              Reactions BELOW bubble
                                         ========================================================== -->
                                         @if (groupMessage.reactions?.length) {
-                                            @let visibleReactions = getSortedVisibleReactions(groupMessage);
+                                            <!--@let visibleReactions = getSortedVisibleReactions(groupMessage);-->
                                             @let hiddenCount = getHiddenReactionCount(groupMessage);
                                             @let totalReactions = groupMessage.reactions?.length ?? 0;
 
