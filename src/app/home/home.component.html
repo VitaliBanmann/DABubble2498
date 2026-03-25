@@ -4,37 +4,39 @@
              Header
         ========================================================== -->
         <header class="home-header">
-            <div
-                #channelTitleTrigger
-                class="home-header__title"
-                role="button"
-                tabindex="0"
-                (click)="openChannelPopup()"
-                (keydown.enter)="openChannelPopup()"
-                (keydown.space)="$event.preventDefault(); openChannelPopup()"
-            >
-                <h1>
-                    {{
-                        isComposeMode
-                            ? 'Neue Nachricht'
-                            : isDirectMessage
+            @if (isComposeMode) {
+                <h1 class="home-header__title--plain">Neue Nachricht</h1>
+            } @else {
+                <div
+                    #channelTitleTrigger
+                    class="home-header__title"
+                    role="button"
+                    tabindex="0"
+                    (click)="openChannelPopup()"
+                    (keydown.enter)="openChannelPopup()"
+                    (keydown.space)="$event.preventDefault(); openChannelPopup()"
+                >
+                    <h1>
+                        {{
+                            isDirectMessage
                                 ? '@ ' + currentConversationTitle
                                 : '# ' + currentConversationTitle
-                    }}
-                </h1>
-                <img
-                    class="home-header__dropdown-icon home-header__dropdown-icon--default"
-                    src="assets/pictures/keyboard_arrow_down.svg"
-                    alt=""
-                    aria-hidden="true"
-                />
-                <img
-                    class="home-header__dropdown-icon home-header__dropdown-icon--hover"
-                    src="assets/pictures/expand_more.svg"
-                    alt=""
-                    aria-hidden="true"
-                />
-            </div>
+                        }}
+                    </h1>
+                    <img
+                        class="home-header__dropdown-icon home-header__dropdown-icon--default"
+                        src="assets/pictures/keyboard_arrow_down.svg"
+                        alt=""
+                        aria-hidden="true"
+                    />
+                    <img
+                        class="home-header__dropdown-icon home-header__dropdown-icon--hover"
+                        src="assets/pictures/expand_more.svg"
+                        alt=""
+                        aria-hidden="true"
+                    />
+                </div>
+            }
 
             @if (!isComposeMode && !isDirectMessage) {
                 <div class="home-header__members">
@@ -479,6 +481,7 @@
         <!-- =========================================================
              Composer
         ========================================================== -->
+        <div class="composer-area">
         <form class="composer" novalidate (ngSubmit)="sendMessage()">
             @if (selectedMentionsList().length) {
                 <div class="mention-chip-list">
@@ -619,6 +622,7 @@
         @if (errorMessage) {
             <p class="error">{{ errorMessage }}</p>
         }
+        </div>
     </section>
 
     @if (isChannelPopupOpen) {
