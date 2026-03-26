@@ -28,6 +28,10 @@ import {
 
 import { ChannelPopupComponent } from '../layout/shell/channel-popup/channel-popup.component';
 import { AddMemberToChannelComponent } from '../layout/shell/add-member-to-channel/add-member-to-channel.component';
+import {
+    ChannelMembersPopupComponent,
+    ChannelMembersPopupEntry,
+} from '../layout/shell/channel-members-popup/channel-members-popup.component';
 import { AttachmentService } from '../services/attachment.service';
 import { AuthFlowService } from '../services/auth-flow.service';
 import { AuthService } from '../services/auth.service';
@@ -58,6 +62,7 @@ import {
         FormsModule,
         ChannelPopupComponent,
         AddMemberToChannelComponent,
+        ChannelMembersPopupComponent,
     ],
     templateUrl: './home.component.html',
     styleUrl: './home.component.scss',
@@ -115,6 +120,8 @@ export class HomeComponent implements OnInit, OnDestroy {
     @ViewChild('messageList') messageListRef?: ElementRef<HTMLElement>;
     @ViewChild('channelTitleTrigger')
     channelTitleTriggerRef?: ElementRef<HTMLElement>;
+    @ViewChild('membersAvatarTrigger')
+    membersAvatarTriggerRef?: ElementRef<HTMLElement>;
     @ViewChild('composerTextarea')
     composerTextareaRef?: ElementRef<HTMLTextAreaElement>;
 
@@ -158,8 +165,11 @@ export class HomeComponent implements OnInit, OnDestroy {
     showScrollToLatestButton = false;
     isChannelPopupOpen = false;
     isAddMemberPopupOpen = false;
+    isChannelMembersPopupOpen = false;
     channelPopupLeft = 24;
     channelPopupTop = 100;
+    channelMembersPopupLeft = 24;
+    channelMembersPopupTop = 120;
     editingMessageId: string | null = null;
     isSavingEdit = false;
 
@@ -234,6 +244,11 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     get currentChannelDescription(): string {
+        const liveDescription = (this.currentChannel?.description ?? '').trim();
+        if (liveDescription) {
+            return liveDescription;
+        }
+
         return (
             this.channelDescriptions[this.currentChannelId] ??
             'Dieser Channel ist fuer alles rund um #dfsdf vorgesehen. Hier kannst du zusammen mit deinem Team Meetings abhalten, Dokumente teilen und Entscheidungen treffen.'
@@ -241,6 +256,11 @@ export class HomeComponent implements OnInit, OnDestroy {
     }
 
     get currentChannelName(): string {
+        const liveName = (this.currentChannel?.name ?? '').trim();
+        if (liveName) {
+            return liveName;
+        }
+
         return this.channelNames[this.currentChannelId] ?? this.currentChannelId;
     }
 
@@ -308,12 +328,128 @@ export class HomeComponent implements OnInit, OnDestroy {
        Popup Actions
     ======================================== */
 
+    openChannelPopup(): void {
+        if (this.isComposeMode || this.isDirectMessage) {
+            return;
+        }
+
+        this.positionChannelPopup();
+        this.isAddMemberPopupOpen = false;
+        this.isChannelMembersPopupOpen = false;
+        this.isChannelPopupOpen = true;
+    }
+
+    closeChannelPopup(): void {
+        this.isChannelPopupOpen = false;
+    }
+
+    onChannelNameChanged(nextName: string): void {
+        const name = nextName.trim();
+        if (!name || this.isDirectMessage || !this.currentChannelId) {
+            return;
+        }
+
+        this.channelNames[this.currentChannelId] = name;
+
+        if (this.currentChannel) {
+            this.currentChannel = {
+                ...this.currentChannel,
+                name,
+            };
+        }
+
+        this.channelService
+            .updateChannel(this.currentChannelId, { name })
+            .pipe(take(1))
+            .subscribe({
+                error: (error: unknown) =>
+                    console.error('[CHANNEL NAME UPDATE ERROR]', error),
+            });
+    }
+
+    onChannelDescriptionChanged(nextDescription: string): void {
+        const description = nextDescription.trim();
+        if (!description || this.isDirectMessage || !this.currentChannelId) {
+            return;
+        }
+
+        this.channelDescriptions[this.currentChannelId] = description;
+
+        if (this.currentChannel) {
+            this.currentChannel = {
+                ...this.currentChannel,
+                description,
+            };
+        }
+
+        this.channelService
+            .updateChannel(this.currentChannelId, { description })
+            .pipe(take(1))
+            .subscribe({
+                error: (error: unknown) =>
+                    console.error('[CHANNEL DESCRIPTION UPDATE ERROR]', error),
+            });
+    }
+
     onAddMemberClick(): void {
+        this.isChannelPopupOpen = false;
+        this.isChannelMembersPopupOpen = false;
         this.isAddMemberPopupOpen = true;
     }
 
     closeAddMemberPopup(): void {
         this.isAddMemberPopupOpen = false;
+    }
+
+    openChannelMembersPopup(): void {
+        if (this.isComposeMode || this.isDirectMessage) {
+            return;
+        }
+
+        this.positionChannelMembersPopup();
+        this.isChannelPopupOpen = false;
+        this.isAddMemberPopupOpen = false;
+        this.isChannelMembersPopupOpen = true;
+    }
+
+    closeChannelMembersPopup(): void {
+        this.isChannelMembersPopupOpen = false;
+    }
+
+    protected positionChannelMembersPopup(): void {
+        const triggerElement = this.membersAvatarTriggerRef?.nativeElement;
+        if (!triggerElement) {
+            return;
+        }
+
+        const rect = triggerElement.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const popupWidth = Math.min(415, viewportWidth - 48);
+        const defaultLeft = Math.round(rect.right - popupWidth);
+        const maxLeft = Math.max(24, viewportWidth - popupWidth - 24);
+
+        this.channelMembersPopupLeft = Math.min(
+            Math.max(defaultLeft, 24),
+            maxLeft,
+        );
+        this.channelMembersPopupTop = Math.round(rect.bottom + 12);
+    }
+
+    protected positionChannelPopup(): void {
+        const triggerElement = this.channelTitleTriggerRef?.nativeElement;
+        if (!triggerElement) {
+            return;
+        }
+
+        const rect = triggerElement.getBoundingClientRect();
+        const viewportWidth = window.innerWidth;
+        const maxPopupWidth = Math.min(760, viewportWidth - 48);
+
+        const defaultLeft = Math.round(rect.left);
+        const maxLeft = Math.max(24, viewportWidth - maxPopupWidth - 24);
+
+        this.channelPopupLeft = Math.min(Math.max(defaultLeft, 24), maxLeft);
+        this.channelPopupTop = Math.round(rect.bottom + 12);
     }
 
     /* ========================================
@@ -2042,6 +2178,16 @@ export class HomeComponent implements OnInit, OnDestroy {
 
     get visibleChannelMembers(): User[] {
         return this.getChannelMembers().slice(0, this.maxVisibleChannelMembers);
+    }
+
+    get channelMembersPopupEntries(): ChannelMembersPopupEntry[] {
+        return this.getChannelMembers().map((user) => ({
+            id: user.id ?? '',
+            displayName: user.displayName,
+            avatar: this.getUserAvatar(user),
+            isSelf: !!user.id && user.id === this.currentUserId,
+            isOnline: user.presenceStatus === 'online',
+        }));
     }
 
     get remainingChannelMembersCount(): number {

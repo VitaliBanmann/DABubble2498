@@ -1,0 +1,47 @@
+<section class="channel-members-overlay" (click)="onClose()">
+    <article
+        class="channel-members-popup"
+        [style.left.px]="left"
+        [style.top.px]="top"
+        (click)="$event.stopPropagation()"
+    >
+        <header class="channel-members-popup__header">
+            <h2>Mitglieder</h2>
+
+            <button
+                type="button"
+                class="channel-members-popup__close-btn"
+                aria-label="Popup schließen"
+                (click)="onClose()"
+            >
+                <img src="assets/pictures/close.svg" alt="" aria-hidden="true" />
+            </button>
+        </header>
+
+        <div class="channel-members-popup__list">
+            @for (member of members; track member.id + '-' + $index) {
+                <div class="channel-members-popup__item">
+                    <div class="channel-members-popup__avatar-wrap">
+                        <img
+                            [src]="member.avatar"
+                            [alt]="member.displayName + ' Avatar'"
+                        />
+                        <span
+                            class="channel-members-popup__status"
+                            [class.channel-members-popup__status--offline]="!member.isOnline"
+                        ></span>
+                    </div>
+
+                    <span class="channel-members-popup__name">
+                        {{ member.displayName }}{{ member.isSelf ? ' (Du)' : '' }}
+                    </span>
+                </div>
+            }
+
+            <button type="button" class="channel-members-popup__add-btn">
+                <img src="assets/pictures/add_members.svg" alt="" aria-hidden="true" />
+                <span>Mitglieder hinzufügen</span>
+            </button>
+        </div>
+    </article>
+</section>

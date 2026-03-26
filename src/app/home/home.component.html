@@ -41,9 +41,11 @@
             @if (!isComposeMode && !isDirectMessage) {
                 <div class="home-header__members">
                     <button
+                        #membersAvatarTrigger
                         type="button"
                         class="members-avatar"
                         aria-label="Channel-Mitglieder anzeigen"
+                        (click)="openChannelMembersPopup()"
                     >
                         @for (member of visibleChannelMembers; track member.id ?? $index) {
                             <img
@@ -673,6 +675,15 @@
         <app-add-member-to-channel
             [channelName]="currentConversationTitle"
             (close)="closeAddMemberPopup()"
+        />
+    }
+
+    @if (isChannelMembersPopupOpen) {
+        <app-channel-members-popup
+            [members]="channelMembersPopupEntries"
+            [left]="channelMembersPopupLeft"
+            [top]="channelMembersPopupTop"
+            (close)="closeChannelMembersPopup()"
         />
     }
 </main>
