@@ -341,9 +341,6 @@
                                         </div>
 
                                         <!-- =========================================================
-                                             Reactions BELOW bubble
-                                        ========================================================== -->
-                                        <!-- =========================================================
      Reactions BELOW bubble
 ========================================================== -->
                                         @if (groupMessage.reactions?.length) {
@@ -384,6 +381,36 @@
                                                         weniger anzeigen
                                                     </button>
                                                 }
+
+                                                @if (canWrite) {
+                                                    <div class="message__reaction-picker-wrap">
+                                                        <button
+                                                            type="button"
+                                                            class="reaction reaction--picker"
+                                                            aria-label="Emoji auswählen"
+                                                            (click)="toggleMessageEmojiPicker(groupMessage, $event)"
+                                                        >
+                                                            <img
+                                                                src="assets/pictures/add_reaction.svg"
+                                                                alt=""
+                                                                aria-hidden="true"
+                                                            />
+                                                        </button>
+
+                                                        @if (isMessageEmojiPickerOpen(groupMessage)) {
+                                                            <div
+                                                                class="emoji-picker-popover"
+                                                                (click)="$event.stopPropagation()"
+                                                            >
+                                                                <emoji-mart
+                                                                    (emojiSelect)="onMessageEmojiSelect($event, groupMessage)"
+                                                                    [showPreview]="false"
+                                                                    [perLine]="8"
+                                                                ></emoji-mart>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                }
                                             </div>
                                         }
                                     </div>
@@ -417,33 +444,35 @@
                                     <span class="toolbar-emoji">✅</span>
                                 </button>
 
-                                <div class="message-toolbar__picker-wrap">
-                                    <button
-                                        type="button"
-                                        class="message-toolbar__btn message-toolbar__btn--picker"
-                                        aria-label="Emoji auswählen"
-                                        (click)="toggleMessageEmojiPicker(lastMessage, $event)"
-                                    >
-                                        <img
-                                            src="assets/pictures/add_reaction.svg"
-                                            alt=""
-                                            aria-hidden="true"
-                                        />
-                                    </button>
-
-                                    @if (isMessageEmojiPickerOpen(lastMessage)) {
-                                        <div
-                                            class="emoji-picker-popover"
-                                            (click)="$event.stopPropagation()"
+                                @if (!(lastMessage.reactions?.length)) {
+                                    <div class="message-toolbar__picker-wrap">
+                                        <button
+                                            type="button"
+                                            class="message-toolbar__btn message-toolbar__btn--picker"
+                                            aria-label="Emoji auswählen"
+                                            (click)="toggleMessageEmojiPicker(lastMessage, $event)"
                                         >
-                                            <emoji-mart
-                                                (emojiSelect)="onMessageEmojiSelect($event, lastMessage)"
-                                                [showPreview]="false"
-                                                [perLine]="8"
-                                            ></emoji-mart>
-                                        </div>
-                                    }
-                                </div>
+                                            <img
+                                                src="assets/pictures/add_reaction.svg"
+                                                alt=""
+                                                aria-hidden="true"
+                                            />
+                                        </button>
+
+                                        @if (isMessageEmojiPickerOpen(lastMessage)) {
+                                            <div
+                                                class="emoji-picker-popover"
+                                                (click)="$event.stopPropagation()"
+                                            >
+                                                <emoji-mart
+                                                    (emojiSelect)="onMessageEmojiSelect($event, lastMessage)"
+                                                    [showPreview]="false"
+                                                    [perLine]="8"
+                                                ></emoji-mart>
+                                            </div>
+                                        }
+                                    </div>
+                                }
 
                                 @if (canOpenThreadFromToolbar(lastMessage)) {
                                     <button

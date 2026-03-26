@@ -703,9 +703,9 @@
 ======================================== */
 .message__reactions {
     max-width: 100%;
-    width: fit-content;
+    width: 100%;
     display: grid;
-    grid-template-columns: repeat(5, max-content);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: 6px;
     margin-top: 0;
 }
@@ -715,6 +715,8 @@
 }
 
 .reaction {
+    width: 100%;
+    min-width: 0;
     height: 28px;
     border: 1px solid #adb0d9;
     border-radius: 999px;
@@ -727,6 +729,12 @@
     font-size: 12px;
     cursor: pointer;
     white-space: nowrap;
+    overflow: hidden;
+}
+
+.reaction span {
+    overflow: hidden;
+    text-overflow: ellipsis;
 }
 
 .reaction.active {
@@ -736,6 +744,42 @@
 
 .reaction.more {
     color: #555;
+}
+
+/* Inline add reaction button inside reactions grid */
+.reaction--picker {
+    padding: 0;
+}
+
+.reaction--picker img {
+    width: 16px;
+    height: 16px;
+}
+
+/* Picker wrapper when it sits inside reactions */
+.message__reaction-picker-wrap {
+    position: relative;
+    width: 100%;
+    min-width: 0;
+    display: flex;
+}
+
+.message__reaction-picker-wrap .emoji-picker-popover {
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    z-index: 20;
+    width: 340px;
+    border: 1px solid #d8ddef;
+    border-radius: 16px;
+    padding: 10px;
+    background: #ffffff;
+    display: block;
+}
+
+.message__reactions--own .message__reaction-picker-wrap .emoji-picker-popover {
+    right: 0;
+    left: auto;
 }
 
 .message__reaction-actions {
