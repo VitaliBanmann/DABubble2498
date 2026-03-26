@@ -703,14 +703,15 @@
 ======================================== */
 .message__reactions {
     max-width: 100%;
-    display: flex;
-    flex-wrap: wrap;
+    width: fit-content;
+    display: grid;
+    grid-template-columns: repeat(5, max-content);
     gap: 6px;
     margin-top: 0;
 }
 
 .message__reactions--own {
-    justify-content: flex-end;
+    margin-left: auto;
 }
 
 .reaction {
@@ -721,9 +722,11 @@
     background: #fff;
     display: inline-flex;
     align-items: center;
+    justify-content: center;
     gap: 4px;
     font-size: 12px;
     cursor: pointer;
+    white-space: nowrap;
 }
 
 .reaction.active {

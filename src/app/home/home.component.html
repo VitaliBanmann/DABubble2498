@@ -343,10 +343,13 @@
                                         <!-- =========================================================
                                              Reactions BELOW bubble
                                         ========================================================== -->
+                                        <!-- =========================================================
+     Reactions BELOW bubble
+========================================================== -->
                                         @if (groupMessage.reactions?.length) {
                                             @let visibleReactions = getSortedVisibleReactions(groupMessage);
                                             @let hiddenCount = getHiddenReactionCount(groupMessage);
-                                            @let totalReactions = groupMessage.reactions?.length ?? 0;
+                                            @let isExpanded = isReactionListExpanded(groupMessage);
 
                                             <div
                                                 class="message__reactions"
@@ -372,7 +375,7 @@
                                                     >
                                                         +{{ hiddenCount }} weitere
                                                     </button>
-                                                } @else if (totalReactions > 20) {
+                                                } @else if (isExpanded && (groupMessage.reactions?.length ?? 0) > 7) {
                                                     <button
                                                         type="button"
                                                         class="reaction more"

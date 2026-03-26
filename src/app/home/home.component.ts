@@ -1779,18 +1779,28 @@ export class HomeComponent implements OnInit, OnDestroy {
         }, 0);
     }
 
-    /* ========================================
-       Reactions
-    ======================================== */
+/* ========================================
+   Reactions
+======================================== */
+
+    private readonly collapsedReactionLimit = 7;
+
+    isReactionListExpanded(message: Message): boolean {
+        if (!message.id) {
+            return false;
+        }
+
+        return this.expandedReactionMessages.has(message.id);
+    }
 
     getVisibleReactions(message: Message): MessageReaction[] {
         const reactions = message.reactions ?? [];
 
-        if (!message.id || this.expandedReactionMessages.has(message.id)) {
+        if (!message.id || this.isReactionListExpanded(message)) {
             return reactions;
         }
 
-        return reactions.slice(0, 20);
+        return reactions.slice(0, this.collapsedReactionLimit);
     }
 
     getSortedVisibleReactions(message: Message): MessageReaction[] {
@@ -1814,11 +1824,11 @@ export class HomeComponent implements OnInit, OnDestroy {
     getHiddenReactionCount(message: Message): number {
         const reactions = message.reactions ?? [];
 
-        if (!message.id || this.expandedReactionMessages.has(message.id)) {
+        if (!message.id || this.isReactionListExpanded(message)) {
             return 0;
         }
 
-        return Math.max(reactions.length - 20, 0);
+        return Math.max(reactions.length - this.collapsedReactionLimit, 0);
     }
 
     toggleReactionList(message: Message): void {
