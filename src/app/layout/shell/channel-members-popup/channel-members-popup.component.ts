@@ -21,8 +21,13 @@ export class ChannelMembersPopupComponent {
     @Input() left = 24;
     @Input() top = 120;
     @Output() close = new EventEmitter<void>();
+    @Output() addMember = new EventEmitter<void>();
 
     onClose(): void {
         this.close.emit();
+    }
+
+    onAddMemberClick(): void {
+        this.addMember.emit();
     }
 }

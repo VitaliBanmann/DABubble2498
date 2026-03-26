@@ -38,8 +38,23 @@
                 </div>
             }
 
-            <button type="button" class="channel-members-popup__add-btn">
-                <img src="assets/pictures/add_members.svg" alt="" aria-hidden="true" />
+            <button
+                type="button"
+                class="channel-members-popup__add-btn"
+                (click)="onAddMemberClick()"
+            >
+                <img
+                    class="channel-members-popup__add-icon channel-members-popup__add-icon--default"
+                    src="assets/pictures/add_members.svg"
+                    alt=""
+                    aria-hidden="true"
+                />
+                <img
+                    class="channel-members-popup__add-icon channel-members-popup__add-icon--hover"
+                    src="assets/pictures/add-member-hover.svg"
+                    alt=""
+                    aria-hidden="true"
+                />
                 <span>Mitglieder hinzufügen</span>
             </button>
         </div>

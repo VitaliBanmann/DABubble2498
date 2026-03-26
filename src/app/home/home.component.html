@@ -663,6 +663,7 @@
         <app-channel-popup
             [channelName]="currentConversationTitle"
             [description]="currentChannelDescription"
+            [createdBy]="currentChannelCreatorName"
             [left]="channelPopupLeft"
             [top]="channelPopupTop"
             (channelNameChange)="onChannelNameChanged($event)"
@@ -684,6 +685,7 @@
             [left]="channelMembersPopupLeft"
             [top]="channelMembersPopupTop"
             (close)="closeChannelMembersPopup()"
+            (addMember)="onAddMemberClick()"
         />
     }
 </main>

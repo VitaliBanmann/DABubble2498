@@ -15,7 +15,7 @@ export class ChannelPopupComponent implements OnChanges {
     @Input() top = 100;
     @Input() description =
         'Dieser Channel ist für alles rund um #dfsdf vorgesehen. Hier kannst du zusammen mit deinem Team Meetings abhalten, Dokumente teilen und Entscheidungen treffen.';
-    @Input() createdBy = 'Noah Braun';
+    @Input() createdBy = 'Unbekannt';
     @Output() close = new EventEmitter<void>();
     @Output() channelNameChange = new EventEmitter<string>();
     @Output() descriptionChange = new EventEmitter<string>();

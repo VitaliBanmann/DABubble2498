@@ -100,7 +100,9 @@
     margin-top: 8px;
     border: 0;
     background: transparent;
-    padding: 0;
+    padding: 0 20px;
+    height: 60px;
+    border-radius: 100px;
     display: inline-flex;
     align-items: center;
     gap: 20px;
@@ -110,9 +112,26 @@
     font-size: 18px;
     font-weight: 400;
 
-    img {
+    .channel-members-popup__add-icon {
         width: 32px;
         height: 32px;
         display: block;
+    }
+
+    .channel-members-popup__add-icon--hover {
+        display: none;
+    }
+
+    &:hover {
+        background: #edeefe;
+        color: #545af1;
+
+        .channel-members-popup__add-icon--default {
+            display: none;
+        }
+
+        .channel-members-popup__add-icon--hover {
+            display: block;
+        }
     }
 }

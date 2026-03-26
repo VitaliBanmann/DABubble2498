@@ -264,6 +264,19 @@ export class HomeComponent implements OnInit, OnDestroy {
         return this.channelNames[this.currentChannelId] ?? this.currentChannelId;
     }
 
+    get currentChannelCreatorName(): string {
+        const creatorIdOrName = (this.currentChannel?.createdBy ?? '')
+            .toString()
+            .trim();
+        if (!creatorIdOrName) {
+            return 'Unbekannt';
+        }
+
+        const creatorUser = this.usersById[creatorIdOrName];
+        const displayName = (creatorUser?.displayName ?? '').trim();
+        return displayName || creatorIdOrName;
+    }
+
     get currentConversationTitle(): string {
         if (this.isDirectMessage) {
             const directUser = this.usersById[this.currentDirectUserId];
