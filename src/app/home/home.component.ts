@@ -404,6 +404,28 @@ export class HomeComponent implements OnInit, OnDestroy {
             });
     }
 
+    onLeaveChannelRequested(): void {
+        if (this.isDirectMessage || !this.currentChannelId || !this.currentUserId) {
+            return;
+        }
+
+        const removedChannelId = this.currentChannelId;
+        const currentUserId = this.currentUserId;
+        this.errorMessage = '';
+
+        this.channelService
+            .removeMemberFromChannel(removedChannelId, currentUserId)
+            .pipe(
+                take(1),
+                switchMap(() => this.channelService.getAllChannels().pipe(take(1))),
+            )
+            .subscribe({
+                next: (channels: Channel[]) =>
+                    this.handleChannelLeaveSuccess(removedChannelId, channels),
+                error: (error: unknown) => this.handleChannelLeaveError(error),
+            });
+    }
+
     onAddMemberClick(): void {
         this.isChannelPopupOpen = false;
         this.isChannelMembersPopupOpen = false;
@@ -463,6 +485,32 @@ export class HomeComponent implements OnInit, OnDestroy {
 
         this.channelPopupLeft = Math.min(Math.max(defaultLeft, 24), maxLeft);
         this.channelPopupTop = Math.round(rect.bottom + 12);
+    }
+
+    protected handleChannelLeaveSuccess(
+        removedChannelId: string,
+        channels: Channel[],
+    ): void {
+        this.closeChannelPopup();
+        this.closeAddMemberPopup();
+        this.closeChannelMembersPopup();
+
+        const nextChannel = channels.find(
+            (channel) => !!channel.id && channel.id !== removedChannelId,
+        );
+
+        if (nextChannel?.id) {
+            this.router.navigate(['/app/channel', nextChannel.id]);
+            return;
+        }
+
+        this.router.navigate(['/app']);
+    }
+
+    protected handleChannelLeaveError(error: unknown): void {
+        console.error('[CHANNEL LEAVE ERROR]', error);
+        this.errorMessage =
+            'Channel konnte nicht verlassen werden. Bitte erneut versuchen.';
     }
 
     /* ========================================

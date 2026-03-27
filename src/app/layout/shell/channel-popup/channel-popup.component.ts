@@ -19,6 +19,7 @@ export class ChannelPopupComponent implements OnChanges {
     @Output() close = new EventEmitter<void>();
     @Output() channelNameChange = new EventEmitter<string>();
     @Output() descriptionChange = new EventEmitter<string>();
+    @Output() leaveChannel = new EventEmitter<void>();
     currentChannelName = this.channelName;
     editableChannelName = this.channelName;
     isEditingChannelName = false;
@@ -76,5 +77,9 @@ export class ChannelPopupComponent implements OnChanges {
 
         this.editableDescription = '';
         this.isEditingDescription = true;
+    }
+
+    onLeaveChannelClick(): void {
+        this.leaveChannel.emit();
     }
 }

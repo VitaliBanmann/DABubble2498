@@ -91,7 +91,13 @@
         </section>
 
         <div class="channel-popup__actions">
-            <button type="button" class="channel-popup__leave-btn">Channel verlassen</button>
+            <button
+                type="button"
+                class="channel-popup__leave-btn"
+                (click)="onLeaveChannelClick()"
+            >
+                Channel verlassen
+            </button>
         </div>
     </article>
 </section>

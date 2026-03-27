@@ -668,6 +668,7 @@
             [top]="channelPopupTop"
             (channelNameChange)="onChannelNameChanged($event)"
             (descriptionChange)="onChannelDescriptionChanged($event)"
+            (leaveChannel)="onLeaveChannelRequested()"
             (close)="closeChannelPopup()"
         />
     }
