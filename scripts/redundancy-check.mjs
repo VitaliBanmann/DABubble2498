@@ -5,7 +5,12 @@ import process from 'node:process';
 const root = process.cwd();
 const sourceDir = path.join(root, 'src');
 const targetExtensions = new Set(['.ts', '.html', '.scss']);
-const minBlockSize = 8;
+const defaultMinBlockSize = 8;
+const minBlockSizeByExtension = {
+    '.ts': 8,
+    '.html': 8,
+    '.scss': 12,
+};
 const maxReports = 25;
 
 function collectFiles(directory, list = []) {
@@ -50,8 +55,13 @@ function toRelative(filePath) {
     return path.relative(root, filePath);
 }
 
-function buildBlockKey(lines, index) {
-    return lines.slice(index, index + minBlockSize).join('\n');
+function getMinBlockSize(filePath) {
+    const extension = path.extname(filePath).toLowerCase();
+    return minBlockSizeByExtension[extension] || defaultMinBlockSize;
+}
+
+function buildBlockKey(lines, index, size) {
+    return lines.slice(index, index + size).join('\n');
 }
 
 function findDuplicateBlocks(files) {
@@ -59,8 +69,10 @@ function findDuplicateBlocks(files) {
 
     files.forEach((filePath) => {
         const lines = readNormalizedLines(filePath);
+        const minBlockSize = getMinBlockSize(filePath);
         for (let index = 0; index <= lines.length - minBlockSize; index += 1) {
-            const key = buildBlockKey(lines, index);
+            const block = buildBlockKey(lines, index, minBlockSize);
+            const key = `${minBlockSize}::${block}`;
             const existing = blocks.get(key) || [];
             existing.push({
                 filePath,
