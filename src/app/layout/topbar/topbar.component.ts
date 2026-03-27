@@ -109,19 +109,23 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     }
 
     onSearchKeydown(event: KeyboardEvent): void {
-        if (event.key === 'Escape') { this.closeSearchResults(); return; }
-        if (event.key === 'Enter') {
-            this.allResults.length > 0
-                ? this.onSearchEnter(event)
-                : this.triggerImmediateSearch();
-            return;
-        }
+        if (event.key === 'Escape') return this.closeSearchResults();
+        if (event.key === 'Enter') return this.handleSearchEnter(event);
         if (!this.showSearchResults) return;
+        this.handleSearchArrowNavigation(event);
+    }
+
+    private handleSearchEnter(event: KeyboardEvent): void {
+        this.allResults.length > 0 ? this.onSearchEnter(event) : this.triggerImmediateSearch();
+    }
+
+    private handleSearchArrowNavigation(event: KeyboardEvent): void {
         const total = this.allResults.length;
         if (event.key === 'ArrowDown') {
             event.preventDefault();
             this.activeResultIndex = Math.min(this.activeResultIndex + 1, total - 1);
-        } else if (event.key === 'ArrowUp') {
+        }
+        if (event.key === 'ArrowUp') {
             event.preventDefault();
             this.activeResultIndex = Math.max(this.activeResultIndex - 1, -1);
         }
@@ -186,16 +190,19 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
         const token = normalizeSearchToken(rawQuery);
         if (!token) return this.clearSearchResults();
         this.searchSubscription?.unsubscribe();
-        this.searchSubscription = createSearchStream(token, {
+        this.searchSubscription = createSearchStream(token, this.buildSearchDependencies())
+            .subscribe(([channels, users, messages]) => this.applySearchResults(channels, users, messages));
+    }
+
+    private buildSearchDependencies() {
+        return {
             authService: this._authService,
             channelService: this._channelService,
             messageService: this.messageService,
             userService: this._userService,
             cachedChannels: this.cachedChannels,
             cachedUsers: this.cachedUsers,
-        }).subscribe(([channels, users, messages]) =>
-            this.applySearchResults(channels, users, messages),
-        );
+        };
     }
 
     private clearSearchResults(): void {
