@@ -746,28 +746,19 @@
     color: #555;
 }
 
-/* Inline add reaction button inside reactions grid */
-.reaction--picker {
-    padding: 0;
-}
-
-.reaction--picker img {
-    width: 16px;
-    height: 16px;
-}
-
 /* Picker wrapper when it sits inside reactions */
 .message__reaction-picker-wrap {
     position: relative;
-    width: 100%;
-    min-width: 0;
-    display: flex;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .message__reaction-picker-wrap .emoji-picker-popover {
     position: absolute;
     bottom: calc(100% + 8px);
-    right: 0;
+    left: 0;
+    right: auto;
     z-index: 20;
     width: 340px;
     border: 1px solid #d8ddef;
@@ -778,8 +769,8 @@
 }
 
 .message__reactions--own .message__reaction-picker-wrap .emoji-picker-popover {
-    right: 0;
     left: auto;
+    right: 0;
 }
 
 .message__reaction-actions {
