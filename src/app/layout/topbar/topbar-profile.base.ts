@@ -130,18 +130,20 @@ export abstract class TopbarProfileBase {
     }
 
     protected warmSearchCache(): void {
+        this.subscribeUsersCache();
+        this.subscribeChannelsCache();
+    }
+
+    protected subscribeUsersCache(): void {
         this.subscription.add(
-            this.userService
-                .getAllUsersRealtime()
-                .pipe(catchError(() => of([] as User[])))
-                .subscribe((users) => {
-                    this.cachedUsers = users;
-                }),
+            this.userService.getAllUsersRealtime().pipe(catchError(() => of([] as User[])))
+                .subscribe((users) => { this.cachedUsers = users; }),
         );
+    }
+
+    protected subscribeChannelsCache(): void {
         this.subscription.add(
-            this.channelService
-                .getAllChannels()
-                .pipe(catchError(() => of([])))
+            this.channelService.getAllChannels().pipe(catchError(() => of([])))
                 .subscribe((channels) => this.applyCachedChannels(channels)),
         );
     }

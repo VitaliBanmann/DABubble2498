@@ -242,16 +242,21 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         if (this.isDirectMessage || !this.currentChannelId || !this.currentUserId) return;
         const removedChannelId = this.currentChannelId;
         this.errorMessage = '';
-        this.channelService
-            .removeMemberFromChannel(removedChannelId, this.currentUserId)
-            .pipe(
-                take(1),
-                switchMap(() => this.channelService.getAllChannels().pipe(take(1))),
-            )
-            .subscribe({
-                next: (channels: Channel[]) =>
-                    this.handleChannelLeaveSuccess(removedChannelId, channels),
-                error: (e: unknown) => this.handleChannelLeaveError(e),
-            });
+        this.createLeaveChannelRequest(removedChannelId, this.currentUserId)
+            .subscribe(this.leaveChannelObserver(removedChannelId));
+    }
+
+    protected createLeaveChannelRequest(channelId: string, userId: string): Observable<Channel[]> {
+        return this.channelService.removeMemberFromChannel(channelId, userId).pipe(
+            take(1),
+            switchMap(() => this.channelService.getAllChannels().pipe(take(1))),
+        );
+    }
+
+    protected leaveChannelObserver(channelId: string) {
+        return {
+            next: (channels: Channel[]) => this.handleChannelLeaveSuccess(channelId, channels),
+            error: (e: unknown) => this.handleChannelLeaveError(e),
+        };
     }
 }

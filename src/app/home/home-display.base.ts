@@ -178,13 +178,17 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         if (Array.isArray(direct)) return direct.filter((id): id is string => typeof id === 'string' && !!id);
         const members = channel['members'];
         if (Array.isArray(members)) {
-            return members.map((e) => {
-                if (typeof e === 'string') return e;
-                if (typeof e === 'object' && e && 'id' in e && typeof (e as any).id === 'string') return (e as any).id;
-                return null;
-            }).filter((id): id is string => !!id);
+            return members.map((entry) => this.extractMemberId(entry)).filter((id): id is string => !!id);
         }
         return [];
+    }
+
+    protected extractMemberId(entry: unknown): string | null {
+        if (typeof entry === 'string') return entry;
+        if (typeof entry === 'object' && entry && 'id' in entry && typeof (entry as any).id === 'string') {
+            return (entry as any).id;
+        }
+        return null;
     }
 
     protected normalizeAvatarPath(avatar: string, fallback: string): string {

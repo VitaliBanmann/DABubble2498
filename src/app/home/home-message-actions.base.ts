@@ -244,17 +244,21 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         const emoji = event?.emoji?.native ?? event?.native ?? '';
         const textarea = this.composerTextareaRef?.nativeElement;
         if (!emoji || !textarea) return;
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const cur = this.messageControlValue ?? '';
-        const next = start + emoji.length;
-        this.setMessageControlValue(cur.substring(0, start) + emoji + cur.substring(end));
+        const next = this.insertComposerEmoji(textarea, emoji);
         setTimeout(() => {
             textarea.focus();
             textarea.selectionStart = textarea.selectionEnd = next;
             this.resizeComposerTextarea();
         }, 0);
         this.closeAllEmojiPickers();
+    }
+
+    protected insertComposerEmoji(textarea: HTMLTextAreaElement, emoji: string): number {
+        const start = textarea.selectionStart;
+        const end = textarea.selectionEnd;
+        const value = this.messageControlValue ?? '';
+        this.setMessageControlValue(value.substring(0, start) + emoji + value.substring(end));
+        return start + emoji.length;
     }
 
     onMessageEmojiSelect(event: any, message: Message): void {
