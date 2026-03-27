@@ -1,7 +1,16 @@
 import { Injectable } from '@angular/core';
 import { ActivatedRoute, ParamMap, Router } from '@angular/router';
 import { User as FirebaseUser } from 'firebase/auth';
-import { combineLatest, Observable, Subscription, take, switchMap } from 'rxjs';
+import {
+    catchError,
+    combineLatest,
+    map,
+    Observable,
+    of,
+    Subscription,
+    switchMap,
+    take,
+} from 'rxjs';
 import { Channel, ChannelService } from '../services/channel.service';
 import { Message, MessageService } from '../services/message.service';
 import { UnreadStateService } from '../services/unread-state.service';
@@ -129,11 +138,50 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
     protected startDirectLiveStream(_userId: string): void {}
 
     protected setupChannelMessages(params: ParamMap): void {
-        this.applyChannelSnapshot(params.get('channelId') ?? 'allgemein');
+        const requestedChannelId = params.get('channelId') ?? 'allgemein';
+        this.resolveAccessibleChannelId(requestedChannelId)
+            .pipe(take(1))
+            .subscribe({
+                next: (channelId) =>
+                    this.startResolvedChannelContext(channelId, requestedChannelId),
+                error: (error) => this.handleRouteMessageError(error),
+            });
+    }
+
+    protected resolveAccessibleChannelId(channelId: string): Observable<string> {
+        if (this.isPublicChannelRoute(channelId)) return of(channelId);
+        return this.channelService.getChannel(channelId).pipe(
+            take(1),
+            map((channel) => (channel?.id ? channelId : '')),
+            catchError(() => of('')),
+            switchMap((resolvedId) => this.resolveFallbackChannelId(resolvedId)),
+        );
+    }
+
+    protected resolveFallbackChannelId(resolvedId: string): Observable<string> {
+        if (resolvedId) return of(resolvedId);
+        return this.channelService.getAllChannels().pipe(
+            take(1),
+            map((channels) => channels.find((channel) => !!channel.id)?.id ?? 'allgemein'),
+        );
+    }
+
+    protected startResolvedChannelContext(channelId: string, requestedChannelId: string): void {
+        this.applyChannelSnapshot(channelId);
+        this.syncChannelRoute(channelId, requestedChannelId);
         this.subscribeToCurrentChannel();
         this.prepareMessageStreamSwitch();
         this.startChannelLiveStream(this.currentChannelId);
         this.markCurrentContextAsRead();
+    }
+
+    protected syncChannelRoute(channelId: string, requestedChannelId: string): void {
+        if (channelId === requestedChannelId) return;
+        this.router.navigate(['/app/channel', channelId]);
+    }
+
+    protected isPublicChannelRoute(channelId: string): boolean {
+        return ['allgemein', 'entwicklerteam'].includes(channelId);
     }
 
     protected startChannelLiveStream(_channelId: string): void {}
