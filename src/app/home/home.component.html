@@ -676,7 +676,9 @@
     @if (isAddMemberPopupOpen) {
         <app-add-member-to-channel
             [channelName]="currentConversationTitle"
+            [availableUsers]="addMemberPopupAvailableUsers"
             (close)="closeAddMemberPopup()"
+            (addMember)="onAddMemberSubmit($event)"
         />
     }
 

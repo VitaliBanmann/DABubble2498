@@ -5,6 +5,7 @@ import { Channel, ChannelService } from '../services/channel.service';
 import { Message, MessageService, ThreadMessage } from '../services/message.service';
 import { User } from '../services/user.service';
 import { ChannelMembersPopupEntry } from '../layout/shell/channel-members-popup/channel-members-popup.component';
+import { AddMemberPopupUser } from '../layout/shell/add-member-to-channel/add-member-to-channel.component';
 import { HomeMessageActionsBase } from './home-message-actions.base';
 
 @Injectable()
@@ -78,6 +79,24 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         }));
     }
 
+    get addMemberPopupAvailableUsers(): AddMemberPopupUser[] {
+        const memberIds = new Set(this.extractChannelMemberIds());
+
+        return (Object.values(this.usersById) as User[])
+            .filter(
+                (user) =>
+                    !!user.id &&
+                    user.id !== this.currentUserId &&
+                    !memberIds.has(user.id),
+            )
+            .map((user) => ({
+                id: user.id as string,
+                displayName: user.displayName,
+                avatar: this.getUserAvatar(user),
+                isOnline: user.presenceStatus === 'online',
+            }));
+    }
+
     get remainingChannelMembersCount(): number {
         return Math.max(this.getChannelMembers().length - this.maxVisibleChannelMembers, 0);
     }
@@ -101,6 +120,24 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
     }
 
     closeAddMemberPopup(): void { this.isAddMemberPopupOpen = false; }
+
+    onAddMemberSubmit(userId: string): void {
+        if (!userId || this.isDirectMessage || !this.currentChannelId) {
+            return;
+        }
+
+        this.channelService
+            .addMemberToChannel(this.currentChannelId, userId)
+            .pipe(take(1))
+            .subscribe({
+                next: () => {
+                    this.isAddMemberPopupOpen = false;
+                },
+                error: (error: unknown) => {
+                    console.error('[ADD CHANNEL MEMBER ERROR]', error);
+                },
+            });
+    }
 
     openChannelMembersPopup(): void {
         if ((this as any).isComposeMode || this.isDirectMessage) return;

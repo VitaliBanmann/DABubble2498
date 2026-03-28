@@ -159,19 +159,3 @@
     height: 20px;
     opacity: 0.85;
 }
-
-/* Responsive layout */
-@media (max-width: 1100px) {
-    .shell__body.sidebar-open {
-        grid-template-columns: 320px 1fr;
-    }
-
-    .shell__body.sidebar-open.thread-open,
-    .shell__body.thread-open {
-        grid-template-columns: 320px 1fr;
-    }
-
-    .shell__thread {
-        display: none;
-    }
-}

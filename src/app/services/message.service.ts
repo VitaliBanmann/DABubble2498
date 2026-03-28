@@ -5,7 +5,7 @@ import {
     orderBy,
     limit,
     startAfter,
-} from '@angular/fire/firestore';
+} from 'firebase/firestore';
 import { Observable, catchError, map, of, switchMap, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
 import { FirestoreService } from './firestore.service';

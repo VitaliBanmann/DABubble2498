@@ -1,4 +1,4 @@
-import { Timestamp } from '@angular/fire/firestore';
+import { Timestamp } from 'firebase/firestore';
 
 export interface MessageReaction extends Record<string, unknown> {
     emoji: string;

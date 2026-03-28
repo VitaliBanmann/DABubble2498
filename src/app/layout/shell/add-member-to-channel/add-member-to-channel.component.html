@@ -25,10 +25,40 @@
                 class="add-member-popup__input"
                 placeholder="Name eingeben"
                 aria-label="Name eingeben"
+                [(ngModel)]="searchValue"
+                (input)="onSearchInput()"
             />
 
+            @if (showSuggestions) {
+                <div class="add-member-popup__suggestions">
+                    @for (user of visibleSuggestions; track user.id) {
+                        <button
+                            type="button"
+                            class="add-member-popup__suggestion-item"
+                            (click)="onSuggestionSelect(user)"
+                        >
+                            <div class="add-member-popup__suggestion-avatar-wrap">
+                                <img
+                                    [src]="user.avatar"
+                                    [alt]="user.displayName + ' Avatar'"
+                                />
+                                <span
+                                    class="add-member-popup__suggestion-status"
+                                    [class.add-member-popup__suggestion-status--offline]="!user.isOnline"
+                                ></span>
+                            </div>
+                            <span>{{ user.displayName }}</span>
+                        </button>
+                    }
+                </div>
+            }
+
             <div class="add-member-popup__actions">
-                <button type="button" class="add-member-popup__submit-btn">
+                <button
+                    type="button"
+                    class="add-member-popup__submit-btn"
+                    (click)="onSubmitClick()"
+                >
                     Hinzufügen
                 </button>
             </div>
