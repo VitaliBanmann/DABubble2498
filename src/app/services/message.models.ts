@@ -29,6 +29,7 @@ export interface Message extends Record<string, unknown> {
     mentions?: string[];
     attachments?: MessageAttachment[];
     searchTokens?: string[];
+    threadReplyCount?: number;
 }
 
 export interface ThreadMessage extends Record<string, unknown> {

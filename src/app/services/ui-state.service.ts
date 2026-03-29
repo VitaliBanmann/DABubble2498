@@ -1,4 +1,5 @@
 import { Injectable, signal } from '@angular/core';
+import { Message, ThreadMessage } from './message.models';
 
 @Injectable({ providedIn: 'root' })
 export class UiStateService {
@@ -7,6 +8,8 @@ export class UiStateService {
 
     // Thread panel state (context-based)
     readonly isThreadOpen = signal(false);
+    readonly activeThreadParent = signal<Message | null>(null);
+    readonly threadMessages = signal<ThreadMessage[]>([]);
 
     // Optional: store selected thread context later (messageId, channelId)
     // readonly activeThread = signal<{ channelId: string; messageId: string } | null>(null);
@@ -39,6 +42,20 @@ export class UiStateService {
 
     closeThread(): void {
         this.isThreadOpen.set(false);
+        this.clearThreadContext();
+    }
+
+    setActiveThreadParent(message: Message | null): void {
+        this.activeThreadParent.set(message);
+    }
+
+    setThreadMessages(messages: ThreadMessage[]): void {
+        this.threadMessages.set(messages);
+    }
+
+    clearThreadContext(): void {
+        this.activeThreadParent.set(null);
+        this.threadMessages.set([]);
     }
 
     // For later:

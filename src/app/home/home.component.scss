@@ -453,6 +453,19 @@
     align-items: flex-end;
 }
 
+.thread_messages {
+    margin-top: 8px;
+
+    a {
+        color: #444df2;
+        font-size: 18px;
+        font-weight: 400;
+        line-height: 1.2;
+        text-decoration: none;
+        cursor: pointer;
+    }
+}
+
 /* ========================================
    Message Meta
 ======================================== */

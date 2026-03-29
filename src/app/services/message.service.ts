@@ -5,6 +5,7 @@ import {
     orderBy,
     limit,
     startAfter,
+    increment,
 } from 'firebase/firestore';
 import { Observable, catchError, map, of, switchMap, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
@@ -295,7 +296,29 @@ export class MessageService {
         const cleanParentMessageId = this.requireNonEmpty(parentMessageId, 'Missing parentMessageId');
         const cleanText = this.requireNonEmpty(text, 'Thread message text is empty');
         const cleanSenderId = this.requireNonEmpty(senderId, 'Missing senderId');
-        return this.firestoreService.addDocument(`messages/${cleanParentMessageId}/threads`, { text: cleanText, senderId: cleanSenderId, timestamp: new Date() });
+        return this.firestoreService
+            .addDocument(`messages/${cleanParentMessageId}/threads`, {
+                text: cleanText,
+                senderId: cleanSenderId,
+                timestamp: new Date(),
+            })
+            .pipe(
+                switchMap((threadMessageId) =>
+                    this.firestoreService
+                        .updateDocument<Message>(
+                            this.messagesCollection,
+                            cleanParentMessageId,
+                            { threadReplyCount: increment(1) as unknown as number },
+                        )
+                        .pipe(
+                            map(() => threadMessageId),
+                            catchError((error) => {
+                                console.error('[THREAD COUNT UPDATE ERROR]', error);
+                                return of(threadMessageId);
+                            }),
+                        ),
+                ),
+            );
     }
 
     toggleReaction(params: ToggleReactionParams): Observable<void> {

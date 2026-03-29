@@ -16,7 +16,9 @@
         <!-- Right thread panel (single thread area) -->
         <aside class="shell__thread" *ngIf="ui.isThreadOpen()">
             <header class="thread__header">
-                <div class="thread__title">Thread</div>
+                <div class="thread__title">
+                    {{ ui.activeThreadParent()?.text || 'Thread' }}
+                </div>
                 <button
                     type="button"
                     class="thread__close"
@@ -28,14 +30,71 @@
             </header>
 
             <div class="thread__body">
-                <div class="thread-placeholder">Thread content placeholder</div>
+                <div class="thread__messages">
+                    <article
+                        class="thread-chat-item"
+                        *ngFor="let threadMessage of threadDisplayMessages(); trackBy: trackThreadMessage"
+                        [class.thread-chat-item--own]="isOwnThreadMessage(threadMessage)"
+                    >
+                        <img
+                            class="thread-chat-item__avatar"
+                            [src]="getThreadAvatar(threadMessage)"
+                            [alt]="getThreadSenderLabel(threadMessage) + ' Avatar'"
+                        />
+
+                        <div
+                            class="thread-chat-item__content"
+                            [class.thread-chat-item__content--own]="isOwnThreadMessage(threadMessage)"
+                        >
+                            <div
+                                class="thread-chat-item__meta"
+                                [class.thread-chat-item__meta--own]="isOwnThreadMessage(threadMessage)"
+                            >
+                                <span class="thread-chat-item__sender">
+                                    {{ getThreadSenderLabel(threadMessage) }}
+                                </span>
+                                <span class="thread-chat-item__time">
+                                    {{ formatThreadTimestamp(threadMessage.timestamp) }}
+                                </span>
+                            </div>
+
+                            <div
+                                class="thread-chat-item__bubble"
+                                [class.thread-chat-item__bubble--own]="isOwnThreadMessage(threadMessage)"
+                            >
+                                <p>{{ threadMessage.text || '(ohne Text)' }}</p>
+                                <span
+                                    class="thread-chat-item__origin"
+                                    *ngIf="threadMessage.isParent"
+                                >
+                                    Ausgangsnachricht
+                                </span>
+                            </div>
+                        </div>
+                    </article>
+
+                    <p
+                        class="thread-empty"
+                        *ngIf="ui.activeThreadParent() && ui.threadMessages().length === 0"
+                    >
+                        Noch keine Antworten im Thread.
+                    </p>
+                </div>
 
                 <div class="thread-composer">
                     <input
                         type="text"
                         placeholder="Antwort im Thread schreiben..."
+                        [formControl]="threadReplyControl"
+                        (keydown.enter)="sendThreadReply()"
                     />
-                    <button type="button">Antworten</button>
+                    <button
+                        type="button"
+                        (click)="sendThreadReply()"
+                        [disabled]="isThreadSending || !threadReplyControl.value.trim()"
+                    >
+                        {{ isThreadSending ? 'Sende...' : 'Antworten' }}
+                    </button>
                 </div>
             </div>
         </aside>

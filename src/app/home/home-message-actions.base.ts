@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
 import { ElementRef, QueryList } from '@angular/core';
 import { FormControl } from '@angular/forms';
-import { Observable, Subscription, take } from 'rxjs';
+import { Observable, Subscription } from 'rxjs';
 import { Message, MessageReaction, MessageService, ThreadMessage } from '../services/message.service';
 import { HomeSendMessageBase } from './home-send-message.base';
 
@@ -24,8 +24,18 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
     private readonly collapsedReactionLimit = 7;
     private expandedReactionMessages = new Set<string>();
     protected threadSubscription: Subscription | null = null;
+    private threadReplyCountByMessageId: Record<string, number> = {};
+    private loadingThreadReplyCounts = new Set<string>();
+    private threadReplyCountSubscriptions: Record<string, Subscription> = {};
 
     protected abstract editMessageTextareas?: QueryList<ElementRef<HTMLTextAreaElement>>;
+
+    protected override prepareMessageStreamSwitch(): void {
+        this.clearThreadReplyCountSubscriptions();
+        this.threadReplyCountByMessageId = {};
+        this.loadingThreadReplyCounts.clear();
+        super.prepareMessageStreamSwitch();
+    }
 
     protected override resetEditState(): void {
         this.editingMessageId = null;
@@ -50,7 +60,9 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
     openThreadForMessage(message: Message): void {
         if (this.isDirectMessage || !message.id) return;
         this.activeThreadParent = message;
+        (this as any).ui?.setActiveThreadParent?.(message);
         this.threadMessageControl.setValue('');
+        (this as any).ui?.setThreadMessages?.([]);
         (this as any).ui?.openThread?.();
         this.subscribeToThreadMessages(message.id);
     }
@@ -60,10 +72,14 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
     protected subscribeToThreadMessages(parentMessageId: string): void {
         this.threadSubscription?.unsubscribe();
         this.threadMessages = [];
+        (this as any).ui?.setThreadMessages?.([]);
         this.threadSubscription = this.messageService
             .getChannelThreadMessages(parentMessageId)
             .subscribe({
-                next: (msgs: ThreadMessage[]) => { this.threadMessages = msgs; },
+                next: (msgs: ThreadMessage[]) => {
+                    this.threadMessages = msgs;
+                    (this as any).ui?.setThreadMessages?.(msgs);
+                },
                 error: (e: unknown) => this.handleThreadReadError(e),
             });
     }
@@ -215,6 +231,56 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
 
     canOpenThreadFromToolbar(message: Message): boolean {
         return !this.isDirectMessage && !!message.id;
+    }
+
+    getThreadReplyCount(message: Message): number {
+        const messageId = message.id ?? '';
+        if (messageId && messageId in this.threadReplyCountByMessageId) {
+            return this.threadReplyCountByMessageId[messageId];
+        }
+
+        const countValue = (message.threadReplyCount ?? (message as any).threadCount ?? 0);
+        const count = typeof countValue === 'number' ? countValue : Number(countValue);
+        const normalized = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+
+        if (messageId) this.ensureThreadReplyCountSynced(messageId);
+
+        return normalized;
+    }
+
+    shouldShowThreadRepliesLink(message: Message): boolean {
+        return this.getThreadReplyCount(message) > 0;
+    }
+
+    onThreadRepliesClick(event: MouseEvent, message: Message): void {
+        event.preventDefault();
+        this.openThreadForMessage(message);
+    }
+
+    private ensureThreadReplyCountSynced(messageId: string): void {
+        if (this.threadReplyCountSubscriptions[messageId]) return;
+        if (this.loadingThreadReplyCounts.has(messageId)) return;
+        this.loadingThreadReplyCounts.add(messageId);
+
+        this.threadReplyCountSubscriptions[messageId] = this.messageService
+            .getChannelThreadMessages(messageId)
+            .subscribe({
+                next: (threadMessages: ThreadMessage[]) => {
+                    this.threadReplyCountByMessageId[messageId] = threadMessages.length;
+                    this.loadingThreadReplyCounts.delete(messageId);
+                },
+                error: () => {
+                    this.loadingThreadReplyCounts.delete(messageId);
+                    const sub = this.threadReplyCountSubscriptions[messageId];
+                    sub?.unsubscribe();
+                    delete this.threadReplyCountSubscriptions[messageId];
+                },
+            });
+    }
+
+    private clearThreadReplyCountSubscriptions(): void {
+        Object.values(this.threadReplyCountSubscriptions).forEach((sub) => sub.unsubscribe());
+        this.threadReplyCountSubscriptions = {};
     }
 
     toggleComposerEmojiPicker(event: MouseEvent): void {
