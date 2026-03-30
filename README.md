@@ -1,31 +1,46 @@
-# DABubble
+# DA Bubble
 
-This project was generated with [Angular CLI](https://github.com/angular/angular-cli) version 21.1.5
+Zentrale Projekt-Dokumentation fuer die Angular/Firebase-Chat-Anwendung.
 
-## Development server
+## Dokumentation
 
-Run `ng serve` for a dev server. Navigate to `http://localhost:4200/`. The application will automatically reload if you change any of the source files.
+- Vollstaendige Projekt-Dokumentation: [docs/project-dokumentation.md](docs/project-dokumentation.md)
+- Firebase Setup und Betrieb: [FIREBASE_SETUP.md](FIREBASE_SETUP.md)
+- Firebase Email Templates: [FIREBASE_EMAIL_TEMPLATE.md](FIREBASE_EMAIL_TEMPLATE.md)
+- Manuelle Deployment-Pruefliste: [docs/predeploy-manual-checklist.md](docs/predeploy-manual-checklist.md)
 
-## Code scaffolding
+## Schnellstart
 
-Run `ng generate component component-name` to generate a new component. You can also use `ng generate directive|pipe|service|class|guard|interface|enum|module`.
+1. Abhaengigkeiten installieren:
 
-## Build
+```bash
+npm install
+```
 
-Run `ng build` to build the project. The build artifacts will be stored in the `dist/` directory.
+2. Development-Server starten:
 
-## Predeploy check
+```bash
+npm start
+```
 
-Run `npm run predeploy:check` before every deployment.
+3. App im Browser oeffnen:
 
-## Running unit tests
+```text
+http://localhost:4200
+```
 
-Run `ng test` to execute the unit tests via [Karma](https://karma-runner.github.io).
+## Wichtige Befehle
 
-## Running end-to-end tests
+- Entwicklung: `npm start`
+- Tests: `npm test`
+- Build: `npm run build`
+- Pflichtcheck vor Deploy: `npm run predeploy:check`
+- Deployment: `firebase deploy`
 
-Run `ng e2e` to execute the end-to-end tests via a platform of your choice. To use this command, you need to first add a package that implements end-to-end testing capabilities.
+## Deployment-Standard
 
-## Further help
+Vor jedem Deployment muessen ausgefuehrt werden:
 
-To get more help on the Angular CLI use `ng help` or go check out the [Angular CLI Overview and Command Reference](https://angular.io/cli) page.
+1. `npm run predeploy:check`
+2. Manuelle UI-Pruefung gemaess [docs/predeploy-manual-checklist.md](docs/predeploy-manual-checklist.md)
+3. `firebase deploy`
