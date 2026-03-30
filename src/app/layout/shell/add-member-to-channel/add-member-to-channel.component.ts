@@ -32,14 +32,7 @@ export class AddMemberToChannelComponent {
 
     onSearchInput(): void {
         this.selectedUserId = null;
-        const raw = this.searchValue.trimStart();
-        if (!raw.startsWith('@')) {
-            this.visibleSuggestions = [];
-            this.showSuggestions = false;
-            return;
-        }
-
-        const token = raw.slice(1).trim().toLowerCase();
+        const token = this.searchValue.trim().toLowerCase();
         this.visibleSuggestions = this.availableUsers
             .filter((user) =>
                 user.displayName.toLowerCase().includes(token),
@@ -48,9 +41,18 @@ export class AddMemberToChannelComponent {
         this.showSuggestions = this.visibleSuggestions.length > 0;
     }
 
+    onSearchFocus(): void {
+        this.selectedUserId = null;
+        const token = this.searchValue.trim().toLowerCase();
+        this.visibleSuggestions = this.availableUsers
+            .filter((user) => user.displayName.toLowerCase().includes(token))
+            .slice(0, 8);
+        this.showSuggestions = this.visibleSuggestions.length > 0;
+    }
+
     onSuggestionSelect(user: AddMemberPopupUser): void {
         this.selectedUserId = user.id;
-        this.searchValue = `@${user.displayName}`;
+        this.searchValue = user.displayName;
         this.showSuggestions = false;
     }
 
@@ -68,7 +70,7 @@ export class AddMemberToChannelComponent {
             return this.selectedUserId;
         }
 
-        const token = this.searchValue.trim().replace(/^@/, '').toLowerCase();
+        const token = this.searchValue.trim().toLowerCase();
         if (!token) {
             return null;
         }

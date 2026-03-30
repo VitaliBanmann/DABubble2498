@@ -27,6 +27,7 @@
                 aria-label="Name eingeben"
                 [(ngModel)]="searchValue"
                 (input)="onSearchInput()"
+                (focus)="onSearchFocus()"
             />
 
             @if (showSuggestions) {
