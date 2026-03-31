@@ -50,6 +50,13 @@ export class AddMemberToChannelComponent {
         this.showSuggestions = this.visibleSuggestions.length > 0;
     }
 
+    onSearchBlur(): void {
+        // Allow suggestion-item click to run before closing the list.
+        setTimeout(() => {
+            this.showSuggestions = false;
+        }, 120);
+    }
+
     onSuggestionSelect(user: AddMemberPopupUser): void {
         this.selectedUserId = user.id;
         this.searchValue = user.displayName;
@@ -63,6 +70,10 @@ export class AddMemberToChannelComponent {
         }
 
         this.addMember.emit(selected);
+    }
+
+    canSubmitSelection(): boolean {
+        return !!this.resolveSelectedUserId();
     }
 
     private resolveSelectedUserId(): string | null {

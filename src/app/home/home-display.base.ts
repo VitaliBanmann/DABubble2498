@@ -135,6 +135,7 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
                 },
                 error: (error: unknown) => {
                     console.error('[ADD CHANNEL MEMBER ERROR]', error);
+                    this.errorMessage = 'Mitglied konnte nicht hinzugefügt werden.';
                 },
             });
     }

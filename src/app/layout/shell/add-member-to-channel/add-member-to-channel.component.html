@@ -28,6 +28,7 @@
                 [(ngModel)]="searchValue"
                 (input)="onSearchInput()"
                 (focus)="onSearchFocus()"
+                (blur)="onSearchBlur()"
             />
 
             @if (showSuggestions) {
@@ -59,6 +60,7 @@
                     type="button"
                     class="add-member-popup__submit-btn"
                     (click)="onSubmitClick()"
+                    [disabled]="!canSubmitSelection()"
                 >
                     Hinzufügen
                 </button>

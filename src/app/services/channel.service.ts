@@ -169,13 +169,46 @@ export class ChannelService {
         channel: Channel | null,
         transform: (members: string[]) => string[],
     ): Observable<void> {
-        const currentMembers = channel?.members ?? [];
+        const currentMembers = this.resolveChannelMemberIds(channel);
         const updatedMembers = transform(currentMembers);
         if (this.sameMembers(currentMembers, updatedMembers)) {
             return of(void 0);
         }
 
-        return this.updateChannel(channelId, { members: updatedMembers });
+        const rawChannel = channel as Record<string, unknown> | null;
+        const payload: Partial<Channel> & { memberIds?: string[] } = {};
+        const hasMemberIdsField = Array.isArray(rawChannel?.['memberIds']);
+        const hasMembersField = Array.isArray(rawChannel?.['members']);
+
+        if (hasMembersField || !hasMemberIdsField) {
+            payload.members = updatedMembers;
+        }
+
+        if (hasMemberIdsField) {
+            payload.memberIds = updatedMembers;
+        }
+
+        return this.updateChannel(channelId, payload as Partial<Channel>);
+    }
+
+    private resolveChannelMemberIds(channel: Channel | null): string[] {
+        const rawChannel = channel as Record<string, unknown> | null;
+        const memberIds = rawChannel?.['memberIds'];
+        if (Array.isArray(memberIds)) {
+            return memberIds.filter((id): id is string => typeof id === 'string' && !!id);
+        }
+
+        const members = channel?.members ?? [];
+        if (!Array.isArray(members)) return [];
+        return members
+            .map((entry) => {
+                if (typeof entry === 'string') return entry;
+                if (typeof entry === 'object' && entry && 'id' in entry && typeof (entry as any).id === 'string') {
+                    return (entry as any).id as string;
+                }
+                return null;
+            })
+            .filter((id): id is string => !!id);
     }
 
     private sameMembers(current: string[], updated: string[]): boolean {
