@@ -170,6 +170,10 @@
     font-weight: 700;
     cursor: pointer;
 
+    &:not(:disabled) {
+        background: #444df2;
+    }
+
     &:disabled {
         opacity: 0.55;
         cursor: not-allowed;

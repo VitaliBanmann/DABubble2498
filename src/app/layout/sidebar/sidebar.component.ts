@@ -12,6 +12,7 @@ import {
     startWith,
     Subscription,
     Subject,
+    take,
     from,
     switchMap,
     withLatestFrom,
@@ -353,7 +354,32 @@ export class SidebarComponent implements OnInit, OnDestroy {
         );
         this.channels.splice(0, this.channels.length, ...merged);
         this.sortChannels();
+        this.ensureActiveChannelVisible();
         this.refreshUnreadTracking();
+    }
+
+    private ensureActiveChannelVisible(): void {
+        const activeId = this.activeChannelId;
+        if (!activeId) return;
+        if (this.channels.some((channel) => channel.id === activeId)) return;
+
+        this.subscription.add(
+            this.channelService
+                .getChannel(activeId)
+                .pipe(take(1), catchError(() => of(null as Channel | null)))
+                .subscribe((channel: Channel | null) => {
+                    if (!channel?.id) return;
+                    this.channels.push(
+                        mapSidebarChannel(
+                            channel,
+                            this.canonicalChannelLabels,
+                            this.unreadByChannelId,
+                            this.mentionByChannelId,
+                        ),
+                    );
+                    this.sortChannels();
+                }),
+        );
     }
 
     private mergeChannel(

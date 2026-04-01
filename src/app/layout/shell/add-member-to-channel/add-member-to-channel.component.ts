@@ -31,23 +31,11 @@ export class AddMemberToChannelComponent {
     }
 
     onSearchInput(): void {
-        this.selectedUserId = null;
-        const token = this.searchValue.trim().toLowerCase();
-        this.visibleSuggestions = this.availableUsers
-            .filter((user) =>
-                user.displayName.toLowerCase().includes(token),
-            )
-            .slice(0, 8);
-        this.showSuggestions = this.visibleSuggestions.length > 0;
+        this.applySearchState(false);
     }
 
     onSearchFocus(): void {
-        this.selectedUserId = null;
-        const token = this.searchValue.trim().toLowerCase();
-        this.visibleSuggestions = this.availableUsers
-            .filter((user) => user.displayName.toLowerCase().includes(token))
-            .slice(0, 8);
-        this.showSuggestions = this.visibleSuggestions.length > 0;
+        this.applySearchState(true);
     }
 
     onSearchBlur(): void {
@@ -64,6 +52,7 @@ export class AddMemberToChannelComponent {
     }
 
     onSubmitClick(): void {
+        this.showSuggestions = false;
         const selected = this.resolveSelectedUserId();
         if (!selected) {
             return;
@@ -90,5 +79,31 @@ export class AddMemberToChannelComponent {
             (user) => user.displayName.trim().toLowerCase() === token,
         );
         return directMatch?.id ?? null;
+    }
+
+    private applySearchState(isFocus: boolean): void {
+        const token = this.searchValue.trim().toLowerCase();
+        const exactMatch = this.availableUsers.find(
+            (user) => user.displayName.trim().toLowerCase() === token,
+        );
+
+        this.selectedUserId = exactMatch?.id ?? null;
+        this.visibleSuggestions = this.availableUsers
+            .filter((user) => user.displayName.toLowerCase().includes(token))
+            .slice(0, 8);
+
+        // If user already typed an exact member name, keep the list closed so
+        // the submit button is directly clickable with one click.
+        if (exactMatch) {
+            this.showSuggestions = false;
+            return;
+        }
+
+        if (!token && !isFocus) {
+            this.showSuggestions = false;
+            return;
+        }
+
+        this.showSuggestions = this.visibleSuggestions.length > 0;
     }
 }

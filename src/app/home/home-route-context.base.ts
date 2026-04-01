@@ -192,7 +192,7 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         this.currentChannel = null;
         if (this.isDirectMessage || !this.currentChannelId) return;
         this.currentChannelSubscription = this.channelService
-            .getChannel(this.currentChannelId)
+            .getChannelRealtime(this.currentChannelId)
             .subscribe({
                 next: (channel: Channel | null) => { this.currentChannel = channel; },
                 error: () => { this.currentChannel = null; },

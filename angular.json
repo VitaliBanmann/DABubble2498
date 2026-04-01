@@ -60,6 +60,10 @@
                 },
                 "serve": {
                     "builder": "@angular/build:dev-server",
+                    "options": {
+                        "host": "127.0.0.1",
+                        "port": 4201
+                    },
                     "configurations": {
                         "production": {
                             "buildTarget": "DA_Bubble:build:production"

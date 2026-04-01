@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { FirestoreService } from './firestore.service';
 import { AuthService } from './auth.service';
 import {
+    catchError,
+    combineLatest,
     distinctUntilChanged,
     firstValueFrom,
     map,
@@ -18,6 +20,7 @@ export interface Channel extends Record<string, unknown> {
     name: string;
     description?: string;
     members: string[];
+    memberIds?: string[];
     admins?: string[];
     createdBy: string;
     createdAt?: Timestamp | Date;
@@ -65,6 +68,13 @@ export class ChannelService {
      */
     getChannel(channelId: string): Observable<Channel | null> {
         return this.firestoreService.getDocument<Channel>(
+            this.channelsCollection,
+            channelId,
+        );
+    }
+
+    getChannelRealtime(channelId: string): Observable<Channel | null> {
+        return this.firestoreService.getDocumentRealtime<Channel>(
             this.channelsCollection,
             channelId,
         );
@@ -148,9 +158,25 @@ export class ChannelService {
             return of([]);
         }
 
-        return this.firestoreService.queryDocumentsRealtime<Channel>(
+        const members$ = this.firestoreService.queryDocumentsRealtime<Channel>(
             this.channelsCollection,
             [where('members', 'array-contains', uid)],
+        ).pipe(catchError(() => of([] as Channel[])));
+        const memberIds$ = this.firestoreService.queryDocumentsRealtime<Channel>(
+            this.channelsCollection,
+            [where('memberIds', 'array-contains', uid)],
+        ).pipe(catchError(() => of([] as Channel[])));
+
+        return combineLatest([members$, memberIds$]).pipe(
+            map(([byMembers, byMemberIds]) => {
+                const merged = new Map<string, Channel>();
+                [...byMembers, ...byMemberIds].forEach((channel) => {
+                    const id = (channel.id ?? '').trim();
+                    if (!id) return;
+                    merged.set(id, channel);
+                });
+                return Array.from(merged.values());
+            }),
         );
     }
 
@@ -250,6 +276,7 @@ export class ChannelService {
         return this.withSearchTokens({
             ...channel,
             members: Array.from(members),
+            memberIds: Array.from(members),
             admins: Array.from(admins),
         });
     }
