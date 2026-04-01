@@ -1,4 +1,4 @@
-import { firstValueFrom, of } from 'rxjs';
+import { BehaviorSubject, firstValueFrom, of } from 'rxjs';
 import { ChannelService } from './channel.service';
 
 class MockFirestoreService {
@@ -12,20 +12,34 @@ class MockFirestoreService {
 }
 
 class MockAuthService {
-    currentUser$ = of({ uid: 'creator-1', isAnonymous: false });
+    private readonly currentUserSubject = new BehaviorSubject({ uid: 'creator-1', isAnonymous: false });
+    private readonly authReadySubject = new BehaviorSubject(false);
+
+    currentUser$ = this.currentUserSubject.asObservable();
+    authReady$ = this.authReadySubject.asObservable();
+
+    setCurrentUser(user: { uid: string; isAnonymous: boolean } | null) {
+        this.currentUserSubject.next(user);
+    }
+
+    setAuthReady(ready: boolean) {
+        this.authReadySubject.next(ready);
+    }
 
     getCurrentUser() {
-        return { uid: 'creator-1', isAnonymous: false };
+        return this.currentUserSubject.value;
     }
 }
 
 describe('ChannelService security behavior', () => {
     let service: ChannelService;
     let firestore: MockFirestoreService;
+    let auth: MockAuthService;
 
     beforeEach(() => {
         firestore = new MockFirestoreService();
-        service = new ChannelService(firestore as never, new MockAuthService() as never);
+        auth = new MockAuthService();
+        service = new ChannelService(firestore as never, auth as never);
     });
 
     it('ensures creator is member and admin on createChannelWithId', async () => {
@@ -65,5 +79,15 @@ describe('ChannelService security behavior', () => {
 
         expect(payload.searchTokens).toBeDefined();
         expect((payload.searchTokens ?? []).length).toBeGreaterThan(0);
+    });
+
+    it('loads channels only after auth is ready', async () => {
+        service.getAllChannels().subscribe();
+
+        expect(firestore.queryDocumentsRealtime).not.toHaveBeenCalled();
+
+        auth.setAuthReady(true);
+
+        expect(firestore.queryDocumentsRealtime).toHaveBeenCalled();
     });
 });

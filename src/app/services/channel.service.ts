@@ -5,10 +5,12 @@ import {
     catchError,
     combineLatest,
     distinctUntilChanged,
+    filter,
     firstValueFrom,
     map,
     Observable,
     of,
+    startWith,
     switchMap,
     take,
 } from 'rxjs';
@@ -84,8 +86,14 @@ export class ChannelService {
      * Rufe alle Kanäle ab
      */
     getAllChannels(): Observable<Channel[]> {
-        return this.authService.currentUser$.pipe(
-            map((user) => this.getMemberUid(user)),
+        return combineLatest([
+            this.authService.authReady$,
+            this.authService.currentUser$.pipe(
+                startWith(this.authService.getCurrentUser()),
+            ),
+        ]).pipe(
+            filter(([isAuthReady]) => isAuthReady),
+            map(([, user]) => this.getMemberUid(user)),
             distinctUntilChanged(),
             switchMap((uid) => this.getChannelsForUid(uid)),
         );
@@ -158,26 +166,16 @@ export class ChannelService {
             return of([]);
         }
 
-        const members$ = this.firestoreService.queryDocumentsRealtime<Channel>(
-            this.channelsCollection,
-            [where('members', 'array-contains', uid)],
-        ).pipe(catchError(() => of([] as Channel[])));
-        const memberIds$ = this.firestoreService.queryDocumentsRealtime<Channel>(
-            this.channelsCollection,
-            [where('memberIds', 'array-contains', uid)],
-        ).pipe(catchError(() => of([] as Channel[])));
-
-        return combineLatest([members$, memberIds$]).pipe(
-            map(([byMembers, byMemberIds]) => {
-                const merged = new Map<string, Channel>();
-                [...byMembers, ...byMemberIds].forEach((channel) => {
-                    const id = (channel.id ?? '').trim();
-                    if (!id) return;
-                    merged.set(id, channel);
-                });
-                return Array.from(merged.values());
-            }),
-        );
+        return this.firestoreService
+            .queryDocumentsRealtime<Channel>(this.channelsCollection, [])
+            .pipe(
+                catchError(() => of([] as Channel[])),
+                map((channels) =>
+                    channels.filter((channel) =>
+                        !!(channel.id ?? '').toString().trim(),
+                    ),
+                ),
+            );
     }
 
     private updateChannelMembers(

@@ -123,12 +123,17 @@ export function mapSidebarChannel(
     unreadByChannelId: Record<string, boolean>,
     mentionByChannelId: Record<string, boolean>,
 ): SidebarChannel {
+    const id = (channel.id ?? '').toString().trim();
+    const canonicalLabel = canonicalChannelLabels[id];
+    const rawName = (channel.name ?? '').toString().trim();
+    const label = canonicalLabel || rawName || id || 'Unbenannter Channel';
+
     return {
-        id: channel.id ?? '',
-        label: canonicalChannelLabels[channel.id ?? ''] ?? channel.name,
+        id,
+        label,
         description: channel.description,
-        hasUnread: !!unreadByChannelId[channel.id ?? ''],
-        hasMention: !!mentionByChannelId[channel.id ?? ''],
+        hasUnread: !!unreadByChannelId[id],
+        hasMention: !!mentionByChannelId[id],
     };
 }
 

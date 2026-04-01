@@ -78,7 +78,7 @@ export class FirestoreService {
             getDocs(collection(this.firestore, collectionName)).then((snap) =>
                 snap.docs.map((d) => {
                     const data = d.data() as unknown as T;
-                    return { id: d.id, ...data };
+                    return { ...data, id: d.id };
                 }),
             ),
         );
@@ -92,7 +92,7 @@ export class FirestoreService {
             getDoc(doc(this.firestore, collectionName, docId)).then((snap) => {
                 if (!snap.exists()) return null;
                 const data = snap.data() as unknown as T;
-                return { id: snap.id, ...data };
+                return { ...data, id: snap.id };
             }),
         );
     }
@@ -117,7 +117,7 @@ export class FirestoreService {
                                 return;
                             }
                             const data = snap.data() as unknown as T;
-                            subscriber.next({ id: snap.id, ...data });
+                            subscriber.next({ ...data, id: snap.id });
                         });
                     },
                     (error) => {
@@ -163,7 +163,7 @@ export class FirestoreService {
             ).then((snap) =>
                 snap.docs.map((d) => {
                     const data = d.data() as unknown as T;
-                    return { id: d.id, ...data };
+                    return { ...data, id: d.id };
                 }),
             ),
         );
@@ -195,7 +195,7 @@ export class FirestoreService {
                                 snap.docs.map((docSnapshot) => {
                                     const data =
                                         docSnapshot.data() as unknown as T;
-                                    return { id: docSnapshot.id, ...data };
+                                    return { ...data, id: docSnapshot.id };
                                 }),
                             );
                         });
@@ -218,21 +218,25 @@ export class FirestoreService {
         return (source) =>
             source.pipe(
                 retry({
-                    count: 5,
+                    count: 8,
                     delay: (error, retryCount) => {
                         const code = this.getFirebaseErrorCode(error);
-                        if (code !== 'unauthenticated') {
+                        if (!this.isRetryableAuthError(code)) {
                             throw error;
                         }
 
                         const delayMs = Math.min(
                             500 * Math.pow(2, retryCount - 1),
-                            4000,
+                            6000,
                         );
                         return timer(delayMs);
                     },
                 }),
             );
+    }
+
+    private isRetryableAuthError(code: string | null): boolean {
+        return code === 'unauthenticated' || code === 'permission-denied';
     }
 
     private getFirebaseErrorCode(error: unknown): string | null {

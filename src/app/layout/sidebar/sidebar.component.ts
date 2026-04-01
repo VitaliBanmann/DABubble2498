@@ -261,9 +261,9 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.subscription.add(
             this.channelService
                 .getAllChannels()
-                .pipe(catchError(() => of([])))
                 .subscribe({
                     next: (channels) => this.applyChannels(channels),
+                    error: () => this.setDefaultChannels(),
                 }),
         );
     }
@@ -403,8 +403,10 @@ export class SidebarComponent implements OnInit, OnDestroy {
     }
 
     private sortChannels(): void {
-        this.channels.sort((left, right) =>
-            left.label.localeCompare(right.label, 'de'),
-        );
+        this.channels.sort((left, right) => {
+            const leftLabel = (left.label ?? '').toString();
+            const rightLabel = (right.label ?? '').toString();
+            return leftLabel.localeCompare(rightLabel, 'de');
+        });
     }
 }

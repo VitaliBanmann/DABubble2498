@@ -98,6 +98,12 @@ $purple__hover: #535af1;
     margin-bottom: 40px;
 }
 
+.only__channels .channel__selection {
+    max-height: 210px;
+    overflow-y: auto;
+    padding-right: 4px;
+}
+
 .sidebar__dropdownIcon {
     width: 30px;
     height: 30px;

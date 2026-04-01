@@ -34,11 +34,35 @@ service cloud.firestore {
 
         function isChannelMember(channelId) {
           return channelExists(channelId)
-            && request.auth.uid in channelDoc(channelId).data.members;
+            && isChannelMemberFromData(channelDoc(channelId).data);
+        }
+
+        function isChannelMemberFromData(data) {
+          return (
+            hasField(data, 'members')
+            && data.members is list
+            && request.auth.uid in data.members
+          ) || (
+            hasField(data, 'memberIds')
+            && data.memberIds is list
+            && request.auth.uid in data.memberIds
+          );
+        }
+
+        function canAccessChannelMembership(channelId) {
+          return isPublicChannelId(channelId)
+            || (
+              channelExists(channelId)
+              && (
+                isChannelMemberFromData(channelDoc(channelId).data)
+                || isChannelOwner(channelDoc(channelId).data)
+                || isChannelAdmin(channelDoc(channelId).data)
+              )
+            );
         }
 
         function canReadChannel(channelId) {
-          return isPublicChannelId(channelId) || isChannelMember(channelId);
+          return isRegularUser() || canAccessChannelMembership(channelId);
         }
 
         function isChannelOwner(data) {
@@ -119,7 +143,7 @@ service cloud.firestore {
 
         function canReadChannelMessage(data) {
         return hasField(data, 'channelId')
-        && canReadChannel(data.channelId);
+        && canAccessChannelMembership(data.channelId);
         }
 
         function canReadMessage(data) {
@@ -175,7 +199,7 @@ service cloud.firestore {
           return isChannelMessage(data)
             && data.senderId == request.auth.uid
             && data.channelId is string
-            && canReadChannel(data.channelId)
+            && canAccessChannelMembership(data.channelId)
             && data.text is string
             && hasMessageBody(data)
             && validMentions(data)
