@@ -22,6 +22,7 @@ export class ChannelMembersPopupComponent {
     @Input() top = 120;
     @Output() close = new EventEmitter<void>();
     @Output() addMember = new EventEmitter<void>();
+    @Output() removeMember = new EventEmitter<string>();
 
     onClose(): void {
         this.close.emit();
@@ -29,5 +30,13 @@ export class ChannelMembersPopupComponent {
 
     onAddMemberClick(): void {
         this.addMember.emit();
+    }
+
+    onRemoveMemberClick(userId: string): void {
+        if (!userId) {
+            return;
+        }
+
+        this.removeMember.emit(userId);
     }
 }

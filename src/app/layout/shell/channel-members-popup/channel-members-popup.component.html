@@ -35,6 +35,17 @@
                     <span class="channel-members-popup__name">
                         {{ member.displayName }}{{ member.isSelf ? ' (Du)' : '' }}
                     </span>
+
+                    @if (!member.isSelf) {
+                        <button
+                            type="button"
+                            class="channel-members-popup__remove-btn"
+                            [attr.aria-label]="member.displayName + ' aus dem Channel entfernen'"
+                            (click)="onRemoveMemberClick(member.id)"
+                        >
+                            <img src="assets/pictures/close.svg" alt="" aria-hidden="true" />
+                        </button>
+                    }
                 </div>
             }
 

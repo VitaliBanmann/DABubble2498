@@ -464,6 +464,7 @@
 
     @if (isChannelMembersPopupOpen) {
     <app-channel-members-popup [members]="channelMembersPopupEntries" [left]="channelMembersPopupLeft"
-        [top]="channelMembersPopupTop" (close)="closeChannelMembersPopup()" (addMember)="onAddMemberClick()" />
+        [top]="channelMembersPopupTop" (close)="closeChannelMembersPopup()" (addMember)="onAddMemberClick()"
+        (removeMember)="onRemoveMemberSubmit($event)" />
     }
 </main>

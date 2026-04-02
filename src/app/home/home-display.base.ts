@@ -126,50 +126,32 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
             return;
         }
 
-        const previousChannel = this.currentChannel;
-        if (this.currentChannel) {
-            this.currentChannel = this.withLocallyAddedMember(this.currentChannel, userId);
-        }
-
-        // Close immediately on first click; realtime channel update will refresh member UI.
-        this.isAddMemberPopupOpen = false;
         this.channelService
             .addMemberToChannel(this.currentChannelId, userId)
             .pipe(take(1))
             .subscribe({
-                next: () => {},
+                next: () => {
+                    this.isAddMemberPopupOpen = false;
+                },
                 error: (error: unknown) => {
-                    this.currentChannel = previousChannel;
                     console.error('[ADD CHANNEL MEMBER ERROR]', error);
-                    this.errorMessage = 'Mitglied konnte nicht hinzugefügt werden.';
                 },
             });
     }
 
-    private withLocallyAddedMember(channel: Channel, userId: string): Channel {
-        const rawChannel = channel as Record<string, unknown>;
-        const baseMembers = this.extractChannelMemberIdsFromRaw(rawChannel);
-        if (baseMembers.includes(userId)) return channel;
-
-        const updatedMembers = [...baseMembers, userId];
-        return {
-            ...channel,
-            members: updatedMembers,
-            ...(Array.isArray(rawChannel['memberIds']) ? { memberIds: updatedMembers } : {}),
-        };
-    }
-
-    private extractChannelMemberIdsFromRaw(channel: Record<string, unknown>): string[] {
-        const memberIds = channel['memberIds'];
-        if (Array.isArray(memberIds)) {
-            return memberIds.filter((id): id is string => typeof id === 'string' && !!id);
+    onRemoveMemberSubmit(userId: string): void {
+        if (!userId || this.isDirectMessage || !this.currentChannelId) {
+            return;
         }
 
-        const members = channel['members'];
-        if (!Array.isArray(members)) return [];
-        return members
-            .map((entry) => this.extractMemberId(entry))
-            .filter((id): id is string => !!id);
+        this.channelService
+            .removeMemberFromChannel(this.currentChannelId, userId)
+            .pipe(take(1))
+            .subscribe({
+                error: (error: unknown) => {
+                    console.error('[REMOVE CHANNEL MEMBER ERROR]', error);
+                },
+            });
     }
 
     openChannelMembersPopup(): void {

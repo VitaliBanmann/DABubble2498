@@ -91,9 +91,34 @@
 }
 
 .channel-members-popup__name {
+    flex: 1;
     color: #000000;
     font-size: 18px;
     font-weight: 400;
+}
+
+.channel-members-popup__remove-btn {
+    width: 32px;
+    height: 32px;
+    border: 0;
+    border-radius: 50%;
+    background: transparent;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: background-color 120ms ease;
+
+    img {
+        width: 18px;
+        height: 18px;
+        display: block;
+    }
+
+    &:hover {
+        background: #eceefe;
+    }
 }
 
 .channel-members-popup__add-btn {
