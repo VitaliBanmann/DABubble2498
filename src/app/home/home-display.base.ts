@@ -122,36 +122,42 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
     closeAddMemberPopup(): void { this.isAddMemberPopupOpen = false; }
 
     onAddMemberSubmit(userId: string): void {
-        if (!userId || this.isDirectMessage || !this.currentChannelId) {
-            return;
-        }
-
+        if (!this.canUpdateChannelMember(userId)) return;
         this.channelService
             .addMemberToChannel(this.currentChannelId, userId)
             .pipe(take(1))
-            .subscribe({
-                next: () => {
-                    this.isAddMemberPopupOpen = false;
-                },
-                error: (error: unknown) => {
-                    console.error('[ADD CHANNEL MEMBER ERROR]', error);
-                },
-            });
+            .subscribe(this.addMemberObserver());
     }
 
     onRemoveMemberSubmit(userId: string): void {
-        if (!userId || this.isDirectMessage || !this.currentChannelId) {
-            return;
-        }
-
+        if (!this.canUpdateChannelMember(userId)) return;
         this.channelService
             .removeMemberFromChannel(this.currentChannelId, userId)
             .pipe(take(1))
-            .subscribe({
-                error: (error: unknown) => {
-                    console.error('[REMOVE CHANNEL MEMBER ERROR]', error);
-                },
-            });
+            .subscribe(this.removeMemberObserver());
+    }
+
+    private canUpdateChannelMember(userId: string): boolean {
+        return !!userId && !this.isDirectMessage && !!this.currentChannelId;
+    }
+
+    private addMemberObserver() {
+        return {
+            next: () => {
+                this.isAddMemberPopupOpen = false;
+            },
+            error: (error: unknown) => this.logChannelMemberError('ADD', error),
+        };
+    }
+
+    private removeMemberObserver() {
+        return {
+            error: (error: unknown) => this.logChannelMemberError('REMOVE', error),
+        };
+    }
+
+    private logChannelMemberError(action: 'ADD' | 'REMOVE', error: unknown): void {
+        console.error(`[${action} CHANNEL MEMBER ERROR]`, error);
     }
 
     openChannelMembersPopup(): void {
