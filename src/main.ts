@@ -4,6 +4,16 @@ import { AppComponent } from './app/app.component';
 
 const CHUNK_RELOAD_GUARD_KEY = 'da-bubble-chunk-reload-attempted';
 
+function ensurePerformanceCompatibility(): void {
+    if (typeof performance === 'undefined') {
+        return;
+    }
+
+    const perf = performance as any;
+    perf.clearMarks ??= () => undefined;
+    perf.clearMeasures ??= () => undefined;
+}
+
 function isChunkLoadError(reason: unknown): boolean {
     const message =
         typeof reason === 'string'
@@ -36,6 +46,7 @@ function tryRecoverFromChunkError(reason: unknown): boolean {
 
 if (typeof window !== 'undefined') {
     sessionStorage.removeItem(CHUNK_RELOAD_GUARD_KEY);
+    ensurePerformanceCompatibility();
 
     window.addEventListener('error', (event) => {
         const recovered = tryRecoverFromChunkError(event.error ?? event.message);

@@ -5,6 +5,19 @@
         <title>DABubble</title>
         <base href="/" />
         <meta name="viewport" content="width=device-width, initial-scale=1" />
+        <script>
+            (function () {
+                if (!window.performance) return;
+
+                if (typeof window.performance.clearMarks !== 'function') {
+                    window.performance.clearMarks = function () {};
+                }
+
+                if (typeof window.performance.clearMeasures !== 'function') {
+                    window.performance.clearMeasures = function () {};
+                }
+            })();
+        </script>
         <link rel="icon" type="image/x-icon" href="favicon.ico" />
         <link
             rel="stylesheet"
