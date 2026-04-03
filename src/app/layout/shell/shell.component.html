@@ -125,8 +125,8 @@
             </mat-icon>
         </button>
 
-        <!-- Mobile FAB: Neue Nachricht -->
-        @if (ui.isMobile() && ui.mobilePanel() !== 'thread') {
+        <!-- Mobile FAB: Neue Nachricht (nur in Sidebar-Ansicht) -->
+        @if (ui.isMobile() && ui.mobilePanel() === 'sidebar') {
             <button
                 type="button"
                 class="fab-compose"

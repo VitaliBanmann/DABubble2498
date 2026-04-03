@@ -63,9 +63,10 @@ export class UiStateService {
     }
 
     closeThread(): void {
+        const wasOpen = this.isThreadOpen();
         this.isThreadOpen.set(false);
         this.clearThreadContext();
-        if (this.isMobile()) this.mobilePanel.set('chat');
+        if (this.isMobile() && wasOpen) this.mobilePanel.set('chat');
     }
 
     setActiveThreadParent(message: Message | null): void {

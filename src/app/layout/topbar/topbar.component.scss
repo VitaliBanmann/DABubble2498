@@ -338,6 +338,8 @@
         height: 56px;
         padding: 0 10px;
         gap: 8px;
+        display: flex;
+        justify-content: space-between;
     }
 
     /* Auf Mobile: Username ausblenden */
