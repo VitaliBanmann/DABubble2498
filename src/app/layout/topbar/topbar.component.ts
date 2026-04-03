@@ -77,6 +77,10 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
         this.searchInput$.complete();
     }
 
+    onMobileBack(): void {
+        this.ui.goBackToSidebar();
+    }
+
     get allResults(): Array<{ kind: 'channel' | 'user' | 'message'; item: any }> {
         return [
             ...this.channelResults.map((item) => ({ kind: 'channel' as const, item })),

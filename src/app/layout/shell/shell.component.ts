@@ -1,5 +1,5 @@
 import { Component, OnDestroy, OnInit, computed } from '@angular/core';
-import { RouterOutlet } from '@angular/router';
+import { Router, RouterOutlet } from '@angular/router';
 import { SidebarComponent } from '../sidebar/sidebar.component';
 import { TopbarComponent } from '../topbar/topbar.component';
 import { UiStateService } from '../../services/ui-state.service';
@@ -46,12 +46,22 @@ export class ShellComponent implements OnInit, OnDestroy {
         private readonly authService: AuthService,
         private readonly userService: UserService,
         private readonly messageService: MessageService,
+        private readonly router: Router,
     ) {}
 
     readonly classes = computed(() => ({
         'sidebar-open': this.ui.isSidebarOpen(),
         'thread-open': this.ui.isThreadOpen(),
+        'mobile-panel-sidebar': this.ui.isMobile() && this.ui.mobilePanel() === 'sidebar',
+        'mobile-panel-chat': this.ui.isMobile() && this.ui.mobilePanel() === 'chat',
+        'mobile-panel-thread': this.ui.isMobile() && this.ui.mobilePanel() === 'thread',
     }));
+
+    openNewMessageMobile(): void {
+        this.ui.openNewMessage();
+        this.ui.openChat();
+        void this.router.navigate(['/app/channel/allgemein']);
+    }
 
     ngOnInit(): void {
         this.currentUserId = this.authService.getCurrentUser()?.uid ?? null;

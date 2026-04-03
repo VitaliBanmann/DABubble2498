@@ -1,15 +1,33 @@
 <header class="topbar">
     <div class="topbar__brand" aria-label="DABubble">
-        <img
-            class="topbar__logo"
-            src="assets/pictures/Logo.svg"
-            alt="DABubble Logo"
-        />
-        <span class="topbar__name">DABubble</span>
+        @if (ui.isMobile() && !ui.isSidebarOpen()) {
+            <button
+                type="button"
+                class="topbar__back-btn"
+                (click)="onMobileBack()"
+                aria-label="Zurück zur Sidebar"
+            >
+                <span class="material-symbols-outlined">chevron_left</span>
+            </button>
+            <img
+                src="assets/pictures/workspace_logo.svg"
+                alt=""
+                class="topbar__workspace-logo"
+            />
+            <span class="topbar__name">Devspace</span>
+        } @else {
+            <img
+                class="topbar__logo"
+                src="assets/pictures/Logo.svg"
+                alt="DABubble Logo"
+            />
+            <span class="topbar__name">DABubble</span>
+        }
     </div>
 
-    <div class="topbar__search">
-        <div class="topbar__search-input">
+    @if (!ui.isMobile() || ui.isSidebarOpen()) {
+        <div class="topbar__search">
+            <div class="topbar__search-input">
             <input
                 type="text"
                 placeholder="Devspace durchsuchen"
@@ -117,6 +135,7 @@
             }
         </div>
     </div>
+    }
 
     <div class="topbar__user">
         <span class="topbar__username">{{ displayName }}</span>

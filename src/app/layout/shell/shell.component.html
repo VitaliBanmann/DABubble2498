@@ -124,5 +124,17 @@
                 }}
             </mat-icon>
         </button>
+
+        <!-- Mobile FAB: Neue Nachricht -->
+        @if (ui.isMobile() && ui.mobilePanel() !== 'thread') {
+            <button
+                type="button"
+                class="fab-compose"
+                (click)="openNewMessageMobile()"
+                aria-label="Neue Nachricht"
+            >
+                <span class="material-symbols-outlined">edit</span>
+            </button>
+        }
     </div>
 </div>

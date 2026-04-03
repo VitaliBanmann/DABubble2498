@@ -1,8 +1,20 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
+import { BreakpointObserver } from '@angular/cdk/layout';
+import { toSignal } from '@angular/core/rxjs-interop';
+import { map } from 'rxjs';
 import { Message, ThreadMessage } from './message.models';
 
 @Injectable({ providedIn: 'root' })
 export class UiStateService {
+    readonly isMobile = toSignal(
+        inject(BreakpointObserver)
+            .observe('(max-width: 767px)')
+            .pipe(map((r) => r.matches)),
+        { initialValue: false },
+    );
+
+    readonly mobilePanel = signal<'sidebar' | 'chat' | 'thread'>('sidebar');
+
     // Sidebar state (Workspace menu)
     readonly isSidebarOpen = signal(true);
 
@@ -10,9 +22,6 @@ export class UiStateService {
     readonly isThreadOpen = signal(false);
     readonly activeThreadParent = signal<Message | null>(null);
     readonly threadMessages = signal<ThreadMessage[]>([]);
-
-    // Optional: store selected thread context later (messageId, channelId)
-    // readonly activeThread = signal<{ channelId: string; messageId: string } | null>(null);
 
     readonly isNewMessageOpen = signal(false);
 
@@ -36,13 +45,27 @@ export class UiStateService {
         this.isSidebarOpen.set(false);
     }
 
+    openChat(): void {
+        if (!this.isMobile()) return;
+        this.closeSidebar();
+        this.mobilePanel.set('chat');
+    }
+
+    goBackToSidebar(): void {
+        this.openSidebar();
+        this.mobilePanel.set('sidebar');
+        if (this.isThreadOpen()) this.closeThread();
+    }
+
     openThread(): void {
         this.isThreadOpen.set(true);
+        this.mobilePanel.set('thread');
     }
 
     closeThread(): void {
         this.isThreadOpen.set(false);
         this.clearThreadContext();
+        if (this.isMobile()) this.mobilePanel.set('chat');
     }
 
     setActiveThreadParent(message: Message | null): void {

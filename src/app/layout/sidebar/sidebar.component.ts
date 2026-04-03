@@ -135,15 +135,16 @@ export class SidebarComponent implements OnInit, OnDestroy {
                 .pipe(
                     withLatestFrom(this.canStartNewMessage$),
                     filter(([, canStart]) => canStart),
-                    switchMap(() => {
-                        this.ui.openNewMessage();
-                        return from(
-                            this.router.navigate(['/app/channel/allgemein']),
-                        );
-                    }),
+                    switchMap(() => this.handleNewMessageClicked()),
                 )
                 .subscribe(),
         );
+    }
+
+    private handleNewMessageClicked() {
+        this.ui.openNewMessage();
+        this.ui.openChat();
+        return from(this.router.navigate(['/app/channel/allgemein']));
     }
 
     private readonly routeState$ = this.router.events.pipe(
@@ -216,6 +217,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.ui.closeNewMessage();
         this.activeChannelId = channelId;
         this.activeDirectMessageId = null;
+        this.ui.openChat();
         void this.router.navigate(['/app/channel', channelId], {
             queryParams: { compose: null },
             queryParamsHandling: 'merge',
@@ -228,6 +230,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         if (!userId) return;
         this.activeChannelId = null;
         this.activeDirectMessageId = userId;
+        this.ui.openChat();
         void this.router.navigate(['/app/dm', userId], this.buildDirectMessageNavigation(member));
     }
 

@@ -263,3 +263,113 @@
     height: 20px;
     opacity: 0.85;
 }
+
+/* =====================================================
+   FAB – Neue Nachricht (Mobile)
+===================================================== */
+.fab-compose {
+    position: fixed;
+    bottom: 24px;
+    right: 16px;
+    width: 56px;
+    height: 56px;
+    border-radius: 50%;
+    background: #444df2;
+    color: #fff;
+    border: 0;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 50;
+    box-shadow: 0 4px 16px rgba(68, 77, 242, 0.45);
+
+    .material-symbols-outlined {
+        font-size: 24px;
+    }
+
+    &:hover {
+        background: #535af1;
+    }
+}
+
+/* =====================================================
+   Tablet  768 – 1023 px
+===================================================== */
+@media (max-width: 1023px) {
+    .shell__body.sidebar-open {
+        grid-template-columns: 260px 1fr;
+    }
+
+    .shell__body.sidebar-open.thread-open {
+        grid-template-columns: 260px 1fr;
+    }
+
+    .shell__body.thread-open:not(.sidebar-open) {
+        grid-template-columns: 1fr;
+    }
+
+    .shell__thread {
+        position: fixed;
+        top: 64px;
+        right: 0;
+        width: min(420px, 50vw);
+        bottom: 16px;
+        z-index: 50;
+        box-shadow: -4px 0 28px rgba(0, 0, 0, 0.13);
+        border-radius: 18px 0 0 18px;
+        margin: 0;
+    }
+
+    .shell {
+        padding: 0 12px;
+    }
+}
+
+/* =====================================================
+   Mobile  ≤ 767 px
+===================================================== */
+@media (max-width: 767px) {
+    .shell {
+        padding: 0;
+        height: 100dvh;
+        grid-template-rows: 56px 1fr;
+    }
+
+    .shell__body {
+        grid-template-columns: 1fr !important;
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Alle Panels nehmen den vollen Body-Bereich ein */
+    .shell__sidebar,
+    .shell__content,
+    .shell__thread {
+        position: absolute;
+        inset: 0;
+        border-radius: 0;
+        border: none;
+        margin: 0;
+    }
+
+    /* Sidebar-Panel: Content verstecken */
+    .shell__body.mobile-panel-sidebar .shell__content {
+        display: none;
+    }
+
+    /* Thread überlagert als Full-Screen */
+    .shell__thread {
+        z-index: 10;
+        min-width: 100%;
+        width: 100%;
+        bottom: 0;
+        top: 0;
+        right: 0;
+    }
+
+    /* Workspace-Toggle auf Mobile ausblenden */
+    .workspace-toggle {
+        display: none;
+    }
+}

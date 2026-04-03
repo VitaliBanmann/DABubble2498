@@ -1290,3 +1290,125 @@
         flex-basis: auto;
     }
 }
+
+/* Tablet */
+@media (max-width: 1023px) {
+    .home-page {
+        padding: 12px;
+    }
+
+    .home-header h1 {
+        font-size: 22px;
+    }
+}
+
+/* Mobile */
+@media (max-width: 767px) {
+    .home-page {
+        padding: 0;
+        gap: 0;
+    }
+
+    .chat-pane {
+        gap: 0;
+    }
+
+    .home-header {
+        padding: 10px 14px 8px;
+        gap: 10px;
+        border-bottom: 1px solid #eceefe;
+
+        h1 {
+            font-size: 18px;
+        }
+    }
+
+    .home-header__title {
+        padding: 6px 8px;
+    }
+
+    .home-header__title--plain {
+        padding: 6px 8px;
+        font-size: 18px;
+    }
+
+    .home-header__members {
+        gap: 10px;
+    }
+
+    .home-header__members-count {
+        font-size: 15px !important;
+    }
+
+    .members-avatar img,
+    .members-avatar .members-avatar__more {
+        width: 30px;
+        height: 30px;
+    }
+
+    .message-list {
+        padding: 10px 12px;
+        gap: 8px;
+    }
+
+    /* Nachrichten-Bubbles schmaler halten */
+    .message-bubble {
+        max-width: 82vw;
+    }
+
+    .composer-shell {
+        border-radius: 20px;
+    }
+
+    .composer-area {
+        padding: 0 8px 8px;
+    }
+
+    /* Composer wird auf Mobile etwas kürzer */
+    .composer-input {
+        height: 110px;
+        min-height: 110px;
+    }
+
+    .composer-shell {
+        height: 110px;
+    }
+
+    /* Mention-Picker auf Mobile */
+    .mention-suggestions {
+        left: 8px;
+        right: 8px;
+    }
+
+    .composer-emoji-picker {
+        left: 8px;
+    }
+
+    /* Toolbar auf Mobile immer sichtbar bei Touch */
+    .message-toolbar {
+        opacity: 1;
+        visibility: visible;
+        transform: none;
+        pointer-events: auto;
+        top: -12px;
+        padding: 4px 8px;
+        gap: 2px;
+    }
+
+    .message-toolbar__btn {
+        width: 28px;
+        height: 28px;
+        flex: 0 0 28px;
+    }
+}
+
+/* Sehr kleine Geräte (320px) */
+@media (max-width: 359px) {
+    .home-header h1 {
+        font-size: 16px;
+    }
+
+    .message-list {
+        padding: 8px;
+    }
+}

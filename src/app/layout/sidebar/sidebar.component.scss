@@ -432,3 +432,88 @@ textarea {
 .profile-content p {
     margin: 0 0 4px;
 }
+
+/* =====================================================
+   Tablet
+===================================================== */
+@media (max-width: 1023px) {
+    .channel-link,
+    .direct-link {
+        padding: 8px 24px;
+        font-size: 16px;
+    }
+
+    .only__channels .channel__selection {
+        max-height: none;
+    }
+}
+
+/* =====================================================
+   Mobile  ≤ 767 px
+===================================================== */
+@media (max-width: 767px) {
+    .sidebar {
+        padding: 12px 8px;
+        overflow-y: auto;
+        -webkit-overflow-scrolling: touch;
+        /* Platz für FAB am unteren Rand */
+        padding-bottom: 88px;
+    }
+
+    .sidebar__topsection {
+        margin-top: 8px;
+    }
+
+    .sidebar__section {
+        margin-top: 12px;
+    }
+
+    .sidebar__headsection__left h1 {
+        font-size: 20px;
+    }
+
+    /* Channel- und DM-Links: schmaler auf 320px */
+    .channel-link,
+    .direct-link {
+        padding: 10px 16px;
+        font-size: 16px;
+        border-radius: 30px;
+    }
+
+    .direct-link__avatar {
+        width: 36px;
+        height: 36px;
+        min-width: 36px;
+    }
+
+    /* Scroll-Limit aufheben auf Mobile */
+    .only__channels .channel__selection {
+        max-height: none;
+        overflow-y: visible;
+    }
+
+    /* Header-Button auf Mobile: FAB übernimmt diese Rolle */
+    .sidebar__new-chat-btn {
+        display: none;
+    }
+
+    .sidebar__dropdownIcon {
+        width: 24px;
+        height: 24px;
+    }
+
+    .sidebar__channelsection__header h2,
+    .sidebar__chatsection__header h2 {
+        font-size: 16px;
+    }
+}
+
+/* Sehr kleine Geräte (320px) */
+@media (max-width: 359px) {
+    .channel-link,
+    .direct-link {
+        padding: 8px 12px;
+        font-size: 15px;
+    }
+}
+

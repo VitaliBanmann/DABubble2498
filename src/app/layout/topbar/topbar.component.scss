@@ -288,3 +288,63 @@
     top: 70px;
     right: 16px;
 }
+
+/* =====================================================
+   Mobile Back-Button & Workspace-Logo
+===================================================== */
+.topbar__back-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 0;
+    border-radius: 10px;
+    background: transparent;
+    cursor: pointer;
+    color: #444df2;
+    flex-shrink: 0;
+
+    .material-symbols-outlined {
+        font-size: 28px;
+    }
+
+    &:hover {
+        background: rgba(68, 77, 242, 0.08);
+    }
+}
+
+.topbar__workspace-logo {
+    width: 28px;
+    height: 28px;
+    flex-shrink: 0;
+}
+
+/* =====================================================
+   Responsive Topbar
+===================================================== */
+
+/* Tablet */
+@media (max-width: 1023px) {
+    .topbar {
+        padding: 0 12px;
+        gap: 10px;
+    }
+}
+
+/* Mobile */
+@media (max-width: 767px) {
+    .topbar {
+        height: 56px;
+        padding: 0 10px;
+        gap: 8px;
+    }
+
+    /* Auf Mobile: Username ausblenden */
+    .topbar__username {
+        display: none;
+    }
+
+    /* Auf Mobile Sidebar-View: Suchleiste ausblenden (kein extra Platz nötig,
+       da @if in HTML gesteuert) */
+}
