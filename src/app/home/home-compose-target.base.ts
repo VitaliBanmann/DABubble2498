@@ -27,12 +27,14 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
         entwicklerteam: 'Dieser Channel ist fuer alles rund um #dfsdf vorgesehen. Hier kannst du zusammen mit deinem Team Meetings abhalten, Dokumente teilen und Entscheidungen treffen.',
     };
 
+    /** Handles on compose target input. */
     onComposeTargetInput(): void {
         this.composeTargetActiveIndex = -1;
         this.errorMessage = '';
         this.updateComposeTargetSuggestions();
     }
 
+    /** Handles on compose target submit. */
     async onComposeTargetSubmit(): Promise<void> {
         const raw = this.composeTargetControl.value.trim();
         if (!raw) {
@@ -43,6 +45,7 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
         this.resolveComposeTarget(raw);
     }
 
+    /** Handles resolve compose target. */
     protected resolveComposeTarget(raw: string): void {
         const channelId = this.resolveChannelTarget(raw);
         if (channelId) return this.applyComposeChannelTarget(channelId);
@@ -53,16 +56,19 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
         this.errorMessage = '';
     }
 
+    /** Handles apply compose channel target. */
     protected applyComposeChannelTarget(channelId: string): void {
         this.composeResolvedTarget = { kind: 'channel', channelId };
         this.errorMessage = '';
     }
 
+    /** Handles apply compose target error. */
     protected applyComposeTargetError(message: string): void {
         this.errorMessage = message;
         this.composeResolvedTarget = null;
     }
 
+    /** Handles resolve channel target. */
     protected resolveChannelTarget(input: string): string | null {
         const token = input.replace(/^#/, '').trim().toLowerCase();
         if (!token) return null;
@@ -73,6 +79,7 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
         return byLabel?.[0] ?? null;
     }
 
+    /** Handles resolve direct target. */
     protected resolveDirectTarget(input: string): User | null {
         const token = input.replace(/^@/, '').trim().toLowerCase();
         if (!token) return null;
@@ -80,6 +87,7 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
         return this.findDirectTargetMatch(allUsers, token);
     }
 
+    /** Handles find direct target match. */
     protected findDirectTargetMatch(users: User[], token: string): User | null {
         return (
             users.find((u) => (u.email ?? '').trim().toLowerCase() === token) ||
@@ -89,11 +97,13 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
         );
     }
 
+    /** Handles select compose target suggestion. */
     selectComposeTargetSuggestion(suggestion: ComposeTargetSuggestion): void {
         this.composeTargetControl.setValue(suggestion.value);
         this.hideComposeTargetSuggestions();
     }
 
+    /** Handles update compose target suggestions. */
     protected updateComposeTargetSuggestions(): void {
         const raw = this.composeTargetControl.value.trim();
         if (!raw) return this.hideComposeTargetSuggestions();
@@ -103,6 +113,7 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
         this.hideComposeTargetSuggestions();
     }
 
+    /** Handles set channel suggestions. */
     protected setChannelSuggestions(query: string): void {
         const entries = (Object.entries(this.channelNames) as Array<[string, string]>)
             .filter(([id, label]) => !query || id.includes(query) || label.toLowerCase().includes(query))
@@ -113,6 +124,7 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
         this.applyComposeSuggestions(entries);
     }
 
+    /** Handles set user suggestions. */
     protected setUserSuggestions(query: string): void {
         const entries = (Object.values(this.usersById) as User[])
             .filter((u) => !!u.id && u.id !== this.currentUserId)
@@ -127,18 +139,21 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
         this.applyComposeSuggestions(entries);
     }
 
+    /** Handles apply compose suggestions. */
     protected applyComposeSuggestions(entries: ComposeTargetSuggestion[]): void {
         this.composeTargetSuggestions = entries;
         this.showComposeTargetSuggestions = entries.length > 0;
         this.composeTargetActiveIndex = entries.length ? 0 : -1;
     }
 
+    /** Handles hide compose target suggestions. */
     protected hideComposeTargetSuggestions(): void {
         this.composeTargetSuggestions = [];
         this.showComposeTargetSuggestions = false;
         this.composeTargetActiveIndex = -1;
     }
 
+    /** Handles on compose target keydown. */
     onComposeTargetKeydown(event: KeyboardEvent): void {
         if (!this.showComposeTargetSuggestions) {
             if (event.key === 'Enter') this.onComposeTargetSubmit();
@@ -150,21 +165,25 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
         if (event.key === 'Escape') this.hideComposeTargetSuggestions();
     }
 
+    /** Handles on compose target blur. */
     onComposeTargetBlur(): void {
         setTimeout(() => this.hideComposeTargetSuggestions(), 100);
     }
 
+    /** Handles on compose target option mouse down. */
     onComposeTargetOptionMouseDown(suggestion: ComposeTargetSuggestion, event: MouseEvent): void {
         event.preventDefault();
         this.selectComposeTargetSuggestion(suggestion);
     }
 
+    /** Handles confirm active suggestion. */
     private confirmActiveSuggestion(): void {
         const item = this.composeTargetSuggestions[this.composeTargetActiveIndex];
         if (item) this.selectComposeTargetSuggestion(item);
         else this.onComposeTargetSubmit();
     }
 
+    /** Handles move compose selection. */
     private moveComposeSelection(step: number): void {
         const len = this.composeTargetSuggestions.length;
         if (!len) return;
@@ -172,6 +191,7 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
         this.composeTargetActiveIndex = (start + step + len) % len;
     }
 
+    /** Handles reset compose target. */
     resetComposeTarget(): void {
         (this as any).ui?.closeNewMessage?.();
         this.composeTargetControl.setValue('');
@@ -182,8 +202,10 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
     protected showMentionSuggestions = false;
     protected selectedMentions = new Map<string, MentionCandidate>();
 
+    /** Returns message control value. */
     protected abstract get messageControlValue(): string;
 
+    /** Handles update mention suggestions. */
     protected updateMentionSuggestions(): void {
         const query = this.extractMentionQuery(this.messageControlValue);
         if (query === null) { this.showMentionSuggestions = false; this.mentionSuggestions = []; return; }
@@ -191,6 +213,7 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
         this.showMentionSuggestions = this.mentionSuggestions.length > 0;
     }
 
+    /** Handles extract mention query. */
     protected extractMentionQuery(value: string): string | null {
         const start = value.lastIndexOf('@');
         if (start < 0) return null;
@@ -199,6 +222,7 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
         return tail.trim().toLowerCase();
     }
 
+    /** Handles find mention candidates. */
     protected findMentionCandidates(query: string): MentionCandidate[] {
         return (Object.values(this.usersById) as User[])
             .filter((u) => !!u.id && u.id !== this.currentUserId)
@@ -207,6 +231,7 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
             .slice(0, 6);
     }
 
+    /** Handles select mention. */
     selectMention(candidate: MentionCandidate): void {
         const value = this.messageControlValue;
         const start = value.lastIndexOf('@');
@@ -217,12 +242,16 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
         this.hideMentionSuggestions();
     }
 
+    /** Handles set message control value. */
     protected abstract setMessageControlValue(value: string): void;
 
+    /** Handles remove mention. */
     removeMention(candidateId: string): void { this.selectedMentions.delete(candidateId); }
 
+    /** Handles selected mentions list. */
     selectedMentionsList(): MentionCandidate[] { return Array.from(this.selectedMentions.values()); }
 
+    /** Handles collect mention ids for text. */
     protected collectMentionIdsForText(text: string): string[] {
         const normalized = text.toLowerCase();
         return this.selectedMentionsList()
@@ -230,11 +259,13 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
             .map((c) => c.id);
     }
 
+    /** Handles clear mention selection. */
     protected clearMentionSelection(): void {
         this.selectedMentions.clear();
         this.hideMentionSuggestions();
     }
 
+    /** Handles hide mention suggestions. */
     protected hideMentionSuggestions(): void {
         this.mentionSuggestions = [];
         this.showMentionSuggestions = false;

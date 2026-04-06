@@ -34,18 +34,22 @@ export class FirestoreService {
         private readonly injector: EnvironmentInjector,
     ) {}
 
+    /** Handles in ctx. */
     private inCtx<T>(fn: () => T): T {
         return runInInjectionContext(this.injector, fn);
     }
 
+    /** Handles from ctx promise. */
     private fromCtxPromise<T>(factory: () => Promise<T>): Observable<T> {
         return defer(() => from(this.inCtx(factory)));
     }
 
+    /** Handles create document id. */
     createDocumentId(collectionName: string): string {
         return this.inCtx(() => doc(collection(this.firestore, collectionName)).id);
     }
 
+    /** Handles add document. */
     addDocument<T extends Record<string, unknown>>(
         collectionName: string,
         data: T,
@@ -60,6 +64,7 @@ export class FirestoreService {
         );
     }
 
+    /** Handles set document. */
     setDocument<T extends Record<string, unknown>>(
         collectionName: string,
         docId: string,
@@ -71,6 +76,7 @@ export class FirestoreService {
         );
     }
 
+    /** Handles get documents. */
     getDocuments<T extends Record<string, unknown>>(
         collectionName: string,
     ): Observable<(T & WithId)[]> {
@@ -84,6 +90,7 @@ export class FirestoreService {
         );
     }
 
+    /** Handles get document. */
     getDocument<T extends Record<string, unknown>>(
         collectionName: string,
         docId: string,
@@ -97,6 +104,7 @@ export class FirestoreService {
         );
     }
 
+    /** Handles get document realtime. */
     getDocumentRealtime<T extends Record<string, unknown>>(
         collectionName: string,
         docId: string,
@@ -134,6 +142,7 @@ export class FirestoreService {
         }).pipe(this.retryOnAuthNotReady());
     }
 
+    /** Handles update document. */
     updateDocument<T extends Record<string, unknown>>(
         collectionName: string,
         docId: string,
@@ -144,12 +153,14 @@ export class FirestoreService {
         );
     }
 
+    /** Handles delete document. */
     deleteDocument(collectionName: string, docId: string): Observable<void> {
         return this.fromCtxPromise(() =>
             deleteDoc(doc(this.firestore, collectionName, docId)),
         );
     }
 
+    /** Handles query documents. */
     queryDocuments<T extends Record<string, unknown>>(
         collectionName: string,
         constraints: QueryConstraint[],
@@ -169,6 +180,7 @@ export class FirestoreService {
         );
     }
 
+    /** Handles query documents realtime. */
     queryDocumentsRealtime<T extends Record<string, unknown>>(
         collectionName: string,
         constraints: QueryConstraint[],
@@ -214,6 +226,7 @@ export class FirestoreService {
         }).pipe(this.retryOnAuthNotReady());
     }
 
+    /** Handles retry on auth not ready. */
     private retryOnAuthNotReady<T>(): (source: Observable<T>) => Observable<T> {
         return (source) =>
             source.pipe(
@@ -235,10 +248,12 @@ export class FirestoreService {
             );
     }
 
+    /** Handles is retryable auth error. */
     private isRetryableAuthError(code: string | null): boolean {
         return code === 'unauthenticated' || code === 'permission-denied';
     }
 
+    /** Handles get firebase error code. */
     private getFirebaseErrorCode(error: unknown): string | null {
         if (!error || typeof error !== 'object') {
             return null;

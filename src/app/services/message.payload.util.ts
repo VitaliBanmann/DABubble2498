@@ -9,12 +9,14 @@ import {
     sanitizeMentions,
 } from './message.helpers';
 
+/** Handles require non empty. */
 export function requireNonEmpty(value: string, errorMessage: string): string {
     const cleaned = (value ?? '').trim();
     if (!cleaned) throw new Error(errorMessage);
     return cleaned;
 }
 
+/** Handles ensure has content. */
 export function ensureHasContent(
     text: string,
     attachments: MessageAttachment[],
@@ -24,6 +26,7 @@ export function ensureHasContent(
     }
 }
 
+/** Handles create conversation id. */
 export function createConversationId(
     firstUserId: string,
     secondUserId: string,
@@ -31,6 +34,7 @@ export function createConversationId(
     return [firstUserId, secondUserId].sort().join('__');
 }
 
+/** Handles build message payload. */
 export function buildMessagePayload(message: Message): Message {
     const text = (message.text ?? '').trim();
     const senderId = requireNonEmpty(message.senderId ?? '', 'Missing senderId');
@@ -40,6 +44,7 @@ export function buildMessagePayload(message: Message): Message {
     return { ...message, text, senderId, mentions, attachments, searchTokens: buildMessageSearchTokens(text, attachments), timestamp: new Date(), read: false };
 }
 
+/** Handles build direct message payload. */
 export function buildDirectMessagePayload(
     otherUserId: string,
     text: string,

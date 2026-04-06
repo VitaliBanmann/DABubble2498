@@ -80,10 +80,12 @@ export class SidebarComponent implements OnInit, OnDestroy {
     isChannelsSectionOpen = true;
     isDirectMessagesSectionOpen = true;
 
+    /** Handles toggle channels section. */
     toggleChannelsSection(): void {
         this.isChannelsSectionOpen = !this.isChannelsSectionOpen;
     }
 
+    /** Handles toggle direct messages section. */
     toggleDirectMessagesSection(): void {
         this.isDirectMessagesSectionOpen = !this.isDirectMessagesSectionOpen;
     }
@@ -96,6 +98,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         private readonly ui: UiStateService,
     ) {}
 
+    /** Handles ng on init. */
     ngOnInit(): void {
         this.setDefaultChannels();
         this.initAuthSnapshot();
@@ -111,6 +114,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         ),
     );
 
+    /** Handles init auth snapshot. */
     private initAuthSnapshot(): void {
         const user = this.authService.getCurrentUser();
         this.currentUserId = user?.uid ?? '';
@@ -118,6 +122,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.refreshUnreadTracking();
     }
 
+    /** Handles refresh unread tracking. */
     private refreshUnreadTracking(): void {
         this.unreadByChannelId = {};
         this.unreadByDirectId = {};
@@ -125,10 +130,12 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.mentionByDirectId = {};
     }
 
+    /** Handles on new message click. */
     onNewMessageClick(): void {
         this.newMessageClick$.next();
     }
 
+    /** Handles setup new message flow. */
     private setupNewMessageFlow(): void {
         this.subscription.add(
             this.newMessageClick$
@@ -141,6 +148,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         );
     }
 
+    /** Handles handle new message clicked. */
     private handleNewMessageClicked() {
         this.ui.openNewMessage();
         this.ui.openChat();
@@ -179,9 +187,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
         }),
     );
 
+    /** Handles ng on destroy. */
     ngOnDestroy(): void {
         this.subscription.unsubscribe();
     }
+    /** Handles open create channel dialog. */
     openCreateChannelDialog(): void {
         if (!this.canCreateChannel) return;
         this.showCreateChannelDialog = true;
@@ -192,27 +202,33 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.selectedMemberProfile = null;
     }
 
+    /** Handles close create channel dialog. */
     closeCreateChannelDialog(): void {
         this.showCreateChannelDialog = false;
         this.isSaving = false;
     }
+    /** Returns is create disabled. */
     get isCreateDisabled(): boolean {
         return this.isSaving || !this.canCreateChannel || this.channelNameControl.invalid;
     }
 
+    /** Handles toggle member selection. */
     toggleMemberSelection(memberId: string): void {
         this.selectedMemberIds.has(memberId)
             ? this.selectedMemberIds.delete(memberId)
             : this.selectedMemberIds.add(memberId);
     }
 
+    /** Handles open member profile. */
     openMemberProfile(member: User): void {
         this.selectedMemberProfile = member;
     }
 
+    /** Handles close member profile. */
     closeMemberProfile(): void {
         this.selectedMemberProfile = null;
     }
+    /** Handles open channel. */
     openChannel(channelId: string): void {
         this.ui.closeNewMessage();
         this.activeChannelId = channelId;
@@ -224,6 +240,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         });
     }
 
+    /** Handles open direct message. */
     openDirectMessage(member: SidebarDirectMessage): void {
         this.ui.closeNewMessage();
         const userId = member.id;
@@ -234,12 +251,14 @@ export class SidebarComponent implements OnInit, OnDestroy {
         void this.router.navigate(['/app/dm', userId], this.buildDirectMessageNavigation(member));
     }
 
+    /** Handles build direct message navigation. */
     private buildDirectMessageNavigation(member: SidebarDirectMessage) {
         return {
             queryParams: { name: normalizeDirectMessageLabel(member.label), compose: null },
             queryParamsHandling: 'merge' as const,
         };
     }
+    /** Handles get initials. */
     getInitials(displayName: string): string {
         const parts = (displayName || '').trim().split(/\s+/).filter(Boolean);
         if (!parts.length) return '?';
@@ -247,11 +266,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
         return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase();
     }
 
+    /** Handles create channel. */
     createChannel(): void {
         const draft = this.buildChannelDraft();
         if (!draft) return;
         this.saveChannelDraft(draft.id, draft.payload);
     }
+    /** Handles load channels. */
     private loadChannels(): void {
         this.subscription.add(
             this.channelService
@@ -263,9 +284,11 @@ export class SidebarComponent implements OnInit, OnDestroy {
         );
     }
 
+    /** Handles set default channels. */
     private setDefaultChannels(): void {
         this.channels.splice(0, this.channels.length, ...this.defaultChannels);
     }
+    /** Handles build channel draft. */
     private buildChannelDraft(): { id: string; payload: Channel } | null {
         const channelName = this.getValidatedChannelName();
         if (!channelName || !this.ensureCurrentUser()) return null;
@@ -275,6 +298,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         };
     }
 
+    /** Handles get validated channel name. */
     private getValidatedChannelName(): string {
         if (this.isCreateDisabled) {
             this.channelNameControl.markAsTouched();
@@ -285,16 +309,19 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.markInvalidChannelName();
         return '';
     }
+    /** Handles mark invalid channel name. */
     private markInvalidChannelName(): void {
         this.saveError = 'Bitte gib einen gültigen Channel-Namen ein.';
         this.channelNameControl.markAsTouched();
     }
 
+    /** Handles ensure current user. */
     private ensureCurrentUser(): boolean {
         if (this.currentUserId) return true;
         this.saveError = 'Bitte erneut anmelden und dann Channel erstellen.';
         return false;
     }
+    /** Handles create channel payload. */
     private createChannelPayload(channelName: string): Channel {
         const memberIds = new Set<string>(this.selectedMemberIds);
         memberIds.add(this.currentUserId);
@@ -307,6 +334,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
             createdBy: this.currentUserId,
         };
     }
+    /** Handles save channel draft. */
     private saveChannelDraft(channelId: string, payload: Channel): void {
         this.isSaving = true;
         this.saveError = '';
@@ -321,6 +349,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         );
     }
 
+    /** Handles handle channel created. */
     private handleChannelCreated(channelId: string, payload: Channel): void {
         this.channels.push({
             id: channelId,
@@ -332,11 +361,13 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.openChannel(channelId);
     }
 
+    /** Handles handle create channel error. */
     private handleCreateChannelError(error: unknown): void {
         console.error('Channel creation failed:', error);
         this.saveError =
             'Channel konnte nicht erstellt werden. Bitte erneut versuchen.';
     }
+    /** Handles apply channels. */
     private applyChannels(channels: Channel[]): void {
         const merged = channels.reduce(
             (accumulator, channel) => this.mergeChannel(accumulator, channel),
@@ -347,6 +378,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.ensureActiveChannelVisible();
         this.refreshUnreadTracking();
     }
+    /** Handles ensure active channel visible. */
     private ensureActiveChannelVisible(): void {
         const activeId = this.activeChannelId;
         if (!activeId) return;
@@ -370,6 +402,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
                 }),
         );
     }
+    /** Handles merge channel. */
     private mergeChannel(
         merged: SidebarChannel[],
         channel: Channel,
@@ -380,6 +413,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         this.upsertMergedChannel(merged, existingIndex, mapped);
         return merged;
     }
+    /** Handles upsert merged channel. */
     private upsertMergedChannel(
         merged: SidebarChannel[],
         index: number,
@@ -389,6 +423,7 @@ export class SidebarComponent implements OnInit, OnDestroy {
         else merged.push(channel);
     }
 
+    /** Handles sort channels. */
     private sortChannels(): void {
         this.channels.sort((left, right) => {
             const leftLabel = (left.label ?? '').toString();

@@ -26,6 +26,7 @@ export interface SidebarRouteState {
     activeDirectMessageId: string | null;
 }
 
+/** Handles get unique members. */
 export function getUniqueMembers(
     members: User[],
     currentUserId: string,
@@ -35,6 +36,7 @@ export function getUniqueMembers(
     return Array.from(map.values());
 }
 
+/** Handles compare direct messages. */
 export function compareDirectMessages(
     left: SidebarDirectMessage,
     right: SidebarDirectMessage,
@@ -44,10 +46,12 @@ export function compareDirectMessages(
     return left.label.localeCompare(right.label, 'de');
 }
 
+/** Handles normalize direct message label. */
 export function normalizeDirectMessageLabel(label: string): string {
     return label.replace(' (Du)', '').trim();
 }
 
+/** Handles resolve sidebar route state. */
 export function resolveSidebarRouteState(url: string): SidebarRouteState {
     const channelId = extractRouteSegment(url, /\/app\/channel\/([^/?#]+)/);
     if (channelId) return { activeChannelId: channelId, activeDirectMessageId: null };
@@ -56,11 +60,13 @@ export function resolveSidebarRouteState(url: string): SidebarRouteState {
     return { activeChannelId: null, activeDirectMessageId: null };
 }
 
+/** Handles extract route segment. */
 function extractRouteSegment(url: string, pattern: RegExp): string | null {
     const match = pattern.exec(url);
     return match?.[1] ? decodeURIComponent(match[1]) : null;
 }
 
+/** Handles map sidebar direct messages. */
 export function mapSidebarDirectMessages(
     members: User[],
     currentUserId: string,
@@ -75,6 +81,7 @@ export function mapSidebarDirectMessages(
         .sort(compareDirectMessages);
 }
 
+/** Handles to sidebar direct message. */
 function toSidebarDirectMessage(
     member: User,
     currentUserId: string,
@@ -96,10 +103,12 @@ function toSidebarDirectMessage(
     };
 }
 
+/** Handles format direct label. */
 function formatDirectLabel(displayName: string, isSelf: boolean): string {
     return isSelf ? `${displayName} (Du)` : displayName;
 }
 
+/** Handles create unique channel id. */
 export function createUniqueChannelId(
     name: string,
     channels: SidebarChannel[],
@@ -117,6 +126,7 @@ export function createUniqueChannelId(
     return `${base}-${index}`;
 }
 
+/** Handles map sidebar channel. */
 export function mapSidebarChannel(
     channel: Channel,
     canonicalChannelLabels: Record<string, string>,
@@ -137,6 +147,7 @@ export function mapSidebarChannel(
     };
 }
 
+/** Handles merge unique member. */
 function mergeUniqueMember(
     map: Map<string, User>,
     member: User,
@@ -150,10 +161,12 @@ function mergeUniqueMember(
     }
 }
 
+/** Handles has better member score. */
 function hasBetterMemberScore(candidate: User, current: User, currentUserId: string): boolean {
     return scoreMemberRecord(candidate, currentUserId) > scoreMemberRecord(current, currentUserId);
 }
 
+/** Handles score member record. */
 function scoreMemberRecord(member: User, currentUserId: string): number {
     let score = 0;
     if (member.id === currentUserId) score += 100;
@@ -162,11 +175,13 @@ function scoreMemberRecord(member: User, currentUserId: string): number {
     return score;
 }
 
+/** Handles get member key. */
 function getMemberKey(member: User): string {
     const value = member.email || member.displayName || member.id || '';
     return value.toString().trim().toLowerCase();
 }
 
+/** Handles slugify. */
 function slugify(value: string): string {
     const normalized = value
         .toLowerCase()

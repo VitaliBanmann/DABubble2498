@@ -30,6 +30,7 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
 
     protected abstract editMessageTextareas?: QueryList<ElementRef<HTMLTextAreaElement>>;
 
+    /** Handles prepare message stream switch. */
     protected override prepareMessageStreamSwitch(): void {
         this.clearThreadReplyCountSubscriptions();
         this.threadReplyCountByMessageId = {};
@@ -37,12 +38,14 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         super.prepareMessageStreamSwitch();
     }
 
+    /** Handles reset edit state. */
     protected override resetEditState(): void {
         this.editingMessageId = null;
         this.editMessageControl.setValue('');
         this.isSavingEdit = false;
     }
 
+    /** Handles reset thread panel. */
     protected override resetThreadPanel(): void {
         this.threadSubscription?.unsubscribe();
         this.threadSubscription = null;
@@ -52,11 +55,13 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         (this as any).ui?.closeThread?.();
     }
 
+    /** Handles open thread. */
     openThread(): void {
         const first = this.messages[0];
         if (first) this.openThreadForMessage(first);
     }
 
+    /** Handles open thread for message. */
     openThreadForMessage(message: Message): void {
         if (this.isDirectMessage || !message.id) return;
         this.activeThreadParent = message;
@@ -67,8 +72,10 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         this.subscribeToThreadMessages(message.id);
     }
 
+    /** Handles close thread. */
     closeThread(): void { this.resetThreadPanel(); }
 
+    /** Handles subscribe to thread messages. */
     protected subscribeToThreadMessages(parentMessageId: string): void {
         this.threadSubscription?.unsubscribe();
         this.threadMessages = [];
@@ -84,11 +91,13 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
             });
     }
 
+    /** Handles handle thread read error. */
     protected handleThreadReadError(error: unknown): void {
         console.error('[THREAD READ ERROR]', error);
         this.errorMessage = 'Thread-Nachrichten konnten nicht geladen werden.';
     }
 
+    /** Handles send thread message. */
     sendThreadMessage(): void {
         if (!this.canSendThreadMessage()) return;
         const text = this.threadMessageControl.value.trim();
@@ -100,26 +109,31 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         });
     }
 
+    /** Handles can send thread message. */
     protected canSendThreadMessage(): boolean {
         return this.canWrite && !this.isDirectMessage && !!this.activeThreadParent?.id;
     }
 
+    /** Handles create thread message request. */
     protected createThreadMessageRequest(text: string): Observable<string> {
         return this.messageService.sendChannelThreadMessage(
             this.activeThreadParent!.id!, text, this.currentUserId ?? '',
         );
     }
 
+    /** Handles on thread send success. */
     protected onThreadSendSuccess(): void {
         this.threadMessageControl.setValue('');
         this.isThreadSending = false;
     }
 
+    /** Handles on thread send error. */
     protected onThreadSendError(error: unknown): void {
         this.errorMessage = this.resolveSendError(error);
         this.isThreadSending = false;
     }
 
+    /** Handles on edit message click. */
     onEditMessageClick(message: Message): void {
         if (!this.canEditMessage(message) || !message.id) return;
         this.errorMessage = '';
@@ -128,20 +142,24 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         this.focusActiveEditTextarea();
     }
 
+    /** Handles can edit message. */
     canEditMessage(message: Message): boolean {
         return this.isOwnMessage(message) && !!message.id;
     }
 
+    /** Handles is editing message. */
     isEditingMessage(message: Message): boolean {
         return !!message.id && this.editingMessageId === message.id;
     }
 
+    /** Handles cancel message edit. */
     cancelMessageEdit(): void {
         this.editingMessageId = null;
         this.editMessageControl.setValue('');
         this.isSavingEdit = false;
     }
 
+    /** Handles save message edit. */
     saveMessageEdit(message: Message): void {
         if (!this.canSaveMessageEdit(message)) return;
         const nextText = this.editMessageControl.value.trim();
@@ -156,19 +174,23 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         });
     }
 
+    /** Handles can save message edit. */
     protected canSaveMessageEdit(message: Message): boolean {
         return !!message.id && this.isEditingMessage(message) && !this.isSavingEdit;
     }
 
+    /** Handles apply empty edit error. */
     protected applyEmptyEditError(): void {
         this.errorMessage = 'Die Nachricht darf nicht leer sein.';
     }
 
+    /** Handles handle save edit error. */
     protected handleSaveEditError(error: unknown): void {
         this.isSavingEdit = false;
         this.errorMessage = this.resolveSendError(error);
     }
 
+    /** Handles on edit textarea keydown. */
     onEditTextareaKeydown(event: KeyboardEvent, message: Message): void {
         if (event.key === 'Escape') { event.preventDefault(); this.cancelMessageEdit(); return; }
         if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) {
@@ -176,6 +198,7 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         }
     }
 
+    /** Handles focus active edit textarea. */
     protected focusActiveEditTextarea(): void {
         setTimeout(() => {
             const textarea = this.editMessageTextareas?.last?.nativeElement;
@@ -185,16 +208,19 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         }, 0);
     }
 
+    /** Handles is reaction list expanded. */
     isReactionListExpanded(message: Message): boolean {
         return !!message.id && this.expandedReactionMessages.has(message.id);
     }
 
+    /** Handles get visible reactions. */
     getVisibleReactions(message: Message): MessageReaction[] {
         const reactions = message.reactions ?? [];
         if (!message.id || this.isReactionListExpanded(message)) return reactions;
         return reactions.slice(0, this.collapsedReactionLimit);
     }
 
+    /** Handles get sorted visible reactions. */
     getSortedVisibleReactions(message: Message): MessageReaction[] {
         return [...this.getVisibleReactions(message)].sort((a, b) => {
             const aR = this.hasCurrentUserReacted(a) ? 1 : 0;
@@ -206,33 +232,39 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         });
     }
 
+    /** Handles get hidden reaction count. */
     getHiddenReactionCount(message: Message): number {
         const reactions = message.reactions ?? [];
         if (!message.id || this.isReactionListExpanded(message)) return 0;
         return Math.max(reactions.length - this.collapsedReactionLimit, 0);
     }
 
+    /** Handles toggle reaction list. */
     toggleReactionList(message: Message): void {
         if (!message.id) return;
         if (this.expandedReactionMessages.has(message.id)) this.expandedReactionMessages.delete(message.id);
         else this.expandedReactionMessages.add(message.id);
     }
 
+    /** Handles toggle reaction. */
     toggleReaction(message: Message, emoji: string): void {
         if (!this.canWrite || !message.id) return;
         this.messageService.toggleReaction({ messageId: message.id, emoji, isDirectMessage: this.isDirectMessage })
             .subscribe({ error: () => { this.errorMessage = 'Reaktion konnte nicht aktualisiert werden.'; } });
     }
 
+    /** Handles has current user reacted. */
     hasCurrentUserReacted(reaction: MessageReaction): boolean {
         if (!this.currentUserId) return false;
         return reaction.userIds.includes(this.currentUserId);
     }
 
+    /** Handles can open thread from toolbar. */
     canOpenThreadFromToolbar(message: Message): boolean {
         return !this.isDirectMessage && !!message.id;
     }
 
+    /** Handles get thread reply count. */
     getThreadReplyCount(message: Message): number {
         const messageId = message.id ?? '';
         if (messageId && messageId in this.threadReplyCountByMessageId) {
@@ -248,15 +280,18 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         return normalized;
     }
 
+    /** Handles should show thread replies link. */
     shouldShowThreadRepliesLink(message: Message): boolean {
         return this.getThreadReplyCount(message) > 0;
     }
 
+    /** Handles on thread replies click. */
     onThreadRepliesClick(event: MouseEvent, message: Message): void {
         event.preventDefault();
         this.openThreadForMessage(message);
     }
 
+    /** Handles ensure thread reply count synced. */
     private ensureThreadReplyCountSynced(messageId: string): void {
         if (this.threadReplyCountSubscriptions[messageId]) return;
         if (this.loadingThreadReplyCounts.has(messageId)) return;
@@ -278,17 +313,20 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
             });
     }
 
+    /** Handles clear thread reply count subscriptions. */
     private clearThreadReplyCountSubscriptions(): void {
         Object.values(this.threadReplyCountSubscriptions).forEach((sub) => sub.unsubscribe());
         this.threadReplyCountSubscriptions = {};
     }
 
+    /** Handles toggle composer emoji picker. */
     toggleComposerEmojiPicker(event: MouseEvent): void {
         event.stopPropagation();
         if (this.activeEmojiPicker?.type === 'composer') { this.closeAllEmojiPickers(); return; }
         this.activeEmojiPicker = { type: 'composer' };
     }
 
+    /** Handles toggle message emoji picker. */
     toggleMessageEmojiPicker(message: Message, event: MouseEvent): void {
         event.stopPropagation();
         if (!message.id || !this.canWrite) return;
@@ -296,16 +334,21 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         this.activeEmojiPicker = { type: 'message', messageId: message.id };
     }
 
+    /** Handles is composer emoji picker open. */
     isComposerEmojiPickerOpen(): boolean { return this.activeEmojiPicker?.type === 'composer'; }
 
+    /** Handles is message emoji picker open. */
     isMessageEmojiPickerOpen(message: Message): boolean {
         return !!message.id && this.activeEmojiPicker?.type === 'message' &&
             this.activeEmojiPicker.messageId === message.id;
     }
 
+    /** Handles close all emoji pickers. */
     closeAllEmojiPickers(): void { this.activeEmojiPicker = null; }
+    /** Handles close composer emoji picker. */
     closeComposerEmojiPicker(): void { this.closeAllEmojiPickers(); }
 
+    /** Handles on composer emoji select. */
     onComposerEmojiSelect(event: any): void {
         const emoji = event?.emoji?.native ?? event?.native ?? '';
         const textarea = this.composerTextareaRef?.nativeElement;
@@ -319,6 +362,7 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         this.closeAllEmojiPickers();
     }
 
+    /** Handles insert composer emoji. */
     protected insertComposerEmoji(textarea: HTMLTextAreaElement, emoji: string): number {
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
@@ -327,6 +371,7 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         return start + emoji.length;
     }
 
+    /** Handles on message emoji select. */
     onMessageEmojiSelect(event: any, message: Message): void {
         const emoji = event?.emoji?.native ?? event?.native ?? '';
         if (!emoji || !message.id) return;
@@ -334,21 +379,25 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         this.closeAllEmojiPickers();
     }
 
+    /** Handles has mention for current user. */
     hasMentionForCurrentUser(message: Message): boolean {
         if (!this.currentUserId) return false;
         return (message.mentions ?? []).includes(this.currentUserId);
     }
 
+    /** Handles is thread parent. */
     isThreadParent(message: Message): boolean {
         return !!message.id && message.id === this.activeThreadParent?.id;
     }
 
+    /** Handles try scroll to message. */
     protected override tryScrollToMessage(): void {
         const msgId = this.pendingScrollToMessageId;
         if (!msgId) return;
         setTimeout(() => this.highlightScrolledMessage(msgId), 400);
     }
 
+    /** Handles highlight scrolled message. */
     protected highlightScrolledMessage(msgId: string): void {
         const el = document.getElementById('msg-' + msgId);
         if (!el) return;

@@ -43,47 +43,62 @@ export abstract class TopbarProfileBase {
     private profileResolved = false;
     private profileFallbackTimer: ReturnType<typeof setTimeout> | null = null;
 
+    /** Returns auth service. */
     protected abstract get authService(): AuthService;
+    /** Returns auth flow. */
     protected abstract get authFlow(): AuthFlowService;
+    /** Returns user service. */
     protected abstract get userService(): UserService;
+    /** Returns channel service. */
     protected abstract get channelService(): ChannelService;
+    /** Returns cdr. */
     protected abstract get cdr(): ChangeDetectorRef;
+    /** Returns subscription. */
     protected abstract get subscription(): Subscription;
 
+    /** Returns initials. */
     get initials(): string {
         return getInitials(this.displayName);
     }
 
+    /** Returns presence label. */
     get presenceLabel(): string {
         return getPresenceLabel(this.presenceStatus);
     }
 
+    /** Handles on avatar error. */
     onAvatarError(): void {
         this.clearAvatar();
     }
 
+    /** Handles toggle user menu. */
     toggleUserMenu(): void {
         this.showUserMenu = !this.showUserMenu;
     }
 
+    /** Handles close user menu. */
     closeUserMenu(): void {
         this.showUserMenu = false;
     }
 
+    /** Handles navigate to profile. */
     navigateToProfile(): void {
         this.closeUserMenu();
         this.showProfile = true;
     }
 
+    /** Handles close profile. */
     closeProfile(): void {
         this.showProfile = false;
     }
 
+    /** Handles logout. */
     async logout(): Promise<void> {
         this.closeUserMenu();
         await this.authFlow.logoutToLogin();
     }
 
+    /** Handles apply avatar. */
     protected applyAvatar(avatar?: string | null): void {
         const resolved = resolveAvatarUrl(avatar ?? '');
         if (!resolved) {
@@ -94,11 +109,13 @@ export abstract class TopbarProfileBase {
         this.showAvatarImage = true;
     }
 
+    /** Handles clear avatar. */
     protected clearAvatar(): void {
         this.avatarUrl = null;
         this.showAvatarImage = false;
     }
 
+    /** Handles defer ui update. */
     protected deferUiUpdate(update: () => void): void {
         setTimeout(() => {
             update();
@@ -106,6 +123,7 @@ export abstract class TopbarProfileBase {
         }, 0);
     }
 
+    /** Handles track auth ready. */
     protected trackAuthReady(): void {
         this.subscription.add(
             this.authService.authReady$
@@ -114,6 +132,7 @@ export abstract class TopbarProfileBase {
         );
     }
 
+    /** Handles track user profile. */
     protected trackUserProfile(): void {
         this.subscription.add(
             combineLatest([
@@ -129,11 +148,13 @@ export abstract class TopbarProfileBase {
         );
     }
 
+    /** Handles warm search cache. */
     protected warmSearchCache(): void {
         this.subscribeUsersCache();
         this.subscribeChannelsCache();
     }
 
+    /** Handles subscribe users cache. */
     protected subscribeUsersCache(): void {
         this.subscription.add(
             this.userService.getAllUsersRealtime().pipe(catchError(() => of([] as User[])))
@@ -141,6 +162,7 @@ export abstract class TopbarProfileBase {
         );
     }
 
+    /** Handles subscribe channels cache. */
     protected subscribeChannelsCache(): void {
         this.subscription.add(
             this.channelService.getAllChannels().pipe(catchError(() => of([])))
@@ -148,10 +170,12 @@ export abstract class TopbarProfileBase {
         );
     }
 
+    /** Handles apply cached channels. */
     protected applyCachedChannels(channels: any[]): void {
         this.cachedChannels = mergeWithDefaults(channels);
     }
 
+    /** Handles load profile state. */
     private loadProfileState(
         user: {
             uid: string;
@@ -172,6 +196,7 @@ export abstract class TopbarProfileBase {
             );
     }
 
+    /** Handles apply profile state. */
     private applyProfileState(data: { user: any; profile: any } | null): void {
         if (!data?.profile) return;
         const { profile, user } = data;
@@ -182,6 +207,7 @@ export abstract class TopbarProfileBase {
         );
     }
 
+    /** Handles resolve profile values. */
     private resolveProfileValues(
         profile: any,
         user: any,
@@ -199,6 +225,7 @@ export abstract class TopbarProfileBase {
         ];
     }
 
+    /** Handles apply resolved profile. */
     private applyResolvedProfile(
         name: string,
         email: string,
@@ -213,6 +240,7 @@ export abstract class TopbarProfileBase {
         this.presenceStatus = presence;
     }
 
+    /** Handles begin profile fallback. */
     private beginProfileFallback(
         uid: string,
         user: {
@@ -229,6 +257,7 @@ export abstract class TopbarProfileBase {
         );
     }
 
+    /** Handles clear profile fallback. */
     private clearProfileFallback(): void {
         if (this.profileFallbackTimer) {
             clearTimeout(this.profileFallbackTimer);
@@ -236,11 +265,13 @@ export abstract class TopbarProfileBase {
         }
     }
 
+    /** Handles reset profile resolution. */
     private resetProfileResolution(uid: string): void {
         this.profileUid = uid;
         this.profileResolved = false;
     }
 
+    /** Handles apply profile fallback. */
     private applyProfileFallback(
         uid: string,
         user: {

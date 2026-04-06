@@ -27,6 +27,7 @@ export class PresenceService implements OnDestroy {
         private readonly userService: UserService,
     ) {}
 
+    /** Handles start tracking. */
     startTracking(): void {
         if (!isPlatformBrowser(this.platformId) || this.started) {
             return;
@@ -49,6 +50,7 @@ export class PresenceService implements OnDestroy {
         );
     }
 
+    /** Handles set status. */
     async setStatus(status: PresenceStatus): Promise<void> {
         try {
             await this.userService.updateCurrentUserPresence(status);
@@ -57,12 +59,14 @@ export class PresenceService implements OnDestroy {
         }
     }
 
+    /** Handles ng on destroy. */
     ngOnDestroy(): void {
         this.stopHeartbeat();
         this.removeBrowserListeners();
         this.subscription.unsubscribe();
     }
 
+    /** Handles start heartbeat. */
     private startHeartbeat(): void {
         this.stopHeartbeat();
         this.heartbeatId = setInterval(() => {
@@ -72,6 +76,7 @@ export class PresenceService implements OnDestroy {
         }, 45000);
     }
 
+    /** Handles stop heartbeat. */
     private stopHeartbeat(): void {
         if (this.heartbeatId) {
             clearInterval(this.heartbeatId);
@@ -79,11 +84,13 @@ export class PresenceService implements OnDestroy {
         }
     }
 
+    /** Handles attach browser listeners. */
     private attachBrowserListeners(): void {
         window.addEventListener('visibilitychange', this.visibilityHandler);
         window.addEventListener('beforeunload', this.beforeUnloadHandler);
     }
 
+    /** Handles remove browser listeners. */
     private removeBrowserListeners(): void {
         window.removeEventListener('visibilitychange', this.visibilityHandler);
         window.removeEventListener('beforeunload', this.beforeUnloadHandler);

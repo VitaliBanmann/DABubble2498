@@ -26,18 +26,22 @@ export class AddMemberToChannelComponent {
     showSuggestions = false;
     selectedUserId: string | null = null;
 
+    /** Handles on close. */
     onClose(): void {
         this.close.emit();
     }
 
+    /** Handles on search input. */
     onSearchInput(): void {
         this.applySearchState(false);
     }
 
+    /** Handles on search focus. */
     onSearchFocus(): void {
         this.applySearchState(true);
     }
 
+    /** Handles on search blur. */
     onSearchBlur(): void {
         // Allow suggestion-item click to run before closing the list.
         setTimeout(() => {
@@ -45,12 +49,14 @@ export class AddMemberToChannelComponent {
         }, 120);
     }
 
+    /** Handles on suggestion select. */
     onSuggestionSelect(user: AddMemberPopupUser): void {
         this.selectedUserId = user.id;
         this.searchValue = user.displayName;
         this.showSuggestions = false;
     }
 
+    /** Handles on submit click. */
     onSubmitClick(): void {
         this.showSuggestions = false;
         const selected = this.resolveSelectedUserId();
@@ -61,10 +67,12 @@ export class AddMemberToChannelComponent {
         this.addMember.emit(selected);
     }
 
+    /** Handles can submit selection. */
     canSubmitSelection(): boolean {
         return !!this.resolveSelectedUserId();
     }
 
+    /** Handles resolve selected user id. */
     private resolveSelectedUserId(): string | null {
         if (this.selectedUserId) {
             return this.selectedUserId;
@@ -81,6 +89,7 @@ export class AddMemberToChannelComponent {
         return directMatch?.id ?? null;
     }
 
+    /** Handles apply search state. */
     private applySearchState(isFocus: boolean): void {
         const token = this.searchValue.trim().toLowerCase();
         const exactMatch = this.availableUsers.find(

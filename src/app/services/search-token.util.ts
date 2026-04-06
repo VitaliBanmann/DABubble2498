@@ -1,3 +1,4 @@
+/** Handles normalize search token. */
 export function normalizeSearchToken(value: string): string {
     return value
         .toLowerCase()
@@ -7,12 +8,14 @@ export function normalizeSearchToken(value: string): string {
         .trim();
 }
 
+/** Handles build search tokens. */
 export function buildSearchTokens(parts: string[]): string[] {
     const tokens = new Set<string>();
     parts.forEach((part) => collectWords(part).forEach((word) => addTokenVariants(tokens, word)));
     return Array.from(tokens).filter((token) => token.length >= 2);
 }
 
+/** Handles collect words. */
 function collectWords(part: string): string[] {
     return (part ?? '')
         .toLowerCase()
@@ -22,6 +25,7 @@ function collectWords(part: string): string[] {
         .filter((word) => word.length >= 2);
 }
 
+/** Handles add token variants. */
 function addTokenVariants(tokens: Set<string>, word: string): void {
     for (let length = 2; length <= word.length; length += 1) {
         tokens.add(word.slice(0, length));

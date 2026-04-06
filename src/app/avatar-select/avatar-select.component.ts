@@ -40,6 +40,7 @@ export class AvatarSelectComponent implements OnInit {
     private readonly cdr: ChangeDetectorRef
   ) {}
 
+  /** Initializes user name and preselects an existing or default avatar. */
   ngOnInit(): void {
     const currentUser = this.authService.getCurrentUser();
     this.applyCurrentUserName(currentUser);
@@ -47,6 +48,10 @@ export class AvatarSelectComponent implements OnInit {
     this.ensureDefaultAvatar();
   }
 
+  /**
+   * Applies the best available display name for the current user.
+   * @param currentUser Currently authenticated user or null.
+   */
   private applyCurrentUserName(currentUser: { isAnonymous: boolean; displayName: string | null; email: string | null } | null): void {
     if (currentUser?.isAnonymous) {
       this.userName = 'Gast';
@@ -61,12 +66,20 @@ export class AvatarSelectComponent implements OnInit {
     this.applyEmailFallbackName(currentUser?.email ?? null);
   }
 
+  /**
+   * Uses the local part of the email as fallback user name.
+   * @param email User email address.
+   */
   private applyEmailFallbackName(email: string | null): void {
     if (email) {
       this.userName = email.split('@')[0];
     }
   }
 
+  /**
+   * Loads the saved profile and applies avatar/name selection.
+   * @param userId Current user id.
+   */
   private loadExistingProfile(userId: string): void {
     if (!userId) {
       return;
@@ -77,6 +90,10 @@ export class AvatarSelectComponent implements OnInit {
     });
   }
 
+  /**
+   * Applies display name and avatar from a loaded profile.
+   * @param profile Persisted profile data.
+   */
   private applyProfileSelection(profile: { displayName?: string; avatar?: string } | null): void {
     if (profile?.displayName) {
       this.userName = profile.displayName;
@@ -87,6 +104,10 @@ export class AvatarSelectComponent implements OnInit {
     }
   }
 
+  /**
+   * Selects a predefined avatar or maps unknown values to custom upload.
+   * @param profileAvatar Stored avatar path or data URL.
+   */
   private selectAvatarFromProfile(profileAvatar: string): void {
     const matchingAvatar = this.avatars.find((avatar) => `assets/pictures/${avatar.path}` === profileAvatar);
     if (matchingAvatar) {
@@ -98,12 +119,17 @@ export class AvatarSelectComponent implements OnInit {
     this.uploadedAvatarDataUrl = profileAvatar;
   }
 
+  /** Ensures a default avatar is selected when none is set yet. */
   private ensureDefaultAvatar(): void {
     if (!this.selectedAvatarId) {
       this.selectAvatar('m1');
     }
   }
 
+  /**
+   * Resolves the currently active avatar path for preview rendering.
+   * @returns Asset path or uploaded data URL.
+   */
   get currentAvatarPath(): string {
     if (this.selectedAvatarId === 'custom' && this.uploadedAvatarDataUrl) {
       return this.uploadedAvatarDataUrl;
@@ -113,6 +139,10 @@ export class AvatarSelectComponent implements OnInit {
     return avatar ? `assets/pictures/${avatar.path}` : 'assets/pictures/profil_m1.svg';
   }
 
+  /**
+   * Selects one of the available avatar options.
+   * @param avatarId Avatar option id.
+   */
   selectAvatar(avatarId: string): void {
     this.selectedAvatarId = avatarId;
     if (avatarId !== 'custom') {
@@ -120,6 +150,10 @@ export class AvatarSelectComponent implements OnInit {
     }
   }
 
+  /**
+   * Handles avatar file uploads and converts the image into a resized data URL.
+   * @param event File input change event.
+   */
   async handleFileUpload(event: Event): Promise<void> {
     const target = event.target as HTMLInputElement;
     const file = target.files?.[0];
@@ -141,6 +175,13 @@ export class AvatarSelectComponent implements OnInit {
     target.value = '';
   }
 
+  /**
+   * Resizes an image file and exports it as JPEG data URL.
+   * @param file Uploaded image file.
+   * @param maxSize Maximum width/height in pixels.
+   * @param quality JPEG quality from 0 to 1.
+   * @returns Promise resolving to the processed image as data URL.
+   */
   private resizeImageToDataUrl(file: File, maxSize: number, quality: number): Promise<string> {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
@@ -176,6 +217,10 @@ export class AvatarSelectComponent implements OnInit {
     });
   }
 
+  /**
+   * Resolves the avatar value that should be persisted.
+   * @returns Selected avatar asset path, custom data URL, or null.
+   */
   private resolveAvatarForSave(): string | null {
     if (this.selectedAvatarId === 'custom') {
       return this.uploadedAvatarDataUrl;
@@ -185,6 +230,10 @@ export class AvatarSelectComponent implements OnInit {
     return selectedAvatar ? `assets/pictures/${selectedAvatar.path}` : null;
   }
 
+  /**
+   * Resolves a non-empty display name to persist.
+   * @returns Final display name fallbacking to "Gast".
+   */
   private resolveDisplayNameForSave(): string {
     const trimmedName = this.userName.trim();
 
@@ -200,14 +249,20 @@ export class AvatarSelectComponent implements OnInit {
     return currentUser?.displayName?.trim() || 'Gast';
   }
 
+  /** Navigates back to the landing page. */
   onBack(): void {
     void this.router.navigateByUrl('/');
   }
 
+  /**
+   * Triggers the hidden file input dialog.
+   * @param fileInput Target file input element.
+   */
   onUploadClick(fileInput: HTMLInputElement): void {
     fileInput.click();
   }
 
+  /** Persists the selected avatar and navigates to the home screen. */
   async onContinue(): Promise<void> {
     const avatarToSave = this.resolveAvatarForSave();
     if (!avatarToSave) {
@@ -219,6 +274,10 @@ export class AvatarSelectComponent implements OnInit {
     this.finishContinue();
   }
 
+  /**
+   * Saves avatar and display name for the current user.
+   * @param avatarToSave Avatar value to persist.
+   */
   private async persistAvatarSelection(avatarToSave: string): Promise<void> {
     const currentUser = this.authService.getCurrentUser();
     if (!currentUser) {
@@ -231,6 +290,7 @@ export class AvatarSelectComponent implements OnInit {
     });
   }
 
+  /** Resets loading state and completes navigation to home. */
   private finishContinue(): void {
     this.isLoading = false;
     void this.router.navigateByUrl('/home');

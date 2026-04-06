@@ -39,6 +39,7 @@ const defaultChannels: SearchChannelResult[] = [
     { id: 'entwicklerteam', name: 'Entwicklerteam' },
 ];
 
+/** Handles get initials. */
 export function getInitials(name: string): string {
     const parts = name.trim().split(/\s+/).filter(Boolean);
     if (!parts.length) return '';
@@ -46,6 +47,7 @@ export function getInitials(name: string): string {
     return parts[0][0].toUpperCase();
 }
 
+/** Handles get presence label. */
 export function getPresenceLabel(status: PresenceStatus): string {
     switch (status) {
         case 'online':
@@ -57,6 +59,7 @@ export function getPresenceLabel(status: PresenceStatus): string {
     }
 }
 
+/** Handles resolve profile email. */
 export function resolveProfileEmail(profile: Record<string, unknown>): string {
     const candidates = [
         profile['email'],
@@ -70,6 +73,7 @@ export function resolveProfileEmail(profile: Record<string, unknown>): string {
     return typeof firstEmail === 'string' ? firstEmail.trim() : '';
 }
 
+/** Handles resolve avatar url. */
 export function resolveAvatarUrl(avatar: string): string {
     const trimmed = avatar.trim();
     if (!trimmed) return '';
@@ -84,11 +88,13 @@ export function resolveAvatarUrl(avatar: string): string {
     return `assets/pictures/${trimmed.replace(/^\/+/, '')}`;
 }
 
+/** Handles truncate text. */
 export function truncateText(text: string, maxLength = 60): string {
     const trimmed = (text ?? '').trim();
     return trimmed.length > maxLength ? `${trimmed.slice(0, maxLength)}…` : trimmed;
 }
 
+/** Handles map search results. */
 export function mapSearchResults(
     channels: any[],
     users: any[],
@@ -101,14 +107,17 @@ export function mapSearchResults(
     };
 }
 
+/** Handles map channel results. */
 function mapChannelResults(channels: any[]): SearchChannelResult[] {
     return channels.filter((channel) => !!channel?.id).map((channel) => ({ id: channel.id as string, name: channel.name })).slice(0, 5);
 }
 
+/** Handles map user results. */
 function mapUserResults(users: any[]): SearchUserResult[] {
     return users.filter((user) => !!user?.id).map((user) => ({ id: user.id as string, name: user.displayName, email: user.email })).slice(0, 5);
 }
 
+/** Handles map message results. */
 function mapMessageResults(messages: any[]): SearchMessageResult[] {
     return messages.filter((message) => !!message?.id && (message.channelId || message.conversationId)).map((message) => ({
         id: message.id as string,
@@ -120,6 +129,7 @@ function mapMessageResults(messages: any[]): SearchMessageResult[] {
     })).slice(0, 5);
 }
 
+/** Handles merge with defaults. */
 export function mergeWithDefaults(channels: any[]): SearchChannelResult[] {
     const merged = new Map<string, SearchChannelResult>(
         defaultChannels.map((channel) => [channel.id, channel]),
@@ -134,6 +144,7 @@ export function mergeWithDefaults(channels: any[]): SearchChannelResult[] {
     return Array.from(merged.values());
 }
 
+/** Handles create search stream. */
 export function createSearchStream(
     token: string,
     deps: {
@@ -152,12 +163,14 @@ export function createSearchStream(
     ]);
 }
 
+/** Handles matches search. */
 function matchesSearch(parts: Array<unknown>, token: string): boolean {
     return parts.some((part) =>
         normalizeSearchToken(String(part ?? '')).includes(token),
     );
 }
 
+/** Handles build channel results. */
 function buildChannelResults(
     token: string,
     deps: {
@@ -173,10 +186,12 @@ function buildChannelResults(
     );
 }
 
+/** Handles filter channel results. */
 function filterChannelResults(channels: SearchChannelResult[], token: string): SearchChannelResult[] {
     return channels.filter((channel) => matchesSearch([channel.name], token));
 }
 
+/** Handles build user results. */
 function buildUserResults(
     token: string,
     deps: {
@@ -192,6 +207,7 @@ function buildUserResults(
     );
 }
 
+/** Handles build message results. */
 function buildMessageResults(
     token: string,
     deps: {
@@ -210,10 +226,12 @@ function buildMessageResults(
     );
 }
 
+/** Handles merge search messages. */
 function mergeSearchMessages(channelMessages: any[], directMessages: any[]): any[] {
     return [...channelMessages, ...directMessages].sort((left, right) => new Date(right?.timestamp ?? 0).getTime() - new Date(left?.timestamp ?? 0).getTime()).slice(0, 20);
 }
 
+/** Handles build channel message results. */
 function buildChannelMessageResults(
     token: string,
     deps: {
@@ -228,6 +246,7 @@ function buildChannelMessageResults(
     );
 }
 
+/** Handles load channel message results. */
 function loadChannelMessageResults(channelIds: string[], token: string, messageService: MessageService): Observable<any[]> {
     if (!channelIds.length) return of([]);
     return combineLatest(channelIds.map((channelId) => messageService.streamLatestChannelMessages(channelId, 200).pipe(
@@ -236,6 +255,7 @@ function loadChannelMessageResults(channelIds: string[], token: string, messageS
     ))).pipe(map((grouped) => grouped.flat()));
 }
 
+/** Handles build dm message results. */
 function buildDmMessageResults(
     token: string,
     deps: {
@@ -252,6 +272,7 @@ function buildDmMessageResults(
     );
 }
 
+/** Handles load dm message results. */
 function loadDmMessageResults(
     userIds: string[],
     token: string,
@@ -266,6 +287,7 @@ function loadDmMessageResults(
     ))).pipe(map((grouped) => grouped.flat()));
 }
 
+/** Handles get searchable channel ids. */
 function getSearchableChannelIds(channelService: ChannelService) {
     const publicIds = ['allgemein', 'entwicklerteam'];
 

@@ -24,6 +24,7 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
     protected abstract channelTitleTriggerRef?: ElementRef<HTMLElement>;
     protected abstract membersAvatarTriggerRef?: ElementRef<HTMLElement>;
 
+    /** Returns current channel description. */
     get currentChannelDescription(): string {
         const live = (this.currentChannel?.description ?? '').trim();
         if (live) return live;
@@ -31,12 +32,14 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
             'Dieser Channel ist fuer alles rund um #dfsdf vorgesehen. Hier kannst du zusammen mit deinem Team Meetings abhalten, Dokumente teilen und Entscheidungen treffen.';
     }
 
+    /** Returns current channel name. */
     get currentChannelName(): string {
         const live = (this.currentChannel?.name ?? '').trim();
         if (live) return live;
         return this.channelNames[this.currentChannelId] ?? this.currentChannelId;
     }
 
+    /** Returns current channel creator name. */
     get currentChannelCreatorName(): string {
         const creatorIdOrName = (this.currentChannel?.createdBy ?? '').toString().trim();
         if (!creatorIdOrName) return 'Unbekannt';
@@ -44,6 +47,7 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         return (user?.displayName ?? '').trim() || creatorIdOrName;
     }
 
+    /** Returns current conversation title. */
     get currentConversationTitle(): string {
         if (this.isDirectMessage) {
             const u = this.usersById[this.currentDirectUserId];
@@ -52,6 +56,7 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         return this.currentChannelName;
     }
 
+    /** Returns latest message summary. */
     get latestMessageSummary(): string {
         const latest = this.messages[this.messages.length - 1];
         if (!latest) return '';
@@ -61,14 +66,17 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         return `${sender}: ${text || '(nur Anhang)'} (${stamp})`;
     }
 
+    /** Returns active thread title. */
     get activeThreadTitle(): string {
         return this.activeThreadParent?.text ?? 'Thread';
     }
 
+    /** Returns visible channel members. */
     get visibleChannelMembers(): User[] {
         return this.getChannelMembers().slice(0, this.maxVisibleChannelMembers);
     }
 
+    /** Returns channel members popup entries. */
     get channelMembersPopupEntries(): ChannelMembersPopupEntry[] {
         return this.getChannelMembers().map((user) => ({
             id: user.id ?? '',
@@ -79,6 +87,7 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         }));
     }
 
+    /** Returns add member popup available users. */
     get addMemberPopupAvailableUsers(): AddMemberPopupUser[] {
         const memberIds = new Set(this.extractChannelMemberIds());
 
@@ -97,12 +106,15 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
             }));
     }
 
+    /** Returns remaining channel members count. */
     get remainingChannelMembersCount(): number {
         return Math.max(this.getChannelMembers().length - this.maxVisibleChannelMembers, 0);
     }
 
+    /** Returns channel members count. */
     get channelMembersCount(): number { return this.getChannelMembers().length; }
 
+    /** Handles open channel popup. */
     openChannelPopup(): void {
         if ((this as any).isComposeMode || this.isDirectMessage) return;
         this.positionChannelPopup();
@@ -111,16 +123,20 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         this.isChannelPopupOpen = true;
     }
 
+    /** Handles close channel popup. */
     closeChannelPopup(): void { this.isChannelPopupOpen = false; }
 
+    /** Handles on add member click. */
     onAddMemberClick(): void {
         this.isChannelPopupOpen = false;
         this.isChannelMembersPopupOpen = false;
         this.isAddMemberPopupOpen = true;
     }
 
+    /** Handles close add member popup. */
     closeAddMemberPopup(): void { this.isAddMemberPopupOpen = false; }
 
+    /** Handles on add member submit. */
     onAddMemberSubmit(userId: string): void {
         if (!this.canUpdateChannelMember(userId)) return;
         this.channelService
@@ -129,6 +145,7 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
             .subscribe(this.addMemberObserver());
     }
 
+    /** Handles on remove member submit. */
     onRemoveMemberSubmit(userId: string): void {
         if (!this.canUpdateChannelMember(userId)) return;
         this.channelService
@@ -137,10 +154,12 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
             .subscribe(this.removeMemberObserver());
     }
 
+    /** Handles can update channel member. */
     private canUpdateChannelMember(userId: string): boolean {
         return !!userId && !this.isDirectMessage && !!this.currentChannelId;
     }
 
+    /** Handles add member observer. */
     private addMemberObserver() {
         return {
             next: () => {
@@ -150,16 +169,19 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         };
     }
 
+    /** Handles remove member observer. */
     private removeMemberObserver() {
         return {
             error: (error: unknown) => this.logChannelMemberError('REMOVE', error),
         };
     }
 
+    /** Handles log channel member error. */
     private logChannelMemberError(action: 'ADD' | 'REMOVE', error: unknown): void {
         console.error(`[${action} CHANNEL MEMBER ERROR]`, error);
     }
 
+    /** Handles open channel members popup. */
     openChannelMembersPopup(): void {
         if ((this as any).isComposeMode || this.isDirectMessage) return;
         this.positionChannelMembersPopup();
@@ -168,8 +190,10 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         this.isChannelMembersPopupOpen = true;
     }
 
+    /** Handles close channel members popup. */
     closeChannelMembersPopup(): void { this.isChannelMembersPopupOpen = false; }
 
+    /** Handles position channel members popup. */
     protected positionChannelMembersPopup(): void {
         const el = this.membersAvatarTriggerRef?.nativeElement;
         if (!el) return;
@@ -180,6 +204,7 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         this.channelMembersPopupTop = Math.round(rect.bottom + 12);
     }
 
+    /** Handles position channel popup. */
     protected positionChannelPopup(): void {
         const el = this.channelTitleTriggerRef?.nativeElement;
         if (!el) return;
@@ -190,6 +215,7 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         this.channelPopupTop = Math.round(rect.bottom + 12);
     }
 
+    /** Handles on channel name changed. */
     onChannelNameChanged(nextName: string): void {
         const name = nextName.trim();
         if (!name || this.isDirectMessage || !this.currentChannelId) return;
@@ -200,6 +226,7 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         });
     }
 
+    /** Handles on channel description changed. */
     onChannelDescriptionChanged(nextDescription: string): void {
         const description = nextDescription.trim();
         if (!description || this.isDirectMessage || !this.currentChannelId) return;
@@ -210,12 +237,14 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         });
     }
 
+    /** Handles get user avatar. */
     getUserAvatar(user: User): string {
         const fallback = 'assets/pictures/profile.svg';
         const raw = (user?.avatar ?? '').trim();
         return raw ? this.normalizeAvatarPath(raw, fallback) : fallback;
     }
 
+    /** Handles get message avatar. */
     getMessageAvatar(message: Message): string {
         const fallback = 'assets/pictures/profile.svg';
         const user = this.usersById[message.senderId];
@@ -223,12 +252,14 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         return raw ? this.normalizeAvatarPath(raw, fallback) : fallback;
     }
 
+    /** Handles get channel members. */
     protected getChannelMembers(): User[] {
         return this.extractChannelMemberIds()
             .map((id) => this.usersById[id])
             .filter((u): u is User => !!u);
     }
 
+    /** Handles extract channel member ids. */
     protected extractChannelMemberIds(): string[] {
         const channel = this.currentChannel as Record<string, unknown> | null;
         if (!channel) return [];
@@ -241,6 +272,7 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         return [];
     }
 
+    /** Handles extract member id. */
     protected extractMemberId(entry: unknown): string | null {
         if (typeof entry === 'string') return entry;
         if (typeof entry === 'object' && entry && 'id' in entry && typeof (entry as any).id === 'string') {
@@ -249,6 +281,7 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         return null;
     }
 
+    /** Handles normalize avatar path. */
     protected normalizeAvatarPath(avatar: string, fallback: string): string {
         const t = avatar.trim();
         if (!t) return fallback;
@@ -256,35 +289,43 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         return `assets/pictures/${t}`;
     }
 
+    /** Handles is external avatar. */
     protected isExternalAvatar(v: string): boolean {
         return ['http://', 'https://', 'data:', 'blob:'].some((p) => v.startsWith(p));
     }
 
+    /** Handles is asset avatar. */
     protected isAssetAvatar(v: string): boolean {
         return v.startsWith('/assets/') || v.startsWith('assets/');
     }
 
+    /** Handles get sender label. */
     getSenderLabel(message: Message): string {
         if (this.isOwnMessage(message)) return 'Du';
         return this.usersById[message.senderId]?.displayName ?? message.senderId;
     }
 
+    /** Handles get thread sender label. */
     getThreadSenderLabel(message: ThreadMessage): string {
         return this.usersById[message.senderId]?.displayName ?? message.senderId;
     }
 
+    /** Handles get visible channel members. */
     getVisibleChannelMembers(): User[] { return this.getChannelMembers().slice(0, this.maxVisibleChannelMembers); }
 
+    /** Handles get remaining channel members count. */
     getRemainingChannelMembersCount(): number {
         return Math.max(this.getChannelMembers().length - this.maxVisibleChannelMembers, 0);
     }
 
+    /** Handles track message. */
     override trackMessage(index: number, message: Message): string {
         if (message.id) return message.id;
         const ts = this.resolveTrackTimestamp(message.timestamp, index);
         return `${message.senderId}-${ts}-${message.text}`;
     }
 
+    /** Handles track thread message. */
     trackThreadMessage(index: number, message: ThreadMessage): string {
         if (message.id) return message.id;
         return this.trackMessage(index, message as Message);

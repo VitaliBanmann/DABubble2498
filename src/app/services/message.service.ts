@@ -47,6 +47,7 @@ interface ToggleReactionParams {
 export class MessageService {
     private messagesCollection = 'messages';
     private readonly defaultPageSize = 30;
+    /** Handles log read error. */
     private logReadError(scope: string, error: unknown): Observable<never> {
         console.error(`[${scope}] Firestore read failed`, error);
         return throwError(() => error);
@@ -57,6 +58,7 @@ export class MessageService {
         private authService: AuthService,
     ) {}
 
+    /** Handles send message. */
     sendMessage(message: Message): Observable<string> {
         return this.firestoreService.addDocument(
             this.messagesCollection,
@@ -64,10 +66,12 @@ export class MessageService {
         );
     }
 
+    /** Handles create message id. */
     createMessageId(): string {
         return this.firestoreService.createDocumentId(this.messagesCollection);
     }
 
+    /** Handles send message with id. */
     sendMessageWithId(messageId: string, message: Message): Observable<string> {
         const payload = buildMessagePayload(message);
         return this.firestoreService
@@ -75,6 +79,7 @@ export class MessageService {
             .pipe(map(() => messageId));
     }
 
+    /** Handles get channel messages. */
     getChannelMessages(channelId: string): Observable<Message[]> {
         return this.firestoreService
             .queryDocumentsRealtime<Message>(this.messagesCollection, [
@@ -84,10 +89,12 @@ export class MessageService {
             .pipe(catchError((error) => this.logReadError('CHANNEL', error)));
     }
 
+    /** Handles get private messages. */
     getPrivateMessages(otherUserId: string): Observable<Message[]> {
         return this.getDirectMessages(otherUserId);
     }
 
+    /** Handles stream latest channel messages. */
     streamLatestChannelMessages(
         channelId: string,
         pageSize = this.defaultPageSize,
@@ -103,6 +110,7 @@ export class MessageService {
             );
     }
 
+    /** Handles load older channel messages. */
     loadOlderChannelMessages(
         channelId: string,
         beforeTimestamp: Timestamp | Date,
@@ -122,6 +130,7 @@ export class MessageService {
             );
     }
 
+    /** Handles get direct messages. */
     getDirectMessages(otherUserId: string): Observable<Message[]> {
         const conversationId = this.resolveConversationId(otherUserId);
         if (!conversationId) return of([]);
@@ -134,6 +143,7 @@ export class MessageService {
             .pipe(catchError((error) => this.logReadError('DM', error)));
     }
 
+    /** Handles stream latest direct messages. */
     streamLatestDirectMessages(
         otherUserId: string,
         pageSize = this.defaultPageSize,
@@ -150,6 +160,7 @@ export class MessageService {
             .pipe(catchError((error) => this.logReadError('DM_LIVE', error)));
     }
 
+    /** Handles load older direct messages. */
     loadOlderDirectMessages(
         otherUserId: string,
         beforeTimestamp: Timestamp | Date,
@@ -168,6 +179,7 @@ export class MessageService {
             .pipe(catchError((error) => this.logReadError('DM_OLDER', error)));
     }
 
+    /** Handles send direct message. */
     sendDirectMessage(
         otherUserId: string,
         text: string,
@@ -188,6 +200,7 @@ export class MessageService {
         });
     }
 
+    /** Handles search channel messages by token. */
     searchChannelMessagesByToken(
         channelId: string,
         token: string,
@@ -206,6 +219,7 @@ export class MessageService {
         );
     }
 
+    /** Handles send direct message with id. */
     sendDirectMessageWithId(
         messageId: string,
         otherUserId: string,
@@ -227,6 +241,7 @@ export class MessageService {
         });
     }
 
+    /** Handles update message. */
     updateMessage(
         messageId: string,
         updates: Partial<Message>,
@@ -238,6 +253,7 @@ export class MessageService {
         );
     }
 
+    /** Handles delete message. */
     deleteMessage(messageId: string): Observable<void> {
         return this.firestoreService.deleteDocument(
             this.messagesCollection,
@@ -245,6 +261,7 @@ export class MessageService {
         );
     }
 
+    /** Handles mark as read. */
     markAsRead(messageId: string): Observable<void> {
         return this.firestoreService.updateDocument(
             this.messagesCollection,
@@ -253,12 +270,14 @@ export class MessageService {
         );
     }
 
+    /** Handles get all messages. */
     getAllMessages(): Observable<Message[]> {
         return this.firestoreService.getDocuments<Message>(
             this.messagesCollection,
         );
     }
 
+    /** Handles search messages by token. */
     searchMessagesByToken(token: string): Observable<Message[]> {
         const normalized = normalizeSearchToken(token);
         if (!normalized) return of([]);
@@ -273,6 +292,7 @@ export class MessageService {
         );
     }
 
+    /** Handles get channel thread messages. */
     getChannelThreadMessages(
         parentMessageId: string,
     ): Observable<ThreadMessage[]> {
@@ -288,6 +308,7 @@ export class MessageService {
             .pipe(catchError((error) => this.logReadError('THREAD', error)));
     }
 
+    /** Handles send channel thread message. */
     sendChannelThreadMessage(
         parentMessageId: string,
         text: string,
@@ -321,6 +342,7 @@ export class MessageService {
             );
     }
 
+    /** Handles toggle reaction. */
     toggleReaction(params: ToggleReactionParams): Observable<void> {
         const { messageId, emoji } = params;
 
@@ -343,12 +365,14 @@ export class MessageService {
             );
     }
 
+    /** Handles resolve conversation id. */
     private resolveConversationId(otherUserId: string): string | null {
         const currentUser = this.authService.getCurrentUser();
         if (!currentUser || !otherUserId) return null;
         return createConversationId(currentUser.uid, otherUserId);
     }
 
+    /** Handles require non empty. */
     private requireNonEmpty(value: string, errorMessage: string): string {
         return requireNonEmpty(value, errorMessage);
     }

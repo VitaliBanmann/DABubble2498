@@ -18,6 +18,7 @@ export const AUTH_ERROR_MESSAGES: Record<string, string> = {
         'Netzwerkfehler. Bitte Internet/Firebase-Setup prüfen.',
 };
 
+/** Handles parse firebase error. */
 export function parseFirebaseError(
     error: unknown,
 ): { code: string; message: string } {
@@ -32,6 +33,7 @@ export function parseFirebaseError(
     };
 }
 
+/** Handles format fallback error. */
 export function formatFallbackError(
     fallback: string,
     code: string,

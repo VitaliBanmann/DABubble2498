@@ -22,6 +22,7 @@ export class PasswordResetFlowService {
         private readonly authService: AuthService,
     ) {}
 
+    /** Handles open. */
     open(code: string): void {
         this.showOverlay = true;
         this.resetCode = code;
@@ -31,6 +32,7 @@ export class PasswordResetFlowService {
         this.showConfirmPassword = false;
     }
 
+    /** Handles close. */
     close(): void {
         this.showOverlay = false;
         this.form.reset();
@@ -39,22 +41,27 @@ export class PasswordResetFlowService {
         this.resetCode = '';
     }
 
+    /** Handles toggle new password visibility. */
     toggleNewPasswordVisibility(): void {
         this.showNewPassword = !this.showNewPassword;
     }
 
+    /** Handles toggle confirm password visibility. */
     toggleConfirmPasswordVisibility(): void {
         this.showConfirmPassword = !this.showConfirmPassword;
     }
 
+    /** Returns password control. */
     get passwordControl() {
         return this.form.controls.newPassword;
     }
 
+    /** Returns confirm password control. */
     get confirmPasswordControl() {
         return this.form.controls.confirmPassword;
     }
 
+    /** Handles has ui error. */
     hasUiError(isRegisterPasswordValid: (password: string) => boolean): boolean {
         const newPassword = this.passwordControl.value ?? '';
         const confirmPassword = this.confirmPasswordControl.value ?? '';
@@ -67,6 +74,7 @@ export class PasswordResetFlowService {
         );
     }
 
+    /** Handles build ui error message. */
     buildUiErrorMessage(isRegisterPasswordValid: (password: string) => boolean): string {
         const newPassword = this.passwordControl.value ?? '';
         const confirmPassword = this.confirmPasswordControl.value ?? '';
@@ -78,6 +86,7 @@ export class PasswordResetFlowService {
         return '';
     }
 
+    /** Handles submit. */
     async submit(
         getAuthErrorMessage: (error: unknown, fallback: string) => string,
         isRegisterPasswordValid: (password: string) => boolean,
@@ -93,6 +102,7 @@ export class PasswordResetFlowService {
         }
     }
 
+    /** Handles prepare submit. */
     private prepareSubmit(): string {
         this.isSubmitting = true;
         this.message = '';
@@ -100,11 +110,13 @@ export class PasswordResetFlowService {
         return this.passwordControl.value ?? '';
     }
 
+    /** Handles submit confirm reset. */
     private async submitConfirmReset(newPassword: string): Promise<void> {
         await this.authService.confirmPasswordReset(this.resetCode, newPassword);
         this.message = 'Passwort erfolgreich aktualisiert. Du kannst dich jetzt anmelden.';
     }
 
+    /** Handles resolve submit error. */
     private resolveSubmitError(
         error: unknown,
         getAuthErrorMessage: (error: unknown, fallback: string) => string,
@@ -115,6 +127,7 @@ export class PasswordResetFlowService {
         );
     }
 
+    /** Handles can submit. */
     private canSubmit(isRegisterPasswordValid: (password: string) => boolean): boolean {
         if (!this.hasResetCode()) return false;
         if (!this.isFormReady()) return false;
@@ -126,12 +139,14 @@ export class PasswordResetFlowService {
         return false;
     }
 
+    /** Handles has reset code. */
     private hasResetCode(): boolean {
         if (!!this.resetCode) return true;
         this.error = 'Der Reset-Link ist ungültig. Bitte fordere einen neuen Link an.';
         return false;
     }
 
+    /** Handles is form ready. */
     private isFormReady(): boolean {
         if (!this.form.invalid) return true;
         this.form.markAllAsTouched();

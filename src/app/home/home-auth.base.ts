@@ -17,17 +17,24 @@ export abstract class HomeAuthBase implements OnDestroy {
     protected readonly authRegressionWindowMs = 2000;
     protected readonly subscription = new Subscription();
 
+    /** Returns auth service. */
     protected abstract get authService(): AuthService;
+    /** Returns router. */
     protected abstract get router(): Router;
+    /** Returns ui. */
     protected abstract get ui(): UiStateService;
 
+    /** Handles sync composer state. */
     protected abstract syncComposerState(): void;
+    /** Handles mark current context as read. */
     protected abstract markCurrentContextAsRead(): void;
 
+    /** Handles ng on destroy. */
     ngOnDestroy(): void {
         this.subscription.unsubscribe();
     }
 
+    /** Handles subscribe to auth. */
     protected subscribeToAuth(): void {
         this.subscription.add(
             this.authService.currentUser$.subscribe(
@@ -36,11 +43,13 @@ export abstract class HomeAuthBase implements OnDestroy {
         );
     }
 
+    /** Handles handle auth user change. */
     protected handleAuthUserChange(incomingUser: FirebaseUser | null): void {
         const stableUser = this.resolveStableAuthUser(incomingUser);
         this.deferUiUpdate(() => this.applyStableAuthUser(stableUser));
     }
 
+    /** Handles apply stable auth user. */
     protected applyStableAuthUser(stableUser: FirebaseUser | null): void {
         this.authResolved = true;
         this.activeAuthUser = stableUser;
@@ -51,6 +60,7 @@ export abstract class HomeAuthBase implements OnDestroy {
         this.markCurrentContextAsRead();
     }
 
+    /** Handles resolve stable auth user. */
     protected resolveStableAuthUser(
         incomingUser: FirebaseUser | null,
     ): FirebaseUser | null {
@@ -61,6 +71,7 @@ export abstract class HomeAuthBase implements OnDestroy {
         return this.storeAndReturnUser(incomingUser);
     }
 
+    /** Handles resolve when incoming missing. */
     protected resolveWhenIncomingMissing(
         inAppArea: boolean,
     ): FirebaseUser | null {
@@ -69,11 +80,13 @@ export abstract class HomeAuthBase implements OnDestroy {
         return null;
     }
 
+    /** Handles store and return user. */
     protected storeAndReturnUser(user: FirebaseUser): FirebaseUser {
         this.lastStableUser = user;
         return user;
     }
 
+    /** Handles should reuse last regular user. */
     protected shouldReuseLastRegularUser(inAppArea: boolean): boolean {
         return !!(
             inAppArea &&
@@ -82,6 +95,7 @@ export abstract class HomeAuthBase implements OnDestroy {
         );
     }
 
+    /** Handles defer ui update. */
     protected deferUiUpdate(update: () => void): void {
         setTimeout(() => update(), 0);
     }

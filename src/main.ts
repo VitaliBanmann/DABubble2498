@@ -4,6 +4,7 @@ import { AppComponent } from './app/app.component';
 
 const CHUNK_RELOAD_GUARD_KEY = 'da-bubble-chunk-reload-attempted';
 
+/** Handles ensure performance compatibility. */
 function ensurePerformanceCompatibility(): void {
     if (typeof performance === 'undefined') {
         return;
@@ -14,6 +15,7 @@ function ensurePerformanceCompatibility(): void {
     perf.clearMeasures ??= () => undefined;
 }
 
+/** Handles is chunk load error. */
 function isChunkLoadError(reason: unknown): boolean {
     const message =
         typeof reason === 'string'
@@ -27,6 +29,7 @@ function isChunkLoadError(reason: unknown): boolean {
     );
 }
 
+/** Handles try recover from chunk error. */
 function tryRecoverFromChunkError(reason: unknown): boolean {
     if (typeof window === 'undefined' || !isChunkLoadError(reason)) {
         return false;

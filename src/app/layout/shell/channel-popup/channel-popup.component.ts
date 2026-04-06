@@ -27,6 +27,7 @@ export class ChannelPopupComponent implements OnChanges {
     editableDescription = this.description;
     isEditingDescription = false;
 
+    /** Handles ng on changes. */
     ngOnChanges(changes: SimpleChanges): void {
         if (changes['channelName']) {
             this.currentChannelName = this.channelName;
@@ -43,10 +44,12 @@ export class ChannelPopupComponent implements OnChanges {
         }
     }
 
+    /** Handles on close. */
     onClose(): void {
         this.close.emit();
     }
 
+    /** Handles on toggle channel name edit. */
     onToggleChannelNameEdit(): void {
         if (this.isEditingChannelName) {
             const nextChannelName = this.editableChannelName.trim();
@@ -63,6 +66,7 @@ export class ChannelPopupComponent implements OnChanges {
         this.isEditingChannelName = true;
     }
 
+    /** Handles on toggle description edit. */
     onToggleDescriptionEdit(): void {
         if (this.isEditingDescription) {
             const nextDescription = this.editableDescription.trim();
@@ -79,6 +83,7 @@ export class ChannelPopupComponent implements OnChanges {
         this.isEditingDescription = true;
     }
 
+    /** Handles on leave channel click. */
     onLeaveChannelClick(): void {
         this.leaveChannel.emit();
     }

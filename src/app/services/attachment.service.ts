@@ -12,6 +12,7 @@ export class AttachmentService {
         private readonly injector: EnvironmentInjector,
     ) {}
 
+    /** Handles upload message attachments. */
     uploadMessageAttachments(
         messageId: string,
         files: File[],
@@ -19,6 +20,7 @@ export class AttachmentService {
         return from(this.uploadAll(messageId, files));
     }
 
+    /** Handles upload all. */
     private async uploadAll(
         messageId: string,
         files: File[],
@@ -29,6 +31,7 @@ export class AttachmentService {
         return Promise.all(uploads);
     }
 
+    /** Handles upload single. */
     private async uploadSingle(
         messageId: string,
         file: File,
@@ -47,6 +50,7 @@ export class AttachmentService {
         };
     }
 
+    /** Handles upload and resolve url. */
     private async uploadAndResolveUrl(path: string, file: File): Promise<string> {
         return runInInjectionContext(this.injector, async () => {
             const fileRef = ref(this.storage, path);
@@ -57,6 +61,7 @@ export class AttachmentService {
         });
     }
 
+    /** Handles safe file name. */
     private safeFileName(name: string, index: number): string {
         const cleaned = name
             .normalize('NFKD')

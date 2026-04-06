@@ -31,17 +31,27 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
 
     protected currentChannelSubscription: Subscription | null = null;
 
+    /** Returns user service. */
     protected abstract get userService(): UserService;
+    /** Returns channel service. */
     protected abstract get channelService(): ChannelService;
+    /** Returns route. */
     protected abstract get route(): ActivatedRoute;
+    /** Returns message service. */
     protected abstract get messageService(): MessageService;
+    /** Returns unread state service. */
     protected abstract get unreadStateService(): UnreadStateService;
 
+    /** Handles apply live messages. */
     protected abstract applyLiveMessages(messages: Message[]): void;
+    /** Handles reset message streams. */
     protected abstract resetMessageStreams(): void;
+    /** Handles reset thread panel. */
     protected abstract resetThreadPanel(): void;
+    /** Handles prepare message stream switch. */
     protected abstract prepareMessageStreamSwitch(): void;
 
+    /** Handles subscribe to users. */
     protected subscribeToUsers(): void {
         this.subscription.add(
             this.userService.getAllUsers().subscribe({
@@ -50,6 +60,7 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         );
     }
 
+    /** Handles subscribe to route messages. */
     protected subscribeToRouteMessages(): void {
         this.subscription.add(
             combineLatest({
@@ -63,6 +74,7 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         );
     }
 
+    /** Handles subscribe to query params. */
     protected subscribeToQueryParams(): void {
         this.subscription.add(
             this.route.queryParamMap.subscribe((params: ParamMap) => {
@@ -74,8 +86,10 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         );
     }
 
+    /** Handles on pending scroll message. */
     protected onPendingScrollMessage(_msgId: string): void {}
 
+    /** Handles build user map. */
     protected buildUserMap(users: User[]): void {
         this.usersById = users.reduce<Record<string, User>>((acc, user) => {
             if (user.id) acc[user.id] = user;
@@ -84,6 +98,7 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         this.resolveCurrentDirectUserName();
     }
 
+    /** Handles resolve current direct user name. */
     protected resolveCurrentDirectUserName(preferredName = ''): void {
         if (!this.currentDirectUserId) { this.currentDirectUserName = ''; return; }
         this.currentDirectUserName = preferredName || this.currentDirectUserId;
@@ -95,6 +110,7 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         this.fetchDirectUserName(preferredName);
     }
 
+    /** Handles fetch direct user name. */
     protected fetchDirectUserName(preferredName: string): void {
         this.userService.getUser(this.currentDirectUserId).pipe(take(1)).subscribe({
             next: (user) => this.applyFetchedDirectUserName(user, preferredName),
@@ -102,20 +118,24 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         });
     }
 
+    /** Handles apply fetched direct user name. */
     protected applyFetchedDirectUserName(user: User | null, preferredName: string): void {
         this.currentDirectUserName =
             user?.displayName ?? preferredName ?? this.currentDirectUserId;
     }
 
+    /** Handles apply direct user fallback name. */
     protected applyDirectUserFallbackName(preferredName: string): void {
         this.currentDirectUserName = preferredName || this.currentDirectUserId;
     }
 
+    /** Handles handle route message context. */
     protected handleRouteMessageContext(user: FirebaseUser | null, params: ParamMap): void {
         if (!user) { this.clearMessagesState(); return; }
         this.loadMessagesForRoute(params);
     }
 
+    /** Handles load messages for route. */
     protected loadMessagesForRoute(params: ParamMap): void {
         const directUserId = params.get('userId') ?? '';
         const directUserName =
@@ -125,6 +145,7 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         this.setupChannelMessages(params);
     }
 
+    /** Handles setup direct messages. */
     protected setupDirectMessages(userId: string, name: string): void {
         this.applyDirectSnapshot(userId, name);
         this.currentChannelSubscription?.unsubscribe();
@@ -135,8 +156,10 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         this.markCurrentContextAsRead();
     }
 
+    /** Handles start direct live stream. */
     protected startDirectLiveStream(_userId: string): void {}
 
+    /** Handles setup channel messages. */
     protected setupChannelMessages(params: ParamMap): void {
         const requestedChannelId = params.get('channelId') ?? 'allgemein';
         this.resolveAccessibleChannelId(requestedChannelId)
@@ -148,6 +171,7 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
             });
     }
 
+    /** Handles resolve accessible channel id. */
     protected resolveAccessibleChannelId(channelId: string): Observable<string> {
         if (this.isPublicChannelRoute(channelId)) return of(channelId);
         return this.channelService.getChannel(channelId).pipe(
@@ -158,6 +182,7 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         );
     }
 
+    /** Handles resolve fallback channel id. */
     protected resolveFallbackChannelId(resolvedId: string): Observable<string> {
         if (resolvedId) return of(resolvedId);
         return this.channelService.getAllChannels().pipe(
@@ -166,6 +191,7 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         );
     }
 
+    /** Handles start resolved channel context. */
     protected startResolvedChannelContext(channelId: string, requestedChannelId: string): void {
         this.applyChannelSnapshot(channelId);
         this.syncChannelRoute(channelId, requestedChannelId);
@@ -175,17 +201,21 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         this.markCurrentContextAsRead();
     }
 
+    /** Handles sync channel route. */
     protected syncChannelRoute(channelId: string, requestedChannelId: string): void {
         if (channelId === requestedChannelId) return;
         this.router.navigate(['/app/channel', channelId]);
     }
 
+    /** Handles is public channel route. */
     protected isPublicChannelRoute(channelId: string): boolean {
         return ['allgemein', 'entwicklerteam'].includes(channelId);
     }
 
+    /** Handles start channel live stream. */
     protected startChannelLiveStream(_channelId: string): void {}
 
+    /** Handles subscribe to current channel. */
     protected subscribeToCurrentChannel(): void {
         this.currentChannelSubscription?.unsubscribe();
         this.currentChannelSubscription = null;
@@ -199,12 +229,14 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
             });
     }
 
+    /** Handles apply direct snapshot. */
     protected applyDirectSnapshot(userId: string, directUserName: string): void {
         this.isDirectMessage = true;
         this.currentDirectUserId = userId;
         this.currentDirectUserName = directUserName || userId;
     }
 
+    /** Handles apply channel snapshot. */
     protected applyChannelSnapshot(channelId: string): void {
         this.isDirectMessage = false;
         this.currentDirectUserId = '';
@@ -212,6 +244,7 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         this.currentChannelId = channelId;
     }
 
+    /** Handles initialize conversation from snapshot. */
     protected initializeConversationFromSnapshot(): void {
         const params = this.route.snapshot.paramMap;
         const directUserId = params.get('userId') ?? '';
@@ -221,20 +254,25 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         this.applyChannelSnapshot(params.get('channelId') ?? 'allgemein');
     }
 
+    /** Handles clear messages state. */
     protected clearMessagesState(): void {
         this.resetMessageStreams();
         this.messages = [];
     }
 
+    /** Returns messages. */
     abstract get messages(): Message[];
+    /** Sets messages. */
     abstract set messages(v: Message[]);
 
+    /** Handles handle route message error. */
     protected handleRouteMessageError(error: unknown): void {
         console.error('[HOME ROUTE MESSAGE ERROR]', error);
         this.connectionHint = '';
         this.errorMessage = this.resolveLoadErrorMessage(error);
     }
 
+    /** Handles resolve load error message. */
     protected resolveLoadErrorMessage(error: unknown): string {
         const code = this.extractFirebaseErrorCode(error);
         if (code === 'permission-denied') return 'Nachrichten konnten nicht geladen werden (Rechteproblem).';
@@ -242,12 +280,14 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         return 'Nachrichten konnten nicht geladen werden.';
     }
 
+    /** Handles extract firebase error code. */
     protected extractFirebaseErrorCode(error: unknown): string {
         if (!error || typeof error !== 'object') return '';
         const code = (error as { code?: unknown }).code;
         return typeof code === 'string' ? code : '';
     }
 
+    /** Handles mark current context as read. */
     protected markCurrentContextAsRead(): void {
         if (!this.currentUserId || !this.canWrite) return;
         this.createReadMarkRequest().pipe(take(1)).subscribe({
@@ -255,6 +295,7 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         });
     }
 
+    /** Handles create read mark request. */
     protected createReadMarkRequest(): Observable<void> {
         return this.isDirectMessage
             ? this.unreadStateService.markDirectAsRead(
@@ -267,6 +308,7 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
             );
     }
 
+    /** Handles handle channel leave success. */
     protected handleChannelLeaveSuccess(
         removedChannelId: string,
         channels: Channel[],
@@ -281,11 +323,13 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         this.router.navigate(['/app']);
     }
 
+    /** Handles handle channel leave error. */
     protected handleChannelLeaveError(error: unknown): void {
         console.error('[CHANNEL LEAVE ERROR]', error);
         this.errorMessage = 'Channel konnte nicht verlassen werden. Bitte erneut versuchen.';
     }
 
+    /** Handles on leave channel requested. */
     onLeaveChannelRequested(): void {
         if (this.isDirectMessage || !this.currentChannelId || !this.currentUserId) return;
         const removedChannelId = this.currentChannelId;
@@ -294,6 +338,7 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
             .subscribe(this.leaveChannelObserver(removedChannelId));
     }
 
+    /** Handles create leave channel request. */
     protected createLeaveChannelRequest(channelId: string, userId: string): Observable<Channel[]> {
         return this.channelService.removeMemberFromChannel(channelId, userId).pipe(
             take(1),
@@ -301,6 +346,7 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         );
     }
 
+    /** Handles leave channel observer. */
     protected leaveChannelObserver(channelId: string) {
         return {
             next: (channels: Channel[]) => this.handleChannelLeaveSuccess(channelId, channels),

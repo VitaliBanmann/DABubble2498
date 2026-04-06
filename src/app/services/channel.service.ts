@@ -54,6 +54,7 @@ export class ChannelService {
         });
     }
 
+    /** Handles create channel with id. */
     createChannelWithId(channelId: string, channel: Channel): Observable<string> {
         const payload = this.normalizeChannelCreatePayload(channel);
         return this.firestoreService
@@ -75,6 +76,7 @@ export class ChannelService {
         );
     }
 
+    /** Handles get channel realtime. */
     getChannelRealtime(channelId: string): Observable<Channel | null> {
         return this.firestoreService.getDocumentRealtime<Channel>(
             this.channelsCollection,
@@ -114,6 +116,7 @@ export class ChannelService {
         );
     }
 
+    /** Handles search channels by token. */
     searchChannelsByToken(token: string): Observable<Channel[]> {
         const normalized = normalizeSearchToken(token);
         if (!normalized) {
@@ -157,10 +160,12 @@ export class ChannelService {
         );
     }
 
+    /** Handles get member uid. */
     private getMemberUid(user: { uid: string; isAnonymous: boolean } | null): string {
         return user && !user.isAnonymous ? user.uid : '';
     }
 
+    /** Handles get channels for uid. */
     private getChannelsForUid(uid: string): Observable<Channel[]> {
         if (!uid) {
             return of([]);
@@ -178,6 +183,7 @@ export class ChannelService {
             );
     }
 
+    /** Handles update channel members. */
     private updateChannelMembers(
         channelId: string,
         transform: (members: string[]) => string[],
@@ -188,6 +194,7 @@ export class ChannelService {
         );
     }
 
+    /** Handles apply member update. */
     private applyMemberUpdate(
         channelId: string,
         channel: Channel | null,
@@ -215,6 +222,7 @@ export class ChannelService {
         return this.updateChannel(channelId, payload as Partial<Channel>);
     }
 
+    /** Handles resolve channel member ids. */
     private resolveChannelMemberIds(channel: Channel | null): string[] {
         const rawChannel = channel as Record<string, unknown> | null;
         const memberIds = rawChannel?.['memberIds'];
@@ -235,6 +243,7 @@ export class ChannelService {
             .filter((id): id is string => !!id);
     }
 
+    /** Handles same members. */
     private sameMembers(current: string[], updated: string[]): boolean {
         if (current.length !== updated.length) {
             return false;
@@ -243,6 +252,7 @@ export class ChannelService {
         return current.every((member, index) => member === updated[index]);
     }
 
+    /** Handles ensure default channels. */
     async ensureDefaultChannels(): Promise<void> {
         const currentUser = this.authService.getCurrentUser();
         if (!currentUser) return;
@@ -250,6 +260,7 @@ export class ChannelService {
         await this.ensureChannelExists('entwicklerteam', 'Entwicklerteam', currentUser.uid);
     }
 
+    /** Handles ensure channel exists. */
     private async ensureChannelExists(id: string, name: string, uid: string): Promise<void> {
         const exists = await firstValueFrom(this.getChannel(id).pipe(take(1)));
         if (exists) return;
@@ -263,6 +274,7 @@ export class ChannelService {
         await firstValueFrom(this.createChannelWithId(id, channel));
     }
 
+    /** Handles normalize channel create payload. */
     private normalizeChannelCreatePayload(channel: Channel): Channel {
         const members = new Set(channel.members ?? []);
         members.add(channel.createdBy);
@@ -279,6 +291,7 @@ export class ChannelService {
         });
     }
 
+    /** Handles with search tokens. */
     private withSearchTokens<T extends Partial<Channel>>(payload: T): T & { searchTokens?: string[] } {
         const name = (payload.name ?? '').toString();
         const description = (payload.description ?? '').toString();

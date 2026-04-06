@@ -48,6 +48,7 @@ export class AuthService implements OnDestroy {
         }
     }
 
+    /** Handles init auth state. */
     private initAuthState(): void {
         if (!this.auth) {
             return;
@@ -79,6 +80,7 @@ export class AuthService implements OnDestroy {
         );
     }
 
+    /** Handles register with email and password. */
     registerWithEmailAndPassword(
         email: string,
         password: string,
@@ -95,6 +97,7 @@ export class AuthService implements OnDestroy {
         );
     }
 
+    /** Handles login with email and password. */
     loginWithEmailAndPassword(email: string, password: string): Promise<void> {
         return this.runAuthAction(
             async () => {
@@ -109,18 +112,21 @@ export class AuthService implements OnDestroy {
         );
     }
 
+    /** Handles sign in with email. */
     private signInWithEmail(email: string, password: string) {
         return runInInjectionContext(this.injector, () =>
             signInWithEmailAndPassword(this.getRequiredAuth(), email, password),
         );
     }
 
+    /** Handles create user with email. */
     private createUserWithEmail(email: string, password: string) {
         return runInInjectionContext(this.injector, () =>
             createUserWithEmailAndPassword(this.getRequiredAuth(), email, password),
         );
     }
 
+    /** Handles login with google. */
     async loginWithGoogle(): Promise<{ email: string | null }> {
         await this.resetAnonymousSessionIfNeeded();
         const credential = await runInInjectionContext(this.injector, () =>
@@ -131,6 +137,7 @@ export class AuthService implements OnDestroy {
         return { email: this.resolveUserEmail(credential.user) };
     }
 
+    /** Handles reset anonymous session if needed. */
     private async resetAnonymousSessionIfNeeded(): Promise<void> {
         const activeUser = this.getCurrentUser();
         if (!activeUser?.isAnonymous) {
@@ -143,6 +150,7 @@ export class AuthService implements OnDestroy {
         this.emitCurrentUser(null);
     }
 
+    /** Handles ensure not anonymous. */
     private ensureNotAnonymous(isAnonymous: boolean): void {
         if (isAnonymous) {
             throw new Error(
@@ -151,6 +159,7 @@ export class AuthService implements OnDestroy {
         }
     }
 
+    /** Handles login as guest. */
     loginAsGuest(): Promise<void> {
         return this.runAuthAction(
             async () => {
@@ -164,6 +173,7 @@ export class AuthService implements OnDestroy {
         );
     }
 
+    /** Handles logout. */
     logout(): Promise<void> {
         return this.runAuthAction(
             async () => {
@@ -175,6 +185,7 @@ export class AuthService implements OnDestroy {
         );
     }
 
+    /** Handles send password reset email. */
     sendPasswordResetEmail(email: string): Promise<void> {
         return this.runAuthAction(
             () => sendPasswordResetEmail(this.getRequiredAuth(), email),
@@ -183,6 +194,7 @@ export class AuthService implements OnDestroy {
         );
     }
 
+    /** Handles confirm password reset. */
     confirmPasswordReset(code: string, newPassword: string): Promise<void> {
         return this.runAuthAction(
             () =>
@@ -192,14 +204,17 @@ export class AuthService implements OnDestroy {
         );
     }
 
+    /** Handles get current user. */
     getCurrentUser(): User | null {
         return this.currentUserSubject.value ?? this.auth?.currentUser ?? null;
     }
 
+    /** Handles ng on destroy. */
     ngOnDestroy(): void {
         this.unsubscribeAuthState?.();
     }
 
+    /** Handles get required auth. */
     private getRequiredAuth(): Auth {
         if (!this.auth) {
             throw new Error('Auth is not available on the server.');
@@ -208,6 +223,7 @@ export class AuthService implements OnDestroy {
         return this.auth;
     }
 
+    /** Handles create google provider. */
     private createGoogleProvider(): GoogleAuthProvider {
         const provider = new GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
@@ -216,6 +232,7 @@ export class AuthService implements OnDestroy {
         return provider;
     }
 
+    /** Handles run auth action. */
     private runAuthAction(
         action: () => Promise<unknown>,
         successMessage: string,
@@ -234,12 +251,14 @@ export class AuthService implements OnDestroy {
             });
     }
 
+    /** Handles emit current user. */
     private emitCurrentUser(user: User | null): void {
         this.zone.run(() => {
             this.currentUserSubject.next(user);
         });
     }
 
+    /** Handles resolve user email. */
     private resolveUserEmail(user: User | null): string | null {
         if (!user) {
             return null;
@@ -253,6 +272,7 @@ export class AuthService implements OnDestroy {
         return this.resolveProviderEmail(user.providerData);
     }
 
+    /** Handles resolve provider email. */
     private resolveProviderEmail(
         providers: Array<{ email: string | null }>,
     ): string | null {
@@ -262,6 +282,7 @@ export class AuthService implements OnDestroy {
         return (fromProvider ?? '').trim() || null;
     }
 
+    /** Handles log invalid credentials. */
     private logInvalidCredentials(error: { code?: string }): void {
         if (error?.code === 'auth/invalid-credential') {
             console.info('Login failed: invalid credentials');

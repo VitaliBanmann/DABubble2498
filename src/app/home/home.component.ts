@@ -69,24 +69,40 @@ export class HomeComponent extends HomeDisplayBase implements OnInit, OnDestroy 
         super();
     }
 
+    /** Returns auth service. */
     protected override get authService(): AuthService { return this._authService; }
+    /** Returns auth flow. */
     protected get authFlow(): AuthFlowService { return this._authFlow; }
+    /** Returns user service. */
     protected override get userService(): UserService { return this._userService; }
+    /** Returns channel service. */
     protected override get channelService(): ChannelService { return this._channelService; }
+    /** Returns route. */
     protected override get route(): ActivatedRoute { return this._route; }
+    /** Returns message service. */
     protected override get messageService(): MessageService { return this._messageService; }
+    /** Returns unread state service. */
     protected override get unreadStateService(): UnreadStateService { return this._unreadStateService; }
+    /** Returns router. */
     protected override get router(): Router { return this._router; }
+    /** Returns ui. */
     protected override get ui(): UiStateService { return this._ui; }
+    /** Returns cdr. */
     protected get cdr(): ChangeDetectorRef { return this._cdr; }
+    /** Returns attachment service. */
     protected override get attachmentService(): AttachmentService { return this._attachmentService; }
 
+    /** Returns is compose mode. */
     override get isComposeMode(): boolean { return this._ui.isNewMessageOpen(); }
+    /** Returns is thread panel open. */
     get isThreadPanelOpen(): boolean { return this._ui.isThreadOpen(); }
 
+    /** Returns message control value. */
     override get messageControlValue(): string { return this.messageControl.value; }
+    /** Handles set message control value. */
     override setMessageControlValue(value: string): void { this.messageControl.setValue(value); }
 
+    /** Handles ng on init. */
     ngOnInit(): void {
         this.ui.closeThread();
         this.initializeConversationFromSnapshot();
@@ -98,6 +114,7 @@ export class HomeComponent extends HomeDisplayBase implements OnInit, OnDestroy 
         setTimeout(() => this.resizeComposerTextarea(), 0);
     }
 
+    /** Handles ng on destroy. */
     override ngOnDestroy(): void {
         this.threadSubscription?.unsubscribe();
         this.liveMessagesSubscription?.unsubscribe();
@@ -105,9 +122,11 @@ export class HomeComponent extends HomeDisplayBase implements OnInit, OnDestroy 
         super.ngOnDestroy();
     }
 
+    /** Handles on document click. */
     @HostListener('document:click')
     onDocumentClick(): void { this.closeAllEmojiPickers(); }
 
+    /** Handles on escape key. */
     @HostListener('document:keydown.escape', ['$event'])
     onEscapeKey(event: Event): void {
         if (!this.activeEmojiPicker) return;

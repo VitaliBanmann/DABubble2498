@@ -33,17 +33,20 @@ interface LatestMentionMessage {
 export class UnreadStateService {
     constructor(private readonly firestoreService: FirestoreService) {}
 
+    /** Handles mark channel as read. */
     markChannelAsRead(userId: string, channelId: string): Observable<void> {
         const contextId = this.channelContextId(channelId);
         return this.writeInboxState(userId, contextId, 'channel', channelId);
     }
 
+    /** Handles mark direct as read. */
     markDirectAsRead(userId: string, otherUserId: string): Observable<void> {
         const conversationId = this.createConversationId(userId, otherUserId);
         const contextId = this.dmContextId(conversationId);
         return this.writeInboxState(userId, contextId, 'dm', otherUserId);
     }
 
+    /** Handles watch unread flags. */
     watchUnreadFlags(
         userId: string,
         channelIds: string[],
@@ -67,6 +70,7 @@ export class UnreadStateService {
         );
     }
 
+    /** Handles inbox state stream. */
     private inboxStateStream(userId: string): Observable<InboxState[]> {
         return this.firestoreService.queryDocumentsRealtime<InboxState>(
             `users/${userId}/inboxState`,
@@ -74,6 +78,7 @@ export class UnreadStateService {
         );
     }
 
+    /** Handles build latest streams. */
     private buildLatestStreams(
         userId: string,
         channelIds: string[],
@@ -85,6 +90,7 @@ export class UnreadStateService {
         ];
     }
 
+    /** Handles latest channel message. */
     private latestChannelMessage(channelId: string): Observable<Message | null> {
         return this.firestoreService
             .queryDocumentsRealtime<Message>('messages', [
@@ -98,6 +104,7 @@ export class UnreadStateService {
             );
     }
 
+    /** Handles latest direct message. */
     private latestDirectMessage(conversationId: string): Observable<Message | null> {
         return this.firestoreService
             .queryDocumentsRealtime<Message>('messages', [
@@ -111,6 +118,7 @@ export class UnreadStateService {
             );
     }
 
+    /** Handles build latest mention streams. */
     private buildLatestMentionStreams(
         userId: string,
         channelIds: string[],
@@ -122,6 +130,7 @@ export class UnreadStateService {
         ];
     }
 
+    /** Handles latest channel mention. */
     private latestChannelMention(
         channelId: string,
         userId: string,
@@ -139,6 +148,7 @@ export class UnreadStateService {
             );
     }
 
+    /** Handles latest direct mention. */
     private latestDirectMention(
         conversationId: string,
         userId: string,
@@ -156,6 +166,7 @@ export class UnreadStateService {
             );
     }
 
+    /** Handles compute unread flags. */
     private computeUnreadFlags(
         userId: string,
         states: InboxState[],
@@ -177,6 +188,7 @@ export class UnreadStateService {
         return { channels, direct, channelMentions, directMentions };
     }
 
+    /** Handles write inbox state. */
     private writeInboxState(
         userId: string,
         contextId: string,
@@ -193,18 +205,22 @@ export class UnreadStateService {
         });
     }
 
+    /** Handles channel context id. */
     private channelContextId(channelId: string): string {
         return `channel:${channelId}`;
     }
 
+    /** Handles dm context id. */
     private dmContextId(conversationId: string): string {
         return `dm:${conversationId}`;
     }
 
+    /** Handles create conversation id. */
     private createConversationId(firstUserId: string, secondUserId: string): string {
         return [firstUserId, secondUserId].sort().join('__');
     }
 
+    /** Handles to millis. */
     private toMillis(value: unknown): number {
         if (value instanceof Date) return value.getTime();
         if (this.hasToMillis(value)) return value.toMillis();
@@ -212,10 +228,12 @@ export class UnreadStateService {
         return 0;
     }
 
+    /** Handles empty flags. */
     private emptyFlags() {
         return { channels: {}, direct: {}, channelMentions: {}, directMentions: {} };
     }
 
+    /** Handles map flags result. */
     private mapFlagsResult(
         userId: string,
         states: InboxState[],
@@ -227,12 +245,14 @@ export class UnreadStateService {
         return this.computeUnreadFlags(userId, states, latest, mentions);
     }
 
+    /** Handles build channel latest streams. */
     private buildChannelLatestStreams(channelIds: string[]): Observable<LatestContextMessage>[] {
         return channelIds.map((channelId) =>
             this.latestChannelMessage(channelId).pipe(map((message) => this.toLatestChannel(channelId, message))),
         );
     }
 
+    /** Handles build direct latest streams. */
     private buildDirectLatestStreams(userId: string, dmUserIds: string[]): Observable<LatestContextMessage>[] {
         return dmUserIds.map((otherUserId) => {
             const conversationId = this.createConversationId(userId, otherUserId);
@@ -240,12 +260,14 @@ export class UnreadStateService {
         });
     }
 
+    /** Handles build channel mention streams. */
     private buildChannelMentionStreams(userId: string, channelIds: string[]): Observable<LatestMentionMessage>[] {
         return channelIds.map((channelId) =>
             this.latestChannelMention(channelId, userId).pipe(map((message) => this.toMentionChannel(channelId, message))),
         );
     }
 
+    /** Handles build direct mention streams. */
     private buildDirectMentionStreams(userId: string, dmUserIds: string[]): Observable<LatestMentionMessage>[] {
         return dmUserIds.map((otherUserId) => {
             const conversationId = this.createConversationId(userId, otherUserId);
@@ -253,22 +275,27 @@ export class UnreadStateService {
         });
     }
 
+    /** Handles to latest channel. */
     private toLatestChannel(id: string, message: Message | null): LatestContextMessage {
         return { kind: 'channel', id, contextId: this.channelContextId(id), message };
     }
 
+    /** Handles to latest direct. */
     private toLatestDirect(id: string, conversationId: string, message: Message | null): LatestContextMessage {
         return { kind: 'dm', id, contextId: this.dmContextId(conversationId), message };
     }
 
+    /** Handles to mention channel. */
     private toMentionChannel(id: string, message: Message | null): LatestMentionMessage {
         return { kind: 'channel', id, contextId: this.channelContextId(id), message };
     }
 
+    /** Handles to mention direct. */
     private toMentionDirect(id: string, conversationId: string, message: Message | null): LatestMentionMessage {
         return { kind: 'dm', id, contextId: this.dmContextId(conversationId), message };
     }
 
+    /** Handles build state map. */
     private buildStateMap(states: InboxState[]): Record<string, InboxState> {
         return states.reduce<Record<string, InboxState>>((acc, state) => {
             if (state.contextId) acc[state.contextId] = state;
@@ -276,6 +303,7 @@ export class UnreadStateService {
         }, {});
     }
 
+    /** Handles apply latest unread. */
     private applyLatestUnread(
         userId: string,
         latest: LatestContextMessage[],
@@ -290,6 +318,7 @@ export class UnreadStateService {
         });
     }
 
+    /** Handles apply mention unread. */
     private applyMentionUnread(
         mentions: LatestMentionMessage[],
         stateMap: Record<string, InboxState>,
@@ -303,6 +332,7 @@ export class UnreadStateService {
         });
     }
 
+    /** Handles is latest item unread. */
     private isLatestItemUnread(userId: string, item: LatestContextMessage, state?: InboxState): boolean {
         const lastRead = state ? this.toMillis(state.lastReadAt) : 0;
         const messageTime = item.message ? this.toMillis(item.message.timestamp) : 0;
@@ -310,16 +340,19 @@ export class UnreadStateService {
         return !!item.message && !isOwn && messageTime > lastRead;
     }
 
+    /** Handles is mention item unread. */
     private isMentionItemUnread(item: LatestMentionMessage, state?: InboxState): boolean {
         const lastRead = state ? this.toMillis(state.lastReadAt) : 0;
         const messageTime = item.message ? this.toMillis(item.message.timestamp) : 0;
         return !!item.message && messageTime > lastRead;
     }
 
+    /** Handles has to millis. */
     private hasToMillis(value: unknown): value is { toMillis: () => number } {
         return !!value && typeof value === 'object' && 'toMillis' in value && typeof (value as any).toMillis === 'function';
     }
 
+    /** Handles has to date. */
     private hasToDate(value: unknown): value is { toDate: () => Date } {
         return !!value && typeof value === 'object' && 'toDate' in value && typeof (value as any).toDate === 'function';
     }

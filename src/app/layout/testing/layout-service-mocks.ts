@@ -4,53 +4,63 @@ export class AuthServiceMock {
   authReady$ = of(true);
   currentUser$ = of(null);
 
-  getCurrentUser() {
+  /** Handles get current user. */
+    getCurrentUser() {
     return null;
   }
 
-  logout(): Promise<void> {
+  /** Handles logout. */
+    logout(): Promise<void> {
     return Promise.resolve();
   }
 }
 
 export class UserServiceMock {
-  getAllUsersRealtime() {
+  /** Handles get all users realtime. */
+    getAllUsersRealtime() {
     return of([]);
   }
 
-  getUserProfileRealtime() {
+  /** Handles get user profile realtime. */
+    getUserProfileRealtime() {
     return of(null);
   }
 
-  searchUsersByToken() {
+  /** Handles search users by token. */
+    searchUsersByToken() {
     return of([]);
   }
 }
 
 export class ChannelServiceMock {
-  getAllChannels() {
+  /** Handles get all channels. */
+    getAllChannels() {
     return of([]);
   }
 
-  searchChannelsByToken() {
+  /** Handles search channels by token. */
+    searchChannelsByToken() {
     return of([]);
   }
 }
 
 export class MessageServiceMock {
-  searchMessagesByToken() {
+  /** Handles search messages by token. */
+    searchMessagesByToken() {
     return of([]);
   }
 }
 
 export class PresenceServiceMock {
-  setStatus(): Promise<void> {
+  /** Handles set status. */
+    setStatus(): Promise<void> {
     return Promise.resolve();
   }
 }
 
 export class UnreadStateServiceMock {
-  observeUnreadState() {
+  /** Handles observe unread state. */
+    observeUnreadState() {
     return of([]);
   }
 }

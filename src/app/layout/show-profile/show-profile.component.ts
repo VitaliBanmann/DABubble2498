@@ -45,28 +45,34 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         private readonly zone: NgZone,
     ) {}
 
+    /** Handles ng on init. */
     ngOnInit(): void {
         this.seedViewFromInputs();
         this.subscribeToProfileUpdates();
     }
 
+    /** Handles ng on destroy. */
     ngOnDestroy(): void {
         this.subscription.unsubscribe();
     }
 
+    /** Handles request close. */
     requestClose(): void {
         this.close.emit();
     }
 
+    /** Handles enter edit mode. */
     enterEditMode(): void {
         this.isEditing = true;
         this.editDisplayName = this.displayName;
     }
 
+    /** Handles exit edit mode. */
     exitEditMode(): void {
         this.isEditing = false;
     }
 
+    /** Handles save display name edit. */
     async saveDisplayNameEdit(): Promise<void> {
         const nextName = this.editDisplayName.trim();
         if (!this.isSaveAllowed(nextName)) return;
@@ -75,10 +81,12 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         this.setSavingFlag(false);
     }
 
+    /** Handles update edit name draft. */
     updateEditNameDraft(value: string): void {
         this.editDisplayName = value;
     }
 
+    /** Returns initials. */
     get initials(): string {
         const name = this.displayName.trim();
         if (!name) {
@@ -93,6 +101,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         return parts[0][0].toUpperCase();
     }
 
+    /** Handles subscribe to profile updates. */
     private subscribeToProfileUpdates(): void {
         const stream$ = this.authService.currentUser$.pipe(
             switchMap((user) => this.buildViewStreamForUser(user)),
@@ -100,6 +109,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         this.subscription.add(stream$.subscribe((view) => this.applyResolvedView(view)));
     }
 
+    /** Handles build view stream for user. */
     private buildViewStreamForUser(user: any) {
         if (!user || user.isAnonymous) return of(this.createGuestView());
         return this.userService.getUserProfileRealtime(user.uid, user.email ?? '').pipe(
@@ -109,12 +119,14 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         );
     }
 
+    /** Handles apply resolved view. */
     private applyResolvedView(view: ResolvedProfileView): void {
         this.displayName = view.displayName;
         this.email = view.email;
         this.avatarUrl = view.avatarUrl;
     }
 
+    /** Handles resolve view from profile. */
     private resolveViewFromProfile(user: any, profile: any): ResolvedProfileView {
         return {
             displayName: this.resolveDisplayName(user, profile),
@@ -123,6 +135,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         };
     }
 
+    /** Handles resolve display name. */
     private resolveDisplayName(user: any, profile: any): string {
         return this.firstNonEmptyString(
             profile?.displayName,
@@ -133,6 +146,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         );
     }
 
+    /** Handles resolve email. */
     private resolveEmail(user: any, profile: any): string {
         return this.firstNonEmptyString(
             this.extractProfileEmail(profile),
@@ -142,6 +156,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         );
     }
 
+    /** Handles resolve avatar. */
     private resolveAvatar(user: any, profile: any): string | null {
         return (
             this.normalizeAvatarUrl(profile?.avatar) ||
@@ -150,27 +165,32 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         );
     }
 
+    /** Handles seed view from inputs. */
     private seedViewFromInputs(): void {
         this.applySeededDisplayName(this.initialDisplayName);
         this.applySeededEmail(this.initialEmail);
         this.applySeededAvatar(this.initialAvatarUrl);
     }
 
+    /** Handles apply seeded display name. */
     private applySeededDisplayName(value: string): void {
         const next = value.trim();
         if (next) this.displayName = next;
     }
 
+    /** Handles apply seeded email. */
     private applySeededEmail(value: string): void {
         const next = value.trim();
         if (next) this.email = next;
     }
 
+    /** Handles apply seeded avatar. */
     private applySeededAvatar(value: string | null): void {
         const next = this.normalizeAvatarUrl(value);
         if (next) this.avatarUrl = next;
     }
 
+    /** Handles extract profile email. */
     private extractProfileEmail(profile: Record<string, unknown> | null): string {
         if (!profile) return '';
         for (const key of this.profileEmailKeys) {
@@ -181,6 +201,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         return '';
     }
 
+    /** Handles first non empty string. */
     private firstNonEmptyString(...values: Array<string | null | undefined>): string {
         for (const value of values) {
             const next = (value ?? '').trim();
@@ -189,6 +210,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         return '';
     }
 
+    /** Handles normalize avatar url. */
     private normalizeAvatarUrl(avatar: string | null | undefined): string | null {
         const trimmed = (avatar ?? '').trim();
         if (!trimmed) return null;
@@ -196,6 +218,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         return `assets/pictures/${trimmed.replace(/^\/+/, '')}`;
     }
 
+    /** Handles is direct avatar url. */
     private isDirectAvatarUrl(value: string): boolean {
         return (
             value.startsWith('data:image/') ||
@@ -205,14 +228,17 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         );
     }
 
+    /** Handles create guest view. */
     private createGuestView(): ResolvedProfileView {
         return { displayName: 'Gast', email: '', avatarUrl: null };
     }
 
+    /** Handles is save allowed. */
     private isSaveAllowed(nextName: string): boolean {
         return !!nextName && !this.isSaving;
     }
 
+    /** Handles apply optimistic name and start saving. */
     private applyOptimisticNameAndStartSaving(nextName: string): void {
         this.zone.run(() => {
             this.displayName = nextName;
@@ -221,6 +247,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         });
     }
 
+    /** Handles persist display name or restore edit. */
     private async persistDisplayNameOrRestoreEdit(nextName: string): Promise<void> {
         try {
             await this.userService.updateCurrentUserProfile({ displayName: nextName });
@@ -230,12 +257,14 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         }
     }
 
+    /** Handles set saving flag. */
     private setSavingFlag(value: boolean): void {
         this.zone.run(() => {
             this.isSaving = value;
         });
     }
 
+    /** Handles set editing flag. */
     private setEditingFlag(value: boolean): void {
         this.zone.run(() => {
             this.isEditing = value;

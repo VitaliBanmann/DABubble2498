@@ -57,12 +57,14 @@ export class ShellComponent implements OnInit, OnDestroy {
         'mobile-panel-thread': this.ui.isMobile() && this.ui.mobilePanel() === 'thread',
     }));
 
+    /** Handles open new message mobile. */
     openNewMessageMobile(): void {
         this.ui.openNewMessage();
         this.ui.openChat();
         void this.router.navigate(['/app/channel/allgemein']);
     }
 
+    /** Handles ng on init. */
     ngOnInit(): void {
         this.currentUserId = this.authService.getCurrentUser()?.uid ?? null;
         this.subscriptions.add(
@@ -81,10 +83,12 @@ export class ShellComponent implements OnInit, OnDestroy {
         );
     }
 
+    /** Handles ng on destroy. */
     ngOnDestroy(): void {
         this.subscriptions.unsubscribe();
     }
 
+    /** Handles thread display messages. */
     threadDisplayMessages(): ThreadRenderMessage[] {
         const parent = this.ui.activeThreadParent();
         const replies = this.ui.threadMessages();
@@ -109,15 +113,18 @@ export class ShellComponent implements OnInit, OnDestroy {
         return [parentItem, ...replyItems];
     }
 
+    /** Handles is own thread message. */
     isOwnThreadMessage(message: ThreadRenderMessage): boolean {
         return !!this.currentUserId && message.senderId === this.currentUserId;
     }
 
+    /** Handles get thread sender label. */
     getThreadSenderLabel(message: ThreadRenderMessage): string {
         if (this.isOwnThreadMessage(message)) return 'Du';
         return this.usersById[message.senderId]?.displayName ?? message.senderId;
     }
 
+    /** Handles get thread avatar. */
     getThreadAvatar(message: ThreadRenderMessage): string {
         const fallback = 'assets/pictures/profile.svg';
         const raw = (this.usersById[message.senderId]?.avatar ?? '').trim();
@@ -126,6 +133,7 @@ export class ShellComponent implements OnInit, OnDestroy {
         return `assets/pictures/${raw}`;
     }
 
+    /** Handles format thread timestamp. */
     formatThreadTimestamp(timestamp: Message['timestamp']): string {
         const date = this.toDate(timestamp);
         if (!date) return '';
@@ -135,12 +143,14 @@ export class ShellComponent implements OnInit, OnDestroy {
         });
     }
 
+    /** Handles track thread message. */
     trackThreadMessage(index: number, message: ThreadRenderMessage): string {
         if (message.id) return message.id;
         const ts = this.resolveTrackTimestamp(message.timestamp, index);
         return `${message.senderId}-${ts}-${message.text}`;
     }
 
+    /** Handles send thread reply. */
     sendThreadReply(): void {
         if (this.isThreadSending) return;
 
@@ -163,6 +173,7 @@ export class ShellComponent implements OnInit, OnDestroy {
         });
     }
 
+    /** Handles resolve track timestamp. */
     private resolveTrackTimestamp(timestamp: Message['timestamp'], fallback: number): number {
         if (timestamp instanceof Date) return timestamp.getTime();
         if ('toMillis' in timestamp && typeof (timestamp as any).toMillis === 'function') {
@@ -171,6 +182,7 @@ export class ShellComponent implements OnInit, OnDestroy {
         return fallback;
     }
 
+    /** Handles to date. */
     private toDate(value: unknown): Date | null {
         if (!value) return null;
         if (value instanceof Date) return this.asValidDate(value);
@@ -185,14 +197,17 @@ export class ShellComponent implements OnInit, OnDestroy {
         return null;
     }
 
+    /** Handles as valid date. */
     private asValidDate(value: Date): Date | null {
         return Number.isNaN(value.getTime()) ? null : value;
     }
 
+    /** Handles is external avatar. */
     private isExternalAvatar(value: string): boolean {
         return ['http://', 'https://', 'data:', 'blob:'].some((prefix) => value.startsWith(prefix));
     }
 
+    /** Handles is asset avatar. */
     private isAssetAvatar(value: string): boolean {
         return value.startsWith('/assets/') || value.startsWith('assets/');
     }

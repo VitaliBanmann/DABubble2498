@@ -19,6 +19,7 @@ export class AuthFlowService {
         private readonly router: Router,
     ) {}
 
+    /** Handles handle auth state. */
     async handleAuthState(user: User | null, currentPath: string): Promise<void> {
         if (!user) {
             await this.redirectToLoginIfProtected(currentPath);
@@ -34,6 +35,7 @@ export class AuthFlowService {
         }
     }
 
+    /** Handles navigate after login. */
     async navigateAfterLogin(): Promise<void> {
         const user = this.authService.getCurrentUser();
         const fallbackRoute = this.resolveFallbackRoute(user);
@@ -46,6 +48,7 @@ export class AuthFlowService {
         await this.router.navigateByUrl(this.resolvePostLoginRoute(profile?.avatar));
     }
 
+    /** Handles resolve fallback route. */
     private resolveFallbackRoute(user: User | null): string {
         if (!user) {
             return '/';
@@ -54,14 +57,17 @@ export class AuthFlowService {
         return user.isAnonymous ? '/app' : '';
     }
 
+    /** Handles get user profile. */
     private getUserProfile(userId: string) {
         return firstValueFrom(this.userService.getUser(userId).pipe(take(1)));
     }
 
+    /** Handles resolve post login route. */
     private resolvePostLoginRoute(avatar: unknown): string {
         return avatar ? '/home' : '/avatar-select';
     }
 
+    /** Handles sync email from auth. */
     async syncEmailFromAuth(fallbackEmail = ''): Promise<void> {
         const user = this.authService.getCurrentUser();
         if (!user || user.isAnonymous) {
@@ -76,6 +82,7 @@ export class AuthFlowService {
         await this.userService.updateCurrentUserProfile({ email });
     }
 
+    /** Handles logout to login. */
     async logoutToLogin(): Promise<void> {
         await this.presenceService.setStatus('offline');
         await this.authService.logout();
@@ -85,6 +92,7 @@ export class AuthFlowService {
         }
     }
 
+    /** Handles redirect to login if protected. */
     private async redirectToLoginIfProtected(path: string): Promise<void> {
         if (!this.isProtectedPath(path)) {
             return;
@@ -96,11 +104,13 @@ export class AuthFlowService {
         }
     }
 
+    /** Handles is login path. */
     private isLoginPath(path: string): boolean {
         const normalized = this.normalizePath(path);
         return normalized === '/' || normalized === '';
     }
 
+    /** Handles is protected path. */
     private isProtectedPath(path: string): boolean {
         const normalized = this.normalizePath(path);
         return (
@@ -110,10 +120,12 @@ export class AuthFlowService {
         );
     }
 
+    /** Handles normalize path. */
     private normalizePath(path: string): string {
         return (path || '').split('?')[0];
     }
 
+    /** Handles resolve email. */
     private resolveEmail(user: User, fallbackEmail: string): string {
         const direct = (user.email ?? '').trim();
         if (direct) {

@@ -62,6 +62,7 @@ export class UserService {
         );
     }
 
+    /** Handles get user by email realtime. */
     getUserByEmailRealtime(email: string): Observable<User | null> {
         const normalized = email.trim();
         if (!normalized) {
@@ -75,6 +76,7 @@ export class UserService {
             .pipe(map((users) => users[0] ?? null));
     }
 
+    /** Handles get user by email. */
     getUserByEmail(email: string): Observable<User | null> {
         const normalized = email.trim();
         if (!normalized) {
@@ -88,10 +90,12 @@ export class UserService {
             .pipe(map((users) => users[0] ?? null));
     }
 
+    /** Handles get user profile realtime. */
     getUserProfileRealtime(userId: string, _email: string): Observable<User | null> {
         return this.getUserRealtime(userId);
     }
 
+    /** Handles get user profile. */
     getUserProfile(userId: string, email: string): Observable<User | null> {
         return this.getUser(userId).pipe(
             switchMap((user) => {
@@ -115,6 +119,7 @@ export class UserService {
         );
     }
 
+    /** Handles search users by token. */
     searchUsersByToken(token: string): Observable<User[]> {
         const normalized = normalizeSearchToken(token);
         if (!normalized) {
@@ -143,6 +148,7 @@ export class UserService {
         return this.firestoreService.getDocuments<User>(this.usersCollection);
     }
 
+    /** Handles get all users realtime. */
     getAllUsersRealtime(): Observable<User[]> {
         return this.firestoreService.queryDocumentsRealtime<User>(
             this.usersCollection,
@@ -160,6 +166,7 @@ export class UserService {
         await this.persistCurrentUserProfile(currentUser, existingProfile, updates, identity);
     }
 
+    /** Handles require current user. */
     private requireCurrentUser() {
         const currentUser = this.authService.getCurrentUser();
         if (!currentUser) {
@@ -169,6 +176,7 @@ export class UserService {
         return currentUser;
     }
 
+    /** Handles resolve profile identity. */
     private resolveProfileIdentity(currentUser: { email: string | null; providerData: Array<{ email: string | null }> }, updates: Partial<User>) {
         return {
             authEmail: this.resolveAuthEmail(currentUser),
@@ -176,6 +184,7 @@ export class UserService {
         };
     }
 
+    /** Handles persist current user profile. */
     private async persistCurrentUserProfile(
         currentUser: { uid: string; isAnonymous: boolean; displayName: string | null },
         existingProfile: User | null,
@@ -196,10 +205,12 @@ export class UserService {
         await this.createNewProfile(currentUser, updates, identity.authEmail, identity.updateEmail);
     }
 
+    /** Handles get existing profile. */
     private async getExistingProfile(userId: string): Promise<User | null> {
         return firstValueFrom(this.getUser(userId).pipe(take(1)));
     }
 
+    /** Handles update existing profile. */
     private async updateExistingProfile(
         currentUser: { uid: string; isAnonymous: boolean },
         existingProfile: User,
@@ -212,6 +223,7 @@ export class UserService {
         await firstValueFrom(this.updateUser(currentUser.uid, { ...updates, email: ensuredEmail }));
     }
 
+    /** Handles create new profile. */
     private async createNewProfile(
         currentUser: { uid: string; isAnonymous: boolean; displayName: string | null },
         updates: Partial<User>,
@@ -223,10 +235,12 @@ export class UserService {
         await this.setUserDocument(currentUser.uid, newUser);
     }
 
+    /** Handles resolve ensured email. */
     private resolveEnsuredEmail(existingProfile: User, authEmail: string, updateEmail: string): string {
         return updateEmail || (existingProfile.email ?? '').trim() || authEmail;
     }
 
+    /** Handles build new user. */
     private buildNewUser(
         currentUser: { displayName: string | null; isAnonymous?: boolean },
         updates: Partial<User>,
@@ -250,12 +264,14 @@ export class UserService {
         };
     }
 
+    /** Handles assert email for regular user. */
     private assertEmailForRegularUser(isAnonymous: boolean, email: string): void {
         if (!isAnonymous && !email) {
             throw new Error('Authenticated users must have an email.');
         }
     }
 
+    /** Handles set user document. */
     private async setUserDocument(userId: string, user: User): Promise<void> {
         const payload = this.withSearchTokens(user);
         await firstValueFrom(
@@ -267,6 +283,7 @@ export class UserService {
         );
     }
 
+    /** Handles update current user presence. */
     async updateCurrentUserPresence(status: PresenceStatus): Promise<void> {
         const currentUser = this.authService.getCurrentUser();
         if (!currentUser) {
@@ -281,6 +298,7 @@ export class UserService {
         );
     }
 
+    /** Handles upsert user presence. */
     async upsertUserPresence(
         userId: string,
         status: PresenceStatus,
@@ -296,6 +314,7 @@ export class UserService {
         await this.createPresenceUser(userId, status, email, displayName);
     }
 
+    /** Handles update presence on existing user. */
     private async updatePresenceOnExistingUser(
         userId: string,
         existingProfile: User,
@@ -308,6 +327,7 @@ export class UserService {
         await firstValueFrom(this.updateUser(userId, { ...optionalEmail, presenceStatus: status, lastSeen: new Date() }));
     }
 
+    /** Handles create presence user. */
     private async createPresenceUser(
         userId: string,
         status: PresenceStatus,
@@ -326,6 +346,7 @@ export class UserService {
         );
     }
 
+    /** Handles resolve auth email. */
     private resolveAuthEmail(user: {
         email: string | null;
         providerData: Array<{ email: string | null }>;
@@ -342,6 +363,7 @@ export class UserService {
         return (fromProvider ?? '').trim();
     }
 
+    /** Handles with search tokens. */
     private withSearchTokens<T extends Partial<User>>(payload: T): T & { searchTokens?: string[] } {
         const name = (payload.displayName ?? '').toString();
         const email = (payload.email ?? '').toString();

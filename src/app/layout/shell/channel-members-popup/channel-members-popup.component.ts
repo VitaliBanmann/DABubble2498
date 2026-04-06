@@ -24,14 +24,17 @@ export class ChannelMembersPopupComponent {
     @Output() addMember = new EventEmitter<void>();
     @Output() removeMember = new EventEmitter<string>();
 
+    /** Handles on close. */
     onClose(): void {
         this.close.emit();
     }
 
+    /** Handles on add member click. */
     onAddMemberClick(): void {
         this.addMember.emit();
     }
 
+    /** Handles on remove member click. */
     onRemoveMemberClick(userId: string): void {
         if (!userId) {
             return;

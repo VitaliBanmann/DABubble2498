@@ -5,6 +5,7 @@ import {
     MessageReaction,
 } from './message.models';
 
+/** Handles sanitize mentions. */
 export function sanitizeMentions(
     mentions: string[] | undefined,
     senderId: string,
@@ -20,6 +21,7 @@ export function sanitizeMentions(
     return Array.from(unique);
 }
 
+/** Handles normalize attachment. */
 export function normalizeAttachment(
     item: MessageAttachment,
 ): MessageAttachment {
@@ -33,6 +35,7 @@ export function normalizeAttachment(
     };
 }
 
+/** Handles sanitize attachments. */
 export function sanitizeAttachments(
     attachments: MessageAttachment[] | undefined,
 ): MessageAttachment[] {
@@ -43,6 +46,7 @@ export function sanitizeAttachments(
         .map((item) => normalizeAttachment(item));
 }
 
+/** Handles build message search tokens. */
 export function buildMessageSearchTokens(
     text: string,
     attachments: MessageAttachment[],
@@ -51,6 +55,7 @@ export function buildMessageSearchTokens(
     return buildSearchTokens([text, ...attachmentNames]);
 }
 
+/** Handles compute updated reactions. */
 export function computeUpdatedReactions(
     message: Message | null,
     emoji: string,
@@ -63,10 +68,12 @@ export function computeUpdatedReactions(
     return toggleUserReaction(existing, reactionIndex, userId);
 }
 
+/** Handles clone reactions. */
 function cloneReactions(reactions: MessageReaction[]): MessageReaction[] {
     return reactions.map((reaction) => ({ ...reaction, userIds: [...reaction.userIds] }));
 }
 
+/** Handles toggle user reaction. */
 function toggleUserReaction(
     reactions: MessageReaction[],
     reactionIndex: number,
