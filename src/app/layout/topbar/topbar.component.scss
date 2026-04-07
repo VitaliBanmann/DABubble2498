@@ -1,6 +1,6 @@
 .topbar {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto minmax(0, 1fr) auto;
     gap: 16px;
     align-items: center;
     padding: 0 16px;
@@ -25,12 +25,24 @@
     white-space: nowrap;
 }
 
+.topbar__search {
+    position: relative;
+    width: 100%;
+    max-width: 520px;
+    min-width: 0;
+    justify-self: center;
+}
+
 .topbar__search-input {
     position: relative;
+    width: 100%;
+    min-width: 0;
 }
 
 .topbar__search input {
+    display: block;
     width: 100%;
+    min-width: 0;
     height: 40px;
     border-radius: 999px;
     border: 1px solid rgba(0, 0, 0, 0.08);
@@ -49,6 +61,27 @@
     pointer-events: none;
 }
 
+.topbar__search-toggle {
+    display: none;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    border-radius: 999px;
+    background: #fafbff;
+    cursor: pointer;
+    padding: 0;
+    flex-shrink: 0;
+}
+
+.topbar__search-toggle-icon {
+    width: 18px;
+    height: 18px;
+    object-fit: contain;
+    display: block;
+}
+
 .search-results__empty {
     padding: 8px;
     font-size: 13px;
@@ -57,7 +90,9 @@
 
 .topbar__search {
     position: relative;
-    width: min(100%, 520px);
+    width: 100%;
+    max-width: 520px;
+    min-width: 0;
     justify-self: center;
 }
 
@@ -132,7 +167,9 @@
 }
 
 @keyframes spin {
-    to { transform: rotate(360deg); }
+    to {
+        transform: rotate(360deg);
+    }
 }
 
 .topbar__user {
@@ -140,6 +177,7 @@
     gap: 10px;
     align-items: center;
     position: relative;
+    min-width: 0;
 }
 
 .topbar__username {
@@ -327,8 +365,13 @@
 /* Tablet */
 @media (max-width: 1023px) {
     .topbar {
+        grid-template-columns: auto minmax(0, 1fr) auto;
         padding: 0 12px;
         gap: 10px;
+    }
+
+    .topbar__search {
+        max-width: 100%;
     }
 }
 
@@ -338,15 +381,85 @@
         height: 56px;
         padding: 0 10px;
         gap: 8px;
-        display: flex;
-        justify-content: space-between;
+        grid-template-columns: auto minmax(0, 1fr) auto;
     }
 
-    /* Auf Mobile: Username ausblenden */
+    .topbar__search {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+    }
+
     .topbar__username {
         display: none;
     }
+}
 
-    /* Auf Mobile Sidebar-View: Suchleiste ausblenden (kein extra Platz nötig,
-       da @if in HTML gesteuert) */
+/* Extra small: Suche standardmäßig eingeklappt */
+@media (max-width: 430px) {
+    .topbar {
+        grid-template-columns: auto 1fr auto;
+        gap: 8px;
+    }
+
+    .topbar__search {
+        justify-self: end;
+        width: 40px;
+        min-width: 40px;
+        max-width: 40px;
+        overflow: visible;
+        transition: width 0.2s ease, max-width 0.2s ease;
+    }
+
+    .topbar__search-input {
+        width: 100%;
+    }
+
+    .topbar__search-toggle {
+        display: inline-flex;
+    }
+
+    .topbar__search--collapsed {
+        width: 40px;
+        min-width: 40px;
+        max-width: 40px;
+    }
+
+    .topbar__search--collapsed .topbar__search-input {
+        display: none;
+    }
+
+    .topbar__search--expanded {
+        width: min(100vw - 132px, 260px);
+        min-width: 180px;
+        max-width: 260px;
+    }
+
+    .topbar__search--expanded .topbar__search-toggle {
+        display: none;
+    }
+
+    .topbar__search--expanded .topbar__search-input {
+        display: block;
+    }
+
+    .topbar__search--expanded input {
+        display: block;
+        width: 100%;
+    }
+
+    .topbar__search--expanded .topbar__search-icon {
+        position: absolute;
+        right: 14px;
+        top: 50%;
+        transform: translateY(-50%);
+        font-size: 20px;
+        color: #7a8096;
+    }
+
+    .search-results {
+        left: auto;
+        right: 0;
+        width: min(300px, calc(100vw - 20px));
+    }
 }

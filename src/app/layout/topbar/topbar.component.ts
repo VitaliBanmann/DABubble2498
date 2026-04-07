@@ -1,4 +1,11 @@
-import { ChangeDetectorRef, Component, OnDestroy, OnInit } from '@angular/core';
+import {
+    ChangeDetectorRef,
+    Component,
+    ElementRef,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Router } from '@angular/router';
 import {
@@ -32,6 +39,9 @@ import { TopbarProfileBase } from './topbar-profile.base';
     styleUrl: './topbar.component.scss',
 })
 export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDestroy {
+    @ViewChild('searchInputRef')
+    private searchInputRef?: ElementRef<HTMLInputElement>;
+
     searchTerm = '';
     showSearchResults = false;
     isSearching = false;
@@ -39,23 +49,46 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     channelResults: SearchChannelResult[] = [];
     userResults: SearchUserResult[] = [];
     messageResults: SearchMessageResult[] = [];
+    isMobileSearchExpanded = false;
 
     private readonly searchInput$ = new Subject<string>();
     private readonly _subscription = new Subscription();
     private searchSubscription: Subscription | null = null;
 
     /** Returns subscription. */
-    protected get subscription(): Subscription { return this._subscription; }
+    protected get subscription(): Subscription {
+        return this._subscription;
+    }
+
     /** Returns auth service. */
-    protected get authService(): AuthService { return this._authService; }
+    protected get authService(): AuthService {
+        return this._authService;
+    }
+
     /** Returns auth flow. */
-    protected get authFlow(): AuthFlowService { return this._authFlow; }
+    protected get authFlow(): AuthFlowService {
+        return this._authFlow;
+    }
+
     /** Returns user service. */
-    protected get userService(): UserService { return this._userService; }
+    protected get userService(): UserService {
+        return this._userService;
+    }
+
     /** Returns channel service. */
-    protected get channelService(): ChannelService { return this._channelService; }
+    protected get channelService(): ChannelService {
+        return this._channelService;
+    }
+
     /** Returns cdr. */
-    protected get cdr(): ChangeDetectorRef { return this._cdr; }
+    protected get cdr(): ChangeDetectorRef {
+        return this._cdr;
+    }
+
+    /** Returns true when search should be collapsed on small screens. */
+    get isSearchCollapsed(): boolean {
+        return this.isSmallViewport() && !this.isMobileSearchExpanded;
+    }
 
     constructor(
         public readonly ui: UiStateService,
@@ -90,6 +123,20 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
         this.ui.goBackToSidebar();
     }
 
+    /** Toggles mobile search on extra small screens. */
+    toggleMobileSearch(): void {
+        if (!this.isSmallViewport()) return;
+
+        this.isMobileSearchExpanded = !this.isMobileSearchExpanded;
+        this._cdr.detectChanges();
+
+        if (this.isMobileSearchExpanded) {
+            setTimeout(() => this.searchInputRef?.nativeElement.focus(), 0);
+        } else {
+            this.closeMobileSearch();
+        }
+    }
+
     /** Returns all results. */
     get allResults(): Array<{ kind: 'channel' | 'user' | 'message'; item: any }> {
         return [
@@ -108,7 +155,13 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
 
     /** Handles on search focus. */
     onSearchFocus(): void {
-        if (this.searchTerm.trim().length >= 2) this.showSearchResults = true;
+        if (this.isSmallViewport()) {
+            this.isMobileSearchExpanded = true;
+        }
+
+        if (this.searchTerm.trim().length >= 2) {
+            this.showSearchResults = true;
+        }
     }
 
     /** Handles on search enter. */
@@ -123,12 +176,23 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
         setTimeout(() => {
             this.showSearchResults = false;
             this.activeResultIndex = -1;
+
+            if (this.isSmallViewport() && !this.searchTerm.trim()) {
+                this.isMobileSearchExpanded = false;
+            }
         }, 150);
     }
 
     /** Handles on search keydown. */
     onSearchKeydown(event: KeyboardEvent): void {
-        if (event.key === 'Escape') return this.closeSearchResults();
+        if (event.key === 'Escape') {
+            this.closeSearchResults();
+            if (this.isSmallViewport()) {
+                this.closeMobileSearch();
+            }
+            return;
+        }
+
         if (event.key === 'Enter') return this.handleSearchEnter(event);
         if (!this.showSearchResults) return;
         this.handleSearchArrowNavigation(event);
@@ -167,28 +231,42 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     /** Handles navigate to user. */
     navigateToUser(user: SearchUserResult): void {
         this.clearSearchResults();
-        void this.router.navigate(['/app/dm', user.id], { queryParams: { name: user.name } });
+        void this.router.navigate(['/app/dm', user.id], {
+            queryParams: { name: user.name },
+        });
     }
 
     /** Handles navigate to message. */
     navigateToMessage(result: SearchMessageResult): void {
         this.clearSearchResults();
+
         if (result.kind === 'dm' && result.partnerUserId) {
-            void this.router.navigate(['/app/dm', result.partnerUserId], { queryParams: { msg: result.id } });
+            void this.router.navigate(['/app/dm', result.partnerUserId], {
+                queryParams: { msg: result.id },
+            });
             return;
         }
+
         if (result.channelId) {
-            void this.router.navigate(['/app/channel', result.channelId], { queryParams: { msg: result.id } });
+            void this.router.navigate(['/app/channel', result.channelId], {
+                queryParams: { msg: result.id },
+            });
         }
     }
 
     /** Handles init search pipeline. */
     private initSearchPipeline(): void {
         this._subscription.add(
-            this.searchInput$.pipe(debounceTime(300), distinctUntilChanged())
+            this.searchInput$
+                .pipe(debounceTime(300), distinctUntilChanged())
                 .subscribe((value) => {
                     const query = normalizeSearchToken(value.trim());
-                    if (query.length < 2) { this.clearSearchResults(); return; }
+
+                    if (query.length < 2) {
+                        this.clearSearchResults();
+                        return;
+                    }
+
                     this.activeResultIndex = -1;
                     this.isSearching = true;
                     this.showSearchResults = true;
@@ -201,6 +279,7 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     private triggerImmediateSearch(): void {
         const query = normalizeSearchToken(this.searchTerm.trim());
         if (query.length < 2) return;
+
         this.activeResultIndex = -1;
         this.isSearching = true;
         this.showSearchResults = true;
@@ -218,9 +297,12 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     private runIndexedSearch(rawQuery: string): void {
         const token = normalizeSearchToken(rawQuery);
         if (!token) return this.clearSearchResults();
+
         this.searchSubscription?.unsubscribe();
-        this.searchSubscription = createSearchStream(token, this.buildSearchDependencies())
-            .subscribe(([channels, users, messages]) => this.applySearchResults(channels, users, messages));
+        this.searchSubscription = createSearchStream(token, this.buildSearchDependencies()).subscribe(
+            ([channels, users, messages]) =>
+                this.applySearchResults(channels, users, messages),
+        );
     }
 
     /** Handles build search dependencies. */
@@ -244,6 +326,10 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
         this.channelResults = [];
         this.userResults = [];
         this.messageResults = [];
+
+        if (this.isSmallViewport()) {
+            this.isMobileSearchExpanded = false;
+        }
     }
 
     /** Handles apply search results. */
@@ -254,5 +340,17 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
         this.messageResults = mapped.messages;
         this.isSearching = false;
         this.showSearchResults = this.searchTerm.trim().length > 0;
+    }
+
+    /** Handles closing mobile search without nuking existing term manually. */
+    private closeMobileSearch(): void {
+        this.isMobileSearchExpanded = false;
+        this.showSearchResults = false;
+        this.activeResultIndex = -1;
+    }
+
+    /** Returns true for extra small viewport. */
+    private isSmallViewport(): boolean {
+        return window.innerWidth <= 430;
     }
 }
