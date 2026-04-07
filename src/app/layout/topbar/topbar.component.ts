@@ -2,6 +2,7 @@ import {
     ChangeDetectorRef,
     Component,
     ElementRef,
+    HostListener,
     OnDestroy,
     OnInit,
     ViewChild,
@@ -39,8 +40,8 @@ import { TopbarProfileBase } from './topbar-profile.base';
     styleUrl: './topbar.component.scss',
 })
 export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDestroy {
-    @ViewChild('searchInputRef')
-    private searchInputRef?: ElementRef<HTMLInputElement>;
+    @ViewChild('mobileSearchInputRef')
+    private mobileSearchInputRef?: ElementRef<HTMLInputElement>;
 
     searchTerm = '';
     showSearchResults = false;
@@ -49,7 +50,7 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     channelResults: SearchChannelResult[] = [];
     userResults: SearchUserResult[] = [];
     messageResults: SearchMessageResult[] = [];
-    isMobileSearchExpanded = false;
+    showMobileSearchOverlay = false;
 
     private readonly searchInput$ = new Subject<string>();
     private readonly _subscription = new Subscription();
@@ -85,11 +86,6 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
         return this._cdr;
     }
 
-    /** Returns true when search should be collapsed on small screens. */
-    get isSearchCollapsed(): boolean {
-        return this.isSmallViewport() && !this.isMobileSearchExpanded;
-    }
-
     constructor(
         public readonly ui: UiStateService,
         private readonly _authFlow: AuthFlowService,
@@ -118,23 +114,39 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
         this.searchInput$.complete();
     }
 
+    /** Handles browser resize. */
+    @HostListener('window:resize')
+    onWindowResize(): void {
+        if (!this.isSmallViewport() && this.showMobileSearchOverlay) {
+            this.closeMobileSearchOverlay();
+        }
+    }
+
     /** Handles on mobile back. */
     onMobileBack(): void {
         this.ui.goBackToSidebar();
     }
 
-    /** Toggles mobile search on extra small screens. */
-    toggleMobileSearch(): void {
+    /** Opens mobile search overlay. */
+    openMobileSearchOverlay(): void {
         if (!this.isSmallViewport()) return;
 
-        this.isMobileSearchExpanded = !this.isMobileSearchExpanded;
+        this.showMobileSearchOverlay = true;
         this._cdr.detectChanges();
 
-        if (this.isMobileSearchExpanded) {
-            setTimeout(() => this.searchInputRef?.nativeElement.focus(), 0);
-        } else {
-            this.closeMobileSearch();
-        }
+        setTimeout(() => {
+            this.mobileSearchInputRef?.nativeElement.focus();
+            if (this.searchTerm.trim().length >= 2) {
+                this.showSearchResults = true;
+            }
+        }, 0);
+    }
+
+    /** Closes mobile search overlay. */
+    closeMobileSearchOverlay(): void {
+        this.showMobileSearchOverlay = false;
+        this.showSearchResults = false;
+        this.activeResultIndex = -1;
     }
 
     /** Returns all results. */
@@ -155,10 +167,6 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
 
     /** Handles on search focus. */
     onSearchFocus(): void {
-        if (this.isSmallViewport()) {
-            this.isMobileSearchExpanded = true;
-        }
-
         if (this.searchTerm.trim().length >= 2) {
             this.showSearchResults = true;
         }
@@ -176,10 +184,6 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
         setTimeout(() => {
             this.showSearchResults = false;
             this.activeResultIndex = -1;
-
-            if (this.isSmallViewport() && !this.searchTerm.trim()) {
-                this.isMobileSearchExpanded = false;
-            }
         }, 150);
     }
 
@@ -187,8 +191,8 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     onSearchKeydown(event: KeyboardEvent): void {
         if (event.key === 'Escape') {
             this.closeSearchResults();
-            if (this.isSmallViewport()) {
-                this.closeMobileSearch();
+            if (this.showMobileSearchOverlay) {
+                this.closeMobileSearchOverlay();
             }
             return;
         }
@@ -225,12 +229,14 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     /** Handles navigate to channel. */
     navigateToChannel(channelId: string): void {
         this.clearSearchResults();
+        this.closeMobileSearchOverlay();
         void this.router.navigate(['/app/channel', channelId]);
     }
 
     /** Handles navigate to user. */
     navigateToUser(user: SearchUserResult): void {
         this.clearSearchResults();
+        this.closeMobileSearchOverlay();
         void this.router.navigate(['/app/dm', user.id], {
             queryParams: { name: user.name },
         });
@@ -239,6 +245,7 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     /** Handles navigate to message. */
     navigateToMessage(result: SearchMessageResult): void {
         this.clearSearchResults();
+        this.closeMobileSearchOverlay();
 
         if (result.kind === 'dm' && result.partnerUserId) {
             void this.router.navigate(['/app/dm', result.partnerUserId], {
@@ -326,10 +333,6 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
         this.channelResults = [];
         this.userResults = [];
         this.messageResults = [];
-
-        if (this.isSmallViewport()) {
-            this.isMobileSearchExpanded = false;
-        }
     }
 
     /** Handles apply search results. */
@@ -340,13 +343,6 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
         this.messageResults = mapped.messages;
         this.isSearching = false;
         this.showSearchResults = this.searchTerm.trim().length > 0;
-    }
-
-    /** Handles closing mobile search without nuking existing term manually. */
-    private closeMobileSearch(): void {
-        this.isMobileSearchExpanded = false;
-        this.showSearchResults = false;
-        this.activeResultIndex = -1;
     }
 
     /** Returns true for extra small viewport. */
