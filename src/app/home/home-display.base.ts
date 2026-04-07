@@ -244,6 +244,17 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         return raw ? this.normalizeAvatarPath(raw, fallback) : fallback;
     }
 
+    /** Returns mention avatar by user id. */
+    getMentionAvatar(userId: string): string {
+        const user = this.usersById[userId];
+        return user ? this.getUserAvatar(user) : 'assets/pictures/profile.svg';
+    }
+
+    /** Returns whether mention candidate is online. */
+    isMentionUserOnline(userId: string): boolean {
+        return this.usersById[userId]?.presenceStatus === 'online';
+    }
+
     /** Handles get message avatar. */
     getMessageAvatar(message: Message): string {
         const fallback = 'assets/pictures/profile.svg';

@@ -409,13 +409,25 @@
                         accept="image/*,.pdf,.docx,.txt" />
 
                     @if (showMentionSuggestions) {
-                    <div class="mention-suggestions">
-                        @for (candidate of mentionSuggestions; track candidate.id) {
-                        <button type="button" class="mention-option" (click)="selectMention(candidate)">
-                            @{{ candidate.label }}
-                        </button>
-                        }
-                    </div>
+                        <div class="mention-suggestions">
+                            @for (candidate of mentionSuggestions; track candidate.id) {
+                                <button type="button" class="mention-option" (click)="selectMention(candidate)">
+                                    <div class="user-avatar">
+                                        <img
+                                            [src]="getMentionAvatar(candidate.id)"
+                                            [alt]="candidate.label + ' Avatar'"
+                                        />
+
+                                        <span
+                                            class="user-avatar__status"
+                                            [class.user-avatar__status--online]="isMentionUserOnline(candidate.id)"
+                                        ></span>
+                                    </div>
+
+                                    <div class="candidate">@{{ candidate.label }}</div>
+                                </button>
+                            }
+                        </div>
                     }
 
                     @if (isComposerEmojiPickerOpen()) {
@@ -429,7 +441,7 @@
 
             <!-- =========================================================
              Status / Hint / Error Messages
-        ========================================================== -->
+            ========================================================== -->
             @if (attachmentError) {
             <p class="error">{{ attachmentError }}</p>
             }
