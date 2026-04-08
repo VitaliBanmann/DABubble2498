@@ -154,22 +154,40 @@
     <div class="topbar__user">
         <span class="topbar__username">{{ displayName }}</span>
         <div class="topbar__avatar-wrap">
-            @if (showAvatarImage && avatarUrl) {
-                <img
-                    class="topbar__avatar"
-                    [src]="avatarUrl"
-                    [alt]="displayName"
-                    (error)="onAvatarError()"
-                />
-            } @else {
-                <div
-                    class="topbar__avatar-fallback"
-                    [attr.aria-label]="displayName"
-                >
-                    {{ initials }}
-                </div>
-            }
-            <span class="status-dot" [ngClass]="presenceStatus"></span>
+            <button
+                type="button"
+                class="topbar__avatar-trigger"
+                [disabled]="!isMobileUserMenuViewport"
+                [attr.aria-label]="
+                    isMobileUserMenuViewport
+                        ? 'User Menü öffnen'
+                        : null
+                "
+                [attr.aria-haspopup]="
+                    isMobileUserMenuViewport ? 'menu' : null
+                "
+                [attr.aria-expanded]="
+                    isMobileUserMenuViewport ? showUserMenu : null
+                "
+                (click)="onAvatarMenuClick()"
+            >
+                @if (showAvatarImage && avatarUrl) {
+                    <img
+                        class="topbar__avatar"
+                        [src]="avatarUrl"
+                        [alt]="displayName"
+                        (error)="onAvatarError()"
+                    />
+                } @else {
+                    <div
+                        class="topbar__avatar-fallback"
+                        [attr.aria-label]="displayName"
+                    >
+                        {{ initials }}
+                    </div>
+                }
+                <span class="status-dot" [ngClass]="presenceStatus"></span>
+            </button>
         </div>
         <button
             type="button"

@@ -51,6 +51,7 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     userResults: SearchUserResult[] = [];
     messageResults: SearchMessageResult[] = [];
     showMobileSearchOverlay = false;
+    isMobileUserMenuViewport = false;
 
     private readonly searchInput$ = new Subject<string>();
     private readonly _subscription = new Subscription();
@@ -101,6 +102,7 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
 
     /** Handles ng on init. */
     ngOnInit(): void {
+        this.syncViewportFlags();
         this.trackAuthReady();
         this.trackUserProfile();
         this.warmSearchCache();
@@ -117,9 +119,20 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     /** Handles browser resize. */
     @HostListener('window:resize')
     onWindowResize(): void {
+        this.syncViewportFlags();
         if (!this.isSmallViewport() && this.showMobileSearchOverlay) {
             this.closeMobileSearchOverlay();
         }
+
+        if (!this.isMobileUserMenuViewport && this.showUserMenu) {
+            this.closeUserMenu();
+        }
+    }
+
+    /** Opens user menu from avatar on mobile viewport. */
+    onAvatarMenuClick(): void {
+        if (!this.isMobileUserMenuViewport) return;
+        this.toggleUserMenu();
     }
 
     /** Handles on mobile back. */
@@ -348,5 +361,10 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     /** Returns true for extra small viewport. */
     private isSmallViewport(): boolean {
         return window.innerWidth <= 430;
+    }
+
+    /** Syncs viewport flags used by responsive interactions. */
+    private syncViewportFlags(): void {
+        this.isMobileUserMenuViewport = window.innerWidth < 768;
     }
 }

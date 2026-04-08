@@ -195,6 +195,24 @@
     height: 34px;
 }
 
+.topbar__avatar-trigger {
+    width: 34px;
+    height: 34px;
+    border: 0;
+    padding: 0;
+    border-radius: 50%;
+    background: transparent;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+    cursor: default;
+}
+
+.topbar__avatar-trigger:disabled {
+    opacity: 1;
+}
+
 .topbar__avatar-fallback {
     width: 34px;
     height: 34px;
@@ -313,14 +331,20 @@
 .profile-modal {
     position: fixed;
     inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    padding: 70px 16px 16px;
     background: rgba(0, 0, 0, 0.12);
     z-index: 1100;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-sizing: border-box;
 }
 
 .profile-modal__panel {
-    position: absolute;
-    top: 70px;
-    right: 16px;
+    position: relative;
+    max-width: 100%;
 }
 
 /* =====================================================
@@ -482,10 +506,80 @@
     .topbar__username {
         display: none;
     }
+
+    .topbar__chevron {
+        display: none;
+    }
+
+    .topbar__avatar-trigger {
+        cursor: pointer;
+    }
+
+    .user-menu {
+        z-index: 1300;
+    }
+
+    .user-menu__backdrop {
+        background: rgba(0, 0, 0, 0.22);
+    }
+
+    .user-menu__content {
+        top: auto;
+        right: 0;
+        bottom: 0;
+        left: 0;
+        min-width: 0;
+        border-radius: 28px 28px 0 0;
+        box-shadow: 0 -10px 28px rgba(0, 0, 0, 0.14);
+        padding: 28px 20px 22px;
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+    }
+
+    .user-menu__content::before {
+        content: '';
+        width: 84px;
+        height: 8px;
+        border-radius: 999px;
+        background: #d4d4d8;
+        margin: 0 auto 16px;
+    }
+
+    .user-menu__item {
+        max-width: 320px;
+        border-radius: 999px;
+        padding: 14px 18px;
+        font-size: 18px;
+        gap: 16px;
+
+        .material-symbols-outlined {
+            font-size: 36px;
+            color: currentColor;
+        }
+    }
+
+    .user-menu__item:first-of-type {
+        background: #eceefe;
+        color: #444df2;
+    }
+
+    .user-menu__item:last-of-type {
+        color: #000;
+    }
+
+    .profile-modal {
+        padding: 68px 8px 12px;
+        align-items: flex-start;
+    }
 }
 
 /* Extra small */
 @media (max-width: 430px) {
+    .topbar {
+        grid-template-columns: auto minmax(0, 1fr) auto;
+    }
+
     .topbar__search {
         display: flex;
         justify-content: flex-end;
@@ -493,7 +587,7 @@
         width: 40px;
         max-width: 40px;
         min-width: 40px;
-        margin-right: 40px;
+        margin-right: 0;
     }
 
     .topbar__search-input {

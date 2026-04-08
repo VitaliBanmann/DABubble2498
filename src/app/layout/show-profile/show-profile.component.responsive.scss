@@ -1,0 +1,137 @@
+@mixin show-profile-responsive {
+    @media (max-width: 767px) {
+        .show-profile {
+            min-height: auto;
+            border-radius: 20px;
+            padding: 28px 24px;
+            gap: 20px;
+            position: unset;
+        }
+
+        .show-profile__avatar img,
+        .show-profile__avatar-fallback {
+            width: 168px;
+            height: 168px;
+        }
+
+        .show-profile__avatar-fallback {
+            font-size: 36px;
+        }
+
+        .show-profile__name {
+            font-size: 28px;
+        }
+
+        .show-profile__mail-label,
+        .show-profile__field-label {
+            font-size: 18px;
+        }
+
+        .show-profile__mail-value {
+            margin-left: 0;
+            font-size: 16px;
+            word-break: break-word;
+        }
+
+        .show-profile__edit-actions {
+            gap: 14px;
+        }
+
+        .show-profile__action {
+            min-width: 0;
+            width: 100%;
+        }
+    }
+
+    @media (max-width: 480px) {
+        .show-profile {
+            border-radius: 18px;
+            padding: 22px 16px;
+            gap: 16px;
+        }
+
+        .show-profile__title {
+            font-size: 22px;
+        }
+
+        .show-profile__name-row {
+            flex-direction: column;
+            align-items: flex-start;
+            gap: 8px;
+        }
+
+        .show-profile__name {
+            font-size: 24px;
+        }
+
+        .show-profile__edit,
+        .show-profile__status,
+        .show-profile__status span,
+        .show-profile__edit-input input,
+        .show-profile__action {
+            font-size: 16px;
+        }
+
+        .show-profile__mail-label,
+        .show-profile__field-label {
+            gap: 12px;
+            font-size: 16px;
+        }
+
+        .show-profile__mail-label img,
+        .show-profile__field-icon {
+            width: 22px;
+            height: 22px;
+        }
+
+        .show-profile__avatar img,
+        .show-profile__avatar-fallback {
+            width: 144px;
+            height: 144px;
+        }
+
+        .show-profile__avatar-fallback {
+            font-size: 30px;
+        }
+
+        .show-profile__edit-input input {
+            height: 52px;
+            padding: 0 16px;
+        }
+
+        .show-profile__edit-actions {
+            flex-direction: column;
+            margin-top: 8px;
+        }
+
+        .show-profile__action {
+            height: 48px;
+        }
+    }
+
+    @media (max-width: 360px) {
+        .show-profile {
+            border-radius: 16px;
+            padding: 18px 12px;
+        }
+
+        .show-profile__title {
+            font-size: 20px;
+        }
+
+        .show-profile__close {
+            width: 36px;
+            height: 36px;
+        }
+
+        .show-profile__avatar img,
+        .show-profile__avatar-fallback {
+            width: 132px;
+            height: 132px;
+        }
+
+        .show-profile__avatar-fallback {
+            font-size: 28px;
+        }
+    }
+}
