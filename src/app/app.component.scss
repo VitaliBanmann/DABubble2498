@@ -349,10 +349,18 @@ form {
 }
 
 @media (max-width: 720px) {
+    .auth-page {
+        padding: 20px 20px 16px;
+    }
+
     .page-header {
         flex-direction: column;
         align-items: flex-start;
         gap: 16px;
+    }
+
+    .signup {
+        text-align: left;
     }
 }
 
@@ -363,6 +371,123 @@ form {
 
     .actions {
         grid-template-columns: 1fr;
+    }
+
+    .overlay-card {
+        padding: 28px 20px 24px;
+        border-radius: 18px;
+    }
+}
+
+@media (min-width: 768px) and (max-width: 1024px) {
+    .auth-page {
+        padding: 28px 28px 20px;
+    }
+
+    .auth-card {
+        width: min(100%, 560px);
+        padding: 36px 40px 30px;
+    }
+
+    .overlay-card {
+        max-width: 560px;
+    }
+}
+
+@media (max-width: 380px) {
+    .auth-page {
+        padding: 16px 10px 12px;
+    }
+
+    .brand {
+        gap: 8px;
+        font-size: 18px;
+    }
+
+    .brand-logo {
+        height: 38px;
+    }
+
+    .auth-card {
+        border-radius: 24px;
+        padding: 24px 14px 20px;
+
+        h1 {
+            font-size: 26px;
+        }
+
+        .subtitle {
+            font-size: 13px;
+            margin-bottom: 8px;
+        }
+    }
+
+    .field {
+        padding: 10px 12px;
+        gap: 8px;
+
+        input {
+            font-size: 13px;
+        }
+    }
+
+    .google,
+    .primary,
+    .secondary {
+        height: 42px;
+        font-size: 13px;
+    }
+
+    .overlay-card {
+        width: calc(100% - 16px);
+        padding: 22px 14px 18px;
+
+        h2 {
+            font-size: 20px;
+        }
+
+        .overlay-subtitle {
+            margin-bottom: 16px;
+            font-size: 13px;
+        }
+    }
+}
+
+@media (max-width: 320px) {
+    .auth-page {
+        padding: 12px 8px 10px;
+    }
+
+    .brand-name {
+        font-size: 16px;
+    }
+
+    .signup {
+        font-size: 12px;
+        gap: 4px;
+    }
+
+    .auth-card {
+        border-radius: 20px;
+        padding: 20px 10px 16px;
+
+        h1 {
+            font-size: 22px;
+        }
+    }
+
+    .field {
+        border-radius: 18px;
+        padding: 9px 10px;
+    }
+
+    .divider {
+        gap: 8px;
+    }
+
+    .overlay-card {
+        width: calc(100% - 10px);
+        padding: 18px 10px 14px;
     }
 }
 

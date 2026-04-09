@@ -39,7 +39,33 @@ function getExtension(fileName) {
 
 async function countLines(filePath) {
     const content = await readFile(filePath, 'utf8');
-    return content.split(/\r?\n/).length;
+    return countNonJSDocLines(content);
+}
+
+function countNonJSDocLines(content) {
+    const lines = content.split(/\r?\n/);
+    let count = 0;
+    let inJSDoc = false;
+
+    for (const line of lines) {
+        const trimmed = line.trim();
+
+        if (!inJSDoc && trimmed.startsWith('/**')) {
+            inJSDoc = !trimmed.includes('*/');
+            continue;
+        }
+
+        if (inJSDoc) {
+            if (trimmed.includes('*/')) {
+                inJSDoc = false;
+            }
+            continue;
+        }
+
+        count += 1;
+    }
+
+    return count;
 }
 
 function printViolations(violations) {
