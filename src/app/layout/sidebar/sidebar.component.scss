@@ -5,6 +5,119 @@ $purple__hover: #535af1;
     padding: 16px;
 }
 
+.sidebar-search {
+    margin-bottom: 14px;
+}
+
+.sidebar-search__input-wrap {
+    position: relative;
+    width: 100%;
+}
+
+.sidebar-search__input-wrap input {
+    display: block;
+    width: 100%;
+    height: 40px;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 0, 0, 0.08);
+    padding: 0 44px 0 14px;
+    outline: none;
+    background: #fafbff;
+    box-sizing: border-box;
+}
+
+.sidebar-search__icon {
+    position: absolute;
+    right: 14px;
+    top: 50%;
+    transform: translateY(-50%);
+    font-size: 20px;
+    color: #7a8096;
+    pointer-events: none;
+}
+
+.sidebar-search-results {
+    position: absolute;
+    top: calc(100% + 6px);
+    left: 0;
+    right: 0;
+    background: #fff;
+    border: 1px solid #e2e6f4;
+    border-radius: 12px;
+    box-shadow: 0 10px 28px rgba(0, 0, 0, 0.12);
+    padding: 8px;
+    z-index: 300;
+    max-height: 320px;
+    overflow: auto;
+}
+
+.sidebar-search-results section + section {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #eef1fa;
+}
+
+.sidebar-search-results h5 {
+    margin: 0 0 6px;
+    font-size: 11px;
+    color: #7a8096;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.sidebar-search-results button {
+    width: 100%;
+    border: 0;
+    border-radius: 8px;
+    background: transparent;
+    text-align: left;
+    padding: 8px;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+.sidebar-search-results button:hover {
+    background: #f4f6ff;
+}
+
+.sidebar-search-results button.active {
+    background: #edf0ff;
+    outline: 2px solid #444df2;
+    outline-offset: -2px;
+}
+
+.sidebar-search-results__loading {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    font-size: 13px;
+    color: #7a8096;
+}
+
+.sidebar-search-results__spinner {
+    display: inline-block;
+    width: 14px;
+    height: 14px;
+    border: 2px solid #e2e6f4;
+    border-top-color: #444df2;
+    border-radius: 50%;
+    animation: sidebar-search-spin 0.6s linear infinite;
+    flex-shrink: 0;
+}
+
+.sidebar-search-results__empty {
+    padding: 8px;
+    font-size: 13px;
+    color: #7a8096;
+}
+
+@keyframes sidebar-search-spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
 .sidebar__add[aria-disabled="true"] {
     opacity: 0.5;
     pointer-events: none;
@@ -505,6 +618,10 @@ textarea {
     .sidebar__channelsection__header h2,
     .sidebar__chatsection__header h2 {
         font-size: 16px;
+    }
+
+    .sidebar-search {
+        margin-bottom: 12px;
     }
 }
 

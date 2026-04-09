@@ -27,9 +27,8 @@ import {
     SearchChannelResult,
     SearchMessageResult,
     SearchUserResult,
-    createSearchStream,
-    mapSearchResults,
 } from './topbar-search.util';
+import { GlobalSearchService } from '../../services/global-search.service';
 import { TopbarProfileBase } from './topbar-profile.base';
 
 @Component({
@@ -40,9 +39,6 @@ import { TopbarProfileBase } from './topbar-profile.base';
     styleUrl: './topbar.component.scss',
 })
 export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDestroy {
-    @ViewChild('mobileSearchInputRef')
-    private mobileSearchInputRef?: ElementRef<HTMLInputElement>;
-
     searchTerm = '';
     showSearchResults = false;
     isSearching = false;
@@ -50,12 +46,13 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     channelResults: SearchChannelResult[] = [];
     userResults: SearchUserResult[] = [];
     messageResults: SearchMessageResult[] = [];
-    showMobileSearchOverlay = false;
     isMobileUserMenuViewport = false;
+    isSidebarSearchViewport = false;
 
     private readonly searchInput$ = new Subject<string>();
     private readonly _subscription = new Subscription();
     private searchSubscription: Subscription | null = null;
+
 
     /** Returns subscription. */
     protected get subscription(): Subscription {
@@ -96,6 +93,7 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
         private readonly messageService: MessageService,
         private readonly router: Router,
         private readonly _cdr: ChangeDetectorRef,
+        private readonly globalSearchService: GlobalSearchService,
     ) {
         super();
     }
@@ -105,7 +103,7 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
         this.syncViewportFlags();
         this.trackAuthReady();
         this.trackUserProfile();
-        this.warmSearchCache();
+        this.globalSearchService.warmCache(this._subscription);
         this.initSearchPipeline();
     }
 
@@ -120,9 +118,6 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     @HostListener('window:resize')
     onWindowResize(): void {
         this.syncViewportFlags();
-        if (!this.isSmallViewport() && this.showMobileSearchOverlay) {
-            this.closeMobileSearchOverlay();
-        }
 
         if (!this.isMobileUserMenuViewport && this.showUserMenu) {
             this.closeUserMenu();
@@ -138,28 +133,6 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     /** Handles on mobile back. */
     onMobileBack(): void {
         this.ui.goBackToSidebar();
-    }
-
-    /** Opens mobile search overlay. */
-    openMobileSearchOverlay(): void {
-        if (!this.isSmallViewport()) return;
-
-        this.showMobileSearchOverlay = true;
-        this._cdr.detectChanges();
-
-        setTimeout(() => {
-            this.mobileSearchInputRef?.nativeElement.focus();
-            if (this.searchTerm.trim().length >= 2) {
-                this.showSearchResults = true;
-            }
-        }, 0);
-    }
-
-    /** Closes mobile search overlay. */
-    closeMobileSearchOverlay(): void {
-        this.showMobileSearchOverlay = false;
-        this.showSearchResults = false;
-        this.activeResultIndex = -1;
     }
 
     /** Returns all results. */
@@ -204,9 +177,6 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     onSearchKeydown(event: KeyboardEvent): void {
         if (event.key === 'Escape') {
             this.closeSearchResults();
-            if (this.showMobileSearchOverlay) {
-                this.closeMobileSearchOverlay();
-            }
             return;
         }
 
@@ -242,23 +212,18 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     /** Handles navigate to channel. */
     navigateToChannel(channelId: string): void {
         this.clearSearchResults();
-        this.closeMobileSearchOverlay();
         void this.router.navigate(['/app/channel', channelId]);
     }
 
-    /** Handles navigate to user. */
     navigateToUser(user: SearchUserResult): void {
         this.clearSearchResults();
-        this.closeMobileSearchOverlay();
         void this.router.navigate(['/app/dm', user.id], {
             queryParams: { name: user.name },
         });
     }
 
-    /** Handles navigate to message. */
     navigateToMessage(result: SearchMessageResult): void {
         this.clearSearchResults();
-        this.closeMobileSearchOverlay();
 
         if (result.kind === 'dm' && result.partnerUserId) {
             void this.router.navigate(['/app/dm', result.partnerUserId], {
@@ -319,22 +284,11 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
         if (!token) return this.clearSearchResults();
 
         this.searchSubscription?.unsubscribe();
-        this.searchSubscription = createSearchStream(token, this.buildSearchDependencies()).subscribe(
-            ([channels, users, messages]) =>
-                this.applySearchResults(channels, users, messages),
-        );
-    }
-
-    /** Handles build search dependencies. */
-    private buildSearchDependencies() {
-        return {
-            authService: this._authService,
-            channelService: this._channelService,
-            messageService: this.messageService,
-            userService: this._userService,
-            cachedChannels: this.cachedChannels,
-            cachedUsers: this.cachedUsers,
-        };
+        this.searchSubscription = this.globalSearchService
+            .search(token)
+            .subscribe((result) =>
+                this.applySearchResults(result.channels, result.users, result.messages),
+            );
     }
 
     /** Handles clear search results. */
@@ -349,11 +303,14 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     }
 
     /** Handles apply search results. */
-    private applySearchResults(channels: any[], users: any[], messages: any[]): void {
-        const mapped = mapSearchResults(channels, users, messages);
-        this.channelResults = mapped.channels;
-        this.userResults = mapped.users;
-        this.messageResults = mapped.messages;
+    private applySearchResults(
+        channels: SearchChannelResult[],
+        users: SearchUserResult[],
+        messages: SearchMessageResult[],
+    ): void {
+        this.channelResults = channels;
+        this.userResults = users;
+        this.messageResults = messages;
         this.isSearching = false;
         this.showSearchResults = this.searchTerm.trim().length > 0;
     }
@@ -366,5 +323,6 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     /** Syncs viewport flags used by responsive interactions. */
     private syncViewportFlags(): void {
         this.isMobileUserMenuViewport = window.innerWidth < 768;
+        this.isSidebarSearchViewport = window.innerWidth <= 430;
     }
 }

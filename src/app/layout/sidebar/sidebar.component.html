@@ -1,4 +1,119 @@
 <nav class="sidebar">
+    @if (isSidebarSearchViewport) {
+        <div class="sidebar-search">
+            <div class="sidebar-search__input-wrap">
+                <input
+                    type="text"
+                    placeholder="Devspace durchsuchen"
+                    [value]="searchTerm"
+                    (input)="onSearchInput($any($event.target).value)"
+                    (keydown)="onSearchKeydown($event)"
+                    (blur)="onSearchBlur()"
+                    (focus)="onSearchFocus()"
+                />
+                <span
+                    class="material-symbols-outlined sidebar-search__icon"
+                    aria-hidden="true"
+                >
+                search
+            </span>
+
+                @if (showSearchResults) {
+                    <div
+                        class="sidebar-search-results"
+                        (mousedown)="$event.preventDefault()"
+                    >
+                        @if (isSearching) {
+                            <p class="sidebar-search-results__loading">
+                            <span
+                                class="sidebar-search-results__spinner"
+                                aria-hidden="true"
+                            ></span>
+                                Suche läuft…
+                            </p>
+                        }
+
+                        @if (channelResults.length) {
+                            <section>
+                                <h5>Channels</h5>
+                                @for (
+                                    channel of channelResults;
+                                    track channel.id;
+                                    let i = $index
+                                    ) {
+                                    <button
+                                        type="button"
+                                        [class.active]="activeResultIndex === i"
+                                        (click)="navigateToChannel(channel.id)"
+                                    >
+                                        # {{ channel.name }}
+                                    </button>
+                                }
+                            </section>
+                        }
+
+                        @if (userResults.length) {
+                            <section>
+                                <h5>Benutzer</h5>
+                                @for (
+                                    user of userResults;
+                                    track user.id;
+                                    let i = $index
+                                    ) {
+                                    <button
+                                        type="button"
+                                        [class.active]="
+                                        activeResultIndex ===
+                                        channelResults.length + i
+                                    "
+                                        (click)="navigateToUser(user)"
+                                    >
+                                        {{ user.name }} · {{ user.email }}
+                                    </button>
+                                }
+                            </section>
+                        }
+
+                        @if (messageResults.length) {
+                            <section>
+                                <h5>Nachrichten</h5>
+                                @for (
+                                    message of messageResults;
+                                    track message.id;
+                                    let i = $index
+                                    ) {
+                                    <button
+                                        type="button"
+                                        [class.active]="
+                                        activeResultIndex ===
+                                        channelResults.length +
+                                            userResults.length +
+                                            i
+                                    "
+                                        (click)="navigateToMessage(message)"
+                                    >
+                                        {{ message.text }}
+                                    </button>
+                                }
+                            </section>
+                        }
+
+                        @if (
+                            !isSearching &&
+                            !channelResults.length &&
+                            !userResults.length &&
+                            !messageResults.length
+                            ) {
+                            <p class="sidebar-search-results__empty">
+                                Keine Treffer
+                            </p>
+                        }
+                    </div>
+                }
+            </div>
+        </div>
+    }
+
     <div class="sidebar__topsection">
         <div class="sidebar__headsection">
             <div class="sidebar__headsection__left">

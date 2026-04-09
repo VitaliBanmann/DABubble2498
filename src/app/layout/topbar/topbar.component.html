@@ -25,21 +25,8 @@
         }
     </div>
 
-    @if (!ui.isMobile() || ui.isSidebarOpen()) {
+    @if ((!ui.isMobile() || ui.isSidebarOpen()) && !isSidebarSearchViewport) {
         <div class="topbar__search">
-            <button
-                type="button"
-                class="topbar__search-mobile-toggle"
-                aria-label="Suche öffnen"
-                (click)="openMobileSearchOverlay()"
-            >
-                <img
-                    src="assets/pictures/search.svg"
-                    alt=""
-                    class="topbar__search-mobile-toggle-icon"
-                />
-            </button>
-
             <div class="topbar__search-input">
                 <input
                     type="text"
@@ -54,8 +41,8 @@
                     class="material-symbols-outlined topbar__search-icon"
                     aria-hidden="true"
                 >
-                    search
-                </span>
+                search
+            </span>
 
                 @if (showSearchResults) {
                     <div
@@ -64,10 +51,10 @@
                     >
                         @if (isSearching) {
                             <p class="search-results__loading">
-                                <span
-                                    class="search-results__spinner"
-                                    aria-hidden="true"
-                                ></span>
+                            <span
+                                class="search-results__spinner"
+                                aria-hidden="true"
+                            ></span>
                                 Suche läuft…
                             </p>
                         }
@@ -102,9 +89,9 @@
                                     <button
                                         type="button"
                                         [class.active]="
-                                            activeResultIndex ===
-                                            channelResults.length + i
-                                        "
+                                        activeResultIndex ===
+                                        channelResults.length + i
+                                    "
                                         (click)="navigateToUser(user)"
                                     >
                                         {{ user.name }} · {{ user.email }}
@@ -124,11 +111,11 @@
                                     <button
                                         type="button"
                                         [class.active]="
-                                            activeResultIndex ===
-                                            channelResults.length +
-                                                userResults.length +
-                                                i
-                                        "
+                                        activeResultIndex ===
+                                        channelResults.length +
+                                            userResults.length +
+                                            i
+                                    "
                                         (click)="navigateToMessage(message)"
                                     >
                                         {{ message.text }}
@@ -226,140 +213,6 @@
         }
     </div>
 </header>
-
-@if (showMobileSearchOverlay) {
-    <div class="mobile-search-overlay" (click)="closeMobileSearchOverlay()">
-        <div
-            class="mobile-search-overlay__panel"
-            (click)="$event.stopPropagation()"
-        >
-            <div class="mobile-search-overlay__topbar">
-                <button
-                    type="button"
-                    class="mobile-search-overlay__close"
-                    aria-label="Suche schließen"
-                    (click)="closeMobileSearchOverlay()"
-                >
-                    ✕
-                </button>
-            </div>
-
-            <div class="mobile-search-overlay__search">
-                <div class="mobile-search-overlay__search-input">
-                    <input
-                        #mobileSearchInputRef
-                        type="text"
-                        placeholder="Devspace durchsuchen"
-                        [value]="searchTerm"
-                        (input)="onSearchInput($any($event.target).value)"
-                        (keydown)="onSearchKeydown($event)"
-                        (blur)="onSearchBlur()"
-                        (focus)="onSearchFocus()"
-                    />
-                    <span
-                        class="material-symbols-outlined mobile-search-overlay__search-icon"
-                        aria-hidden="true"
-                    >
-                        search
-                    </span>
-                </div>
-            </div>
-
-            <div class="mobile-search-overlay__results">
-                @if (showSearchResults) {
-                    <div
-                        class="mobile-search-results"
-                        (mousedown)="$event.preventDefault()"
-                    >
-                        @if (isSearching) {
-                            <p class="search-results__loading">
-                                <span
-                                    class="search-results__spinner"
-                                    aria-hidden="true"
-                                ></span>
-                                Suche läuft…
-                            </p>
-                        }
-
-                        @if (channelResults.length) {
-                            <section>
-                                <h5>Channels</h5>
-                                @for (
-                                    channel of channelResults;
-                                    track channel.id;
-                                    let i = $index
-                                    ) {
-                                    <button
-                                        type="button"
-                                        [class.active]="activeResultIndex === i"
-                                        (click)="navigateToChannel(channel.id)"
-                                    >
-                                        # {{ channel.name }}
-                                    </button>
-                                }
-                            </section>
-                        }
-
-                        @if (userResults.length) {
-                            <section>
-                                <h5>Benutzer</h5>
-                                @for (
-                                    user of userResults;
-                                    track user.id;
-                                    let i = $index
-                                    ) {
-                                    <button
-                                        type="button"
-                                        [class.active]="
-                                            activeResultIndex ===
-                                            channelResults.length + i
-                                        "
-                                        (click)="navigateToUser(user)"
-                                    >
-                                        {{ user.name }} · {{ user.email }}
-                                    </button>
-                                }
-                            </section>
-                        }
-
-                        @if (messageResults.length) {
-                            <section>
-                                <h5>Nachrichten</h5>
-                                @for (
-                                    message of messageResults;
-                                    track message.id;
-                                    let i = $index
-                                    ) {
-                                    <button
-                                        type="button"
-                                        [class.active]="
-                                            activeResultIndex ===
-                                            channelResults.length +
-                                                userResults.length +
-                                                i
-                                        "
-                                        (click)="navigateToMessage(message)"
-                                    >
-                                        {{ message.text }}
-                                    </button>
-                                }
-                            </section>
-                        }
-
-                        @if (
-                            !isSearching &&
-                            !channelResults.length &&
-                            !userResults.length &&
-                            !messageResults.length
-                            ) {
-                            <p class="search-results__empty">Keine Treffer</p>
-                        }
-                    </div>
-                }
-            </div>
-        </div>
-    </div>
-}
 
 @if (showProfile) {
     <div class="profile-modal" (click)="closeProfile()">

@@ -1,10 +1,18 @@
 import { CommonModule } from '@angular/common';
-import { Component, OnDestroy, OnInit } from '@angular/core';
+import {
+    ChangeDetectorRef,
+    Component,
+    HostListener,
+    OnDestroy,
+    OnInit,
+} from '@angular/core';
 import { FormControl, ReactiveFormsModule, Validators } from '@angular/forms';
 import { NavigationEnd, Router } from '@angular/router';
 import {
     catchError,
     combineLatest,
+    debounceTime,
+    distinctUntilChanged,
     filter,
     finalize,
     map,
@@ -32,6 +40,13 @@ import {
     SidebarChannel,
     SidebarDirectMessage,
 } from './sidebar.helpers';
+import {
+    SearchChannelResult,
+    SearchMessageResult,
+    SearchUserResult,
+} from '../topbar/topbar-search.util';
+import { GlobalSearchService } from '../../services/global-search.service';
+import { normalizeSearchToken } from '../../services/search-token.util';
 
 @Component({
     selector: 'app-sidebar',
@@ -80,6 +95,19 @@ export class SidebarComponent implements OnInit, OnDestroy {
     isChannelsSectionOpen = true;
     isDirectMessagesSectionOpen = true;
 
+    searchTerm = '';
+    showSearchResults = false;
+    isSearching = false;
+    activeResultIndex = -1;
+    channelResults: SearchChannelResult[] = [];
+    userResults: SearchUserResult[] = [];
+    messageResults: SearchMessageResult[] = [];
+    isMobileUserMenuViewport = false;
+    isSidebarSearchViewport = false;
+
+    private readonly searchInput$ = new Subject<string>();
+    private searchSubscription: Subscription | null = null;
+
     /** Handles toggle channels section. */
     toggleChannelsSection(): void {
         this.isChannelsSectionOpen = !this.isChannelsSectionOpen;
@@ -96,15 +124,20 @@ export class SidebarComponent implements OnInit, OnDestroy {
         private readonly userService: UserService,
         private readonly router: Router,
         private readonly ui: UiStateService,
+        private readonly globalSearchService: GlobalSearchService,
     ) {}
 
     /** Handles ng on init. */
     ngOnInit(): void {
+        this.syncViewportFlags();
         this.setDefaultChannels();
         this.initAuthSnapshot();
         this.loadChannels();
         this.setupNewMessageFlow();
+        this.initSearchPipeline();
+        this.globalSearchService.warmCache(this.subscription);
     }
+
     readonly availableMembers$ = this.userService.getAllUsersRealtime().pipe(
         catchError(() => of([] as User[])),
         map((members) =>
@@ -189,8 +222,194 @@ export class SidebarComponent implements OnInit, OnDestroy {
 
     /** Handles ng on destroy. */
     ngOnDestroy(): void {
+        this.searchSubscription?.unsubscribe();
         this.subscription.unsubscribe();
+        this.searchInput$.complete();
     }
+
+    @HostListener('window:resize')
+    onWindowResize(): void {
+        this.syncViewportFlags();
+
+        if (!this.isSidebarSearchViewport) {
+            this.closeSearchResults();
+        }
+    }
+
+    get allResults(): Array<{ kind: 'channel' | 'user' | 'message'; item: any }> {
+        return [
+            ...this.channelResults.map((item) => ({ kind: 'channel' as const, item })),
+            ...this.userResults.map((item) => ({ kind: 'user' as const, item })),
+            ...this.messageResults.map((item) => ({ kind: 'message' as const, item })),
+        ];
+    }
+
+    onSearchInput(value: string): void {
+        this.searchTerm = value;
+        if (!value.trim()) this.clearSearchResults();
+        this.searchInput$.next(value);
+    }
+
+    onSearchFocus(): void {
+        if (this.searchTerm.trim().length >= 2) {
+            this.showSearchResults = true;
+        }
+    }
+
+    onSearchBlur(): void {
+        setTimeout(() => {
+            this.showSearchResults = false;
+            this.activeResultIndex = -1;
+        }, 150);
+    }
+
+    onSearchKeydown(event: KeyboardEvent): void {
+        if (event.key === 'Escape') {
+            this.closeSearchResults();
+            return;
+        }
+
+        if (event.key === 'Enter') {
+            this.handleSearchEnter(event);
+            return;
+        }
+
+        if (!this.showSearchResults) return;
+        this.handleSearchArrowNavigation(event);
+    }
+
+    navigateToChannel(channelId: string): void {
+        this.clearSearchResults();
+        this.openChannel(channelId);
+    }
+
+    navigateToUser(user: SearchUserResult): void {
+        this.clearSearchResults();
+        void this.router.navigate(['/app/dm', user.id], {
+            queryParams: { name: user.name },
+        });
+    }
+
+    navigateToMessage(result: SearchMessageResult): void {
+        this.clearSearchResults();
+
+        if (result.kind === 'dm' && result.partnerUserId) {
+            void this.router.navigate(['/app/dm', result.partnerUserId], {
+                queryParams: { msg: result.id },
+            });
+            return;
+        }
+
+        if (result.channelId) {
+            void this.router.navigate(['/app/channel', result.channelId], {
+                queryParams: { msg: result.id },
+            });
+        }
+    }
+
+    closeSearchResults(): void {
+        this.showSearchResults = false;
+        this.activeResultIndex = -1;
+    }
+
+    private handleSearchEnter(event: KeyboardEvent): void {
+        event.preventDefault();
+        const target = this.allResults[this.activeResultIndex] ?? this.allResults[0];
+        if (target) {
+            this.navigateByResult(target);
+            return;
+        }
+
+        this.triggerImmediateSearch();
+    }
+
+    private handleSearchArrowNavigation(event: KeyboardEvent): void {
+        const total = this.allResults.length;
+        if (event.key === 'ArrowDown') {
+            event.preventDefault();
+            this.activeResultIndex = Math.min(this.activeResultIndex + 1, total - 1);
+        }
+        if (event.key === 'ArrowUp') {
+            event.preventDefault();
+            this.activeResultIndex = Math.max(this.activeResultIndex - 1, -1);
+        }
+    }
+
+    private navigateByResult(result: { kind: string; item: any }): void {
+        if (result.kind === 'channel') return this.navigateToChannel(result.item.id);
+        if (result.kind === 'user') return this.navigateToUser(result.item);
+        this.navigateToMessage(result.item);
+    }
+
+    private triggerImmediateSearch(): void {
+        const query = normalizeSearchToken(this.searchTerm.trim());
+        if (query.length < 2) return;
+
+        this.activeResultIndex = -1;
+        this.isSearching = true;
+        this.showSearchResults = true;
+        this.runIndexedSearch(query);
+    }
+
+    private initSearchPipeline(): void {
+        this.subscription.add(
+            this.searchInput$
+                .pipe(debounceTime(300), distinctUntilChanged())
+                .subscribe((value) => {
+                    const query = normalizeSearchToken(value.trim());
+
+                    if (query.length < 2) {
+                        this.clearSearchResults();
+                        return;
+                    }
+
+                    this.activeResultIndex = -1;
+                    this.isSearching = true;
+                    this.showSearchResults = true;
+                    this.runIndexedSearch(query);
+                }),
+        );
+    }
+
+    private runIndexedSearch(rawQuery: string): void {
+        const token = normalizeSearchToken(rawQuery);
+        if (!token) return this.clearSearchResults();
+
+        this.searchSubscription?.unsubscribe();
+        this.searchSubscription = this.globalSearchService
+            .search(token)
+            .subscribe((result) =>
+                this.applySearchResults(result.channels, result.users, result.messages),
+            );
+    }
+
+    private applySearchResults(
+        channels: SearchChannelResult[],
+        users: SearchUserResult[],
+        messages: SearchMessageResult[],
+    ): void {
+        this.channelResults = channels;
+        this.userResults = users;
+        this.messageResults = messages;
+        this.isSearching = false;
+        this.showSearchResults = this.searchTerm.trim().length > 0;
+    }
+
+    private clearSearchResults(): void {
+        this.showSearchResults = false;
+        this.isSearching = false;
+        this.activeResultIndex = -1;
+        this.searchTerm = '';
+        this.channelResults = [];
+        this.userResults = [];
+        this.messageResults = [];
+    }
+
+    private syncViewportFlags(): void {
+        this.isMobileUserMenuViewport = window.innerWidth < 768;
+        this.isSidebarSearchViewport = window.innerWidth <= 430;
+    }
+
     /** Handles open create channel dialog. */
     openCreateChannelDialog(): void {
         if (!this.canCreateChannel) return;
