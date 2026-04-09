@@ -20,7 +20,7 @@
                 <span class="brand-name">DABubble</span>
             </div>
 
-            <div class="signup">
+            <div class="signup signup--desktop">
                 @if (!isRegisterMode) {
                     <span>Neu bei DABubble?</span>
                     <button
@@ -240,6 +240,30 @@
                 </div>
             </form>
         </section>
+
+        <div class="signup signup--mobile">
+            @if (!isRegisterMode) {
+                <span>Neu bei DABubble?</span>
+                <button
+                    type="button"
+                    class="link"
+                    [disabled]="isSubmitting"
+                    (click)="enterRegisterMode()"
+                >
+                    Konto erstellen
+                </button>
+            } @else {
+                <span>Schon bei DABubble registriert?</span>
+                <button
+                    type="button"
+                    class="link"
+                    [disabled]="isSubmitting"
+                    (click)="enterLoginMode()"
+                >
+                    Anmelden
+                </button>
+            }
+        </div>
 
         <footer class="page-footer">
             <a routerLink="/impressum" class="link">Impressum</a>

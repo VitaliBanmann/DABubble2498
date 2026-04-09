@@ -103,6 +103,10 @@
     gap: 6px;
 }
 
+.signup--mobile {
+    display: none;
+}
+
 .link {
     border: 0;
     background: transparent;
@@ -341,6 +345,7 @@ form {
 .page-footer {
     display: flex;
     justify-content: center;
+    flex-wrap: wrap;
     gap: 24px;
     font-size: 14px;
     color: #7d7f96;
@@ -348,24 +353,37 @@ form {
     padding-top: 16px;
 }
 
-@media (max-width: 720px) {
+@media (max-width: 1024px) {
     .auth-page {
-        padding: 20px 20px 16px;
+        padding: 16px 12px 12px;
     }
 
     .page-header {
-        flex-direction: column;
-        align-items: flex-start;
-        gap: 16px;
+        justify-content: center;
+        padding-top: 8px;
     }
 
-    .signup {
-        text-align: left;
+    .page-header .signup--desktop {
+        display: none !important;
+    }
+
+    .auth-page > .signup--mobile {
+        display: grid !important;
+        justify-items: center;
+        text-align: center;
+        gap: 8px;
+        margin-top: 14px;
+        font-size: 14px;
     }
 }
 
 @media (max-width: 520px) {
+    .auth-page {
+        padding: 12px 8px 10px;
+    }
+
     .auth-card {
+        width: 100%;
         padding: 32px 24px;
     }
 
@@ -396,7 +414,7 @@ form {
 
 @media (max-width: 380px) {
     .auth-page {
-        padding: 16px 10px 12px;
+        padding: 10px 8px;
     }
 
     .brand {
@@ -455,7 +473,7 @@ form {
 
 @media (max-width: 320px) {
     .auth-page {
-        padding: 12px 8px 10px;
+        padding: 8px;
     }
 
     .brand-name {
@@ -486,8 +504,13 @@ form {
     }
 
     .overlay-card {
-        width: calc(100% - 10px);
+        width: calc(100% - 16px);
         padding: 18px 10px 14px;
+    }
+
+    .page-footer {
+        gap: 14px;
+        font-size: 13px;
     }
 }
 
