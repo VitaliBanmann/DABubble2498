@@ -1,3 +1,4 @@
+/** Firebase project configuration used by AngularFire initialization. */
 export const firebaseConfig = {
     apiKey: 'AIzaSyDIPLROscPNuutE4s6a3fwCVHJBt1_ewnY',
     authDomain: 'da-bubble-da44d.firebaseapp.com',

@@ -33,6 +33,10 @@ export class GlobalSearchService {
         private readonly userService: UserService,
     ) {}
 
+    /**
+     * Preloads channel and user data used as fallback for fast local search.
+     * @param subscription Subscription container that owns the warmup streams.
+     */
     warmCache(subscription: Subscription): void {
         subscription.add(
             this.channelService
@@ -53,6 +57,11 @@ export class GlobalSearchService {
         );
     }
 
+    /**
+     * Searches channels, users and messages for the provided query string.
+     * @param rawQuery Raw search input from the UI.
+     * @returns Stream with grouped global search results.
+     */
     search(rawQuery: string): Observable<GlobalSearchResultState> {
         const token = normalizeSearchToken(rawQuery);
         if (!token) {

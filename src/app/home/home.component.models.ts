@@ -1,10 +1,12 @@
 import { Message } from '../services/message.service';
 
+/** User/channel mention option used in the composer. */
 export interface MentionCandidate {
     id: string;
     label: string;
 }
 
+/** Target suggestion used for compose routing shortcuts. */
 export interface ComposeTargetSuggestion {
     kind: 'channel' | 'user';
     id: string;
@@ -13,6 +15,7 @@ export interface ComposeTargetSuggestion {
     subtitle: string;
 }
 
+/** Visual message group rendered as one chat block. */
 export interface MessageGroup {
     id: string;
     senderId: string;

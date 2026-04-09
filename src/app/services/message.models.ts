@@ -1,10 +1,12 @@
 import { Timestamp } from 'firebase/firestore';
 
+/** Emoji reaction attached to a message. */
 export interface MessageReaction extends Record<string, unknown> {
     emoji: string;
     userIds: string[];
 }
 
+/** File attachment metadata stored with a message. */
 export interface MessageAttachment extends Record<string, unknown> {
     name: string;
     path: string;
@@ -14,6 +16,7 @@ export interface MessageAttachment extends Record<string, unknown> {
     isImage: boolean;
 }
 
+/** Message entity used across channel and direct message contexts. */
 export interface Message extends Record<string, unknown> {
     id?: string;
     text: string;
@@ -32,6 +35,7 @@ export interface Message extends Record<string, unknown> {
     threadReplyCount?: number;
 }
 
+/** Message entity used inside a thread. */
 export interface ThreadMessage extends Record<string, unknown> {
     id?: string;
     text: string;
@@ -39,6 +43,7 @@ export interface ThreadMessage extends Record<string, unknown> {
     timestamp: Timestamp | Date;
 }
 
+/** Payload required to send a direct message. */
 export interface DirectMessagePayload {
     text: string;
     senderId: string;
