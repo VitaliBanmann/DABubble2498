@@ -261,7 +261,7 @@ export abstract class SidebarComponentBase extends SidebarSearchBase {
         }
         const channelName = this.channelNameControl.value.trim();
         if (channelName) return channelName;
-        this.saveError = 'Bitte gib einen gÃ¼ltigen Channel-Namen ein.';
+        this.saveError = 'Bitte gib einen gueltigen Channel-Namen ein.';
         this.channelNameControl.markAsTouched();
         return '';
     }
@@ -319,41 +319,51 @@ export abstract class SidebarComponentBase extends SidebarSearchBase {
         this.refreshUnreadTracking();
     }
     private ensureActiveChannelVisible(): void {
-        if (!this.activeChannelId) return;
-        if (this.channels.some((channel) => channel.id === this.activeChannelId)) return;
+        const missingId = this.getMissingActiveChannelId();
+        if (!missingId) return;
         this.subscription.add(
             this.channelService
-                .getChannel(this.activeChannelId)
+                .getChannel(missingId)
                 .pipe(take(1), catchError(() => of(null as Channel | null)))
-                .subscribe((channel: Channel | null) => {
-                    if (!channel?.id) return;
-                    this.channels.push(
-                        mapSidebarChannel(
-                            channel,
-                            this.canonicalChannelLabels,
-                            this.unreadByChannelId,
-                            this.mentionByChannelId,
-                        ),
-                    );
-                    this.sortChannels();
-                }),
+                .subscribe((channel) => this.addActiveChannelIfFound(channel)),
         );
     }
     private mergeChannel(merged: SidebarChannel[], channel: Channel): SidebarChannel[] {
         if (!channel.id) return merged;
         const index = merged.findIndex((item) => item.id === channel.id);
-        const mapped = mapSidebarChannel(
+        this.upsertMergedChannel(merged, index, this.mapChannelForSidebar(channel));
+        return merged;
+    }
+    private getMissingActiveChannelId(): string | null {
+        if (!this.activeChannelId) return null;
+        if (this.channels.some((channel) => channel.id === this.activeChannelId)) {
+            return null;
+        }
+        return this.activeChannelId;
+    }
+    private addActiveChannelIfFound(channel: Channel | null): void {
+        if (!channel?.id) return;
+        this.channels.push(this.mapChannelForSidebar(channel));
+        this.sortChannels();
+    }
+    private mapChannelForSidebar(channel: Channel): SidebarChannel {
+        return mapSidebarChannel(
             channel,
             this.canonicalChannelLabels,
             this.unreadByChannelId,
             this.mentionByChannelId,
         );
+    }
+    private upsertMergedChannel(
+        merged: SidebarChannel[],
+        index: number,
+        channel: SidebarChannel,
+    ): void {
         if (index >= 0) {
-            merged[index] = mapped;
-            return merged;
+            merged[index] = channel;
+            return;
         }
-        merged.push(mapped);
-        return merged;
+        merged.push(channel);
     }
     private sortChannels(): void {
         this.channels.sort((left, right) => {

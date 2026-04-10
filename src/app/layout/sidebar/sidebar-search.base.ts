@@ -93,19 +93,8 @@ export abstract class SidebarSearchBase {
 
     navigateToMessage(result: SearchMessageResult): void {
         this.clearSearchResults();
-
-        if (result.kind === 'dm' && result.partnerUserId) {
-            void this.router.navigate(['/app/dm', result.partnerUserId], {
-                queryParams: { msg: result.id },
-            });
-            return;
-        }
-
-        if (result.channelId) {
-            void this.router.navigate(['/app/channel', result.channelId], {
-                queryParams: { msg: result.id },
-            });
-        }
+        if (this.tryNavigateToDirectMessage(result)) return;
+        this.navigateToChannelMessage(result);
     }
 
     closeSearchResults(): void {
@@ -162,6 +151,21 @@ export abstract class SidebarSearchBase {
         }
 
         this.navigateToMessage(result.item);
+    }
+
+    private tryNavigateToDirectMessage(result: SearchMessageResult): boolean {
+        if (result.kind !== 'dm' || !result.partnerUserId) return false;
+        void this.router.navigate(['/app/dm', result.partnerUserId], {
+            queryParams: { msg: result.id },
+        });
+        return true;
+    }
+
+    private navigateToChannelMessage(result: SearchMessageResult): void {
+        if (!result.channelId) return;
+        void this.router.navigate(['/app/channel', result.channelId], {
+            queryParams: { msg: result.id },
+        });
     }
 
     private triggerImmediateSearch(): void {
