@@ -14,6 +14,10 @@
             height: 168px;
         }
 
+        .show-profile__avatar-picker {
+            max-width: 300px;
+        }
+
         .show-profile__avatar-fallback {
             font-size: 36px;
         }
@@ -78,6 +82,10 @@
             font-size: 16px;
         }
 
+        .show-profile__input-error {
+            font-size: 13px;
+        }
+
         .show-profile__mail-label img,
         .show-profile__field-icon {
             width: 22px;
@@ -88,6 +96,20 @@
         .show-profile__avatar-fallback {
             width: 144px;
             height: 144px;
+        }
+
+        .show-profile__avatar-picker {
+            max-width: 100%;
+        }
+
+        .show-profile__avatar-options {
+            gap: 8px;
+        }
+
+        .show-profile__avatar-option,
+        .show-profile__avatar-add {
+            border-radius: 12px;
+            padding: 6px;
         }
 
         .show-profile__avatar-fallback {
@@ -128,6 +150,10 @@
         .show-profile__avatar-fallback {
             width: 132px;
             height: 132px;
+        }
+
+        .show-profile__avatar-hint {
+            font-size: 12px;
         }
 
         .show-profile__avatar-fallback {

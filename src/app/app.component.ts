@@ -12,6 +12,9 @@ import { AuthService } from './services/auth.service';
 import { PasswordResetFlowService } from './services/password-reset-flow.service';
 import { PresenceService } from './services/presence.service';
 import { UserService } from './services/user.service';
+
+const STRICT_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+
 @Component({
     selector: 'app-root',
     standalone: true,
@@ -32,12 +35,18 @@ export class AppComponent {
     forgotPasswordError = '';
     loginForm = this.formBuilder.group({
         displayName: ['', [Validators.maxLength(30)]],
-        email: ['', [Validators.required, Validators.email]],
+        email: [
+            '',
+            [Validators.required, Validators.email, Validators.pattern(STRICT_EMAIL_PATTERN)],
+        ],
         password: ['', [Validators.required, Validators.minLength(6)]],
         rememberMe: [false],
     });
     forgotPasswordForm = this.formBuilder.group({
-        email: ['', [Validators.required, Validators.email]],
+        email: [
+            '',
+            [Validators.required, Validators.email, Validators.pattern(STRICT_EMAIL_PATTERN)],
+        ],
     });
     constructor(
         private readonly formBuilder: FormBuilder,
@@ -326,6 +335,17 @@ export class AppComponent {
         if (password.length < 6) return 'Das Passwort muss mindestens 6 Zeichen lang sein.';
         return '';
     }
+
+    /** Returns primary submit disabled state. */
+    get isPrimarySubmitDisabled(): boolean {
+        if (this.isSubmitting) return true;
+        if (!this.isRegisterMode) return this.emailControl.invalid || this.passwordControl.invalid;
+
+        const displayName = (this.displayNameControl.value ?? '').trim();
+        const password = this.passwordControl.value ?? '';
+        return !displayName || this.emailControl.invalid || !this.isRegisterPasswordValid(password);
+    }
+
     /** Returns show password error. */
     get showPasswordError(): boolean {
         const password = this.passwordControl.value ?? '';

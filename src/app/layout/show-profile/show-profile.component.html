@@ -13,13 +13,67 @@
 	        </button>
 	    </header>
 
-    <div class="show-profile__avatar">
-        @if (avatarUrl) {
-            <img [src]="avatarUrl" [alt]="displayName" />
-        } @else {
-            <div class="show-profile__avatar-fallback" aria-hidden="true">
-                {{ initials }}
-            </div>
+    <div class="show-profile__avatar-wrap">
+        <button
+            type="button"
+            class="show-profile__avatar"
+            [class.show-profile__avatar--editable]="isEditing && !isSaving"
+            [attr.aria-label]="isEditing ? 'Profilbild ändern' : null"
+            [attr.aria-expanded]="isEditing ? showAvatarPicker : null"
+            [disabled]="!isEditing || isSaving"
+            (click)="toggleAvatarPicker()"
+        >
+            @if (activeAvatarUrl) {
+                <img [src]="activeAvatarUrl" [alt]="displayName" />
+            } @else {
+                <div class="show-profile__avatar-fallback" aria-hidden="true">
+                    {{ initials }}
+                </div>
+            }
+        </button>
+
+        @if (isEditing) {
+            <span class="show-profile__avatar-hint">Profilbild anklicken zum Ändern</span>
+            @if (showAvatarPicker) {
+                <div class="show-profile__avatar-picker">
+                    <div class="show-profile__avatar-options">
+                        @for (avatar of avatars; track avatar.id) {
+                            <button
+                                type="button"
+                                class="show-profile__avatar-option"
+                                [class.selected]="selectedAvatarId === avatar.id"
+                                [attr.title]="avatar.name"
+                                (click)="selectAvatar(avatar.id)"
+                            >
+                                <img [src]="'assets/pictures/' + avatar.path" [alt]="avatar.name" />
+                            </button>
+                        }
+
+                        <button
+                            type="button"
+                            class="show-profile__avatar-add"
+                            title="Eigenes Foto hochladen"
+                            (click)="onUploadClick(fileInput)"
+                        >
+                            <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                                <path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z" />
+                            </svg>
+                        </button>
+                    </div>
+
+                    <input
+                        #fileInput
+                        type="file"
+                        accept="image/*"
+                        class="show-profile__hidden-upload-input"
+                        (change)="handleFileUpload($event)"
+                    />
+
+                    @if (uploadError) {
+                        <p class="show-profile__upload-error">{{ uploadError }}</p>
+                    }
+                </div>
+            }
         }
     </div>
 
@@ -71,15 +125,18 @@
                 <span>Vollständiger Name</span>
             </div>
 
-            <div class="show-profile__edit-input">
-	                <input
-	                    type="text"
-	                    [value]="editDisplayName"
-	                    (input)="updateEditNameDraft(($any($event.target)).value)"
-	                    autocomplete="name"
-	                    [disabled]="isSaving"
-	                />
-	            </div>
+	            <div class="show-profile__edit-input">
+		                <input
+		                    type="text"
+		                    [value]="editDisplayName"
+		                    (input)="updateEditNameDraft(($any($event.target)).value)"
+		                    autocomplete="name"
+		                    [disabled]="isSaving"
+		                />
+                    @if (isEditNameEmpty) {
+                        <p class="show-profile__input-error">Bitte Namen eingeben</p>
+                    }
+		            </div>
 
             <div class="show-profile__edit-actions">
 	                <button
@@ -93,9 +150,9 @@
 	                <button
 	                    class="show-profile__action show-profile__action--save"
 	                    type="button"
-	                    (click)="saveDisplayNameEdit()"
-	                    [disabled]="isSaving || !editDisplayName.trim()"
-	                >
+                    (click)="saveProfileEdit()"
+                    [disabled]="isSaving || isEditNameEmpty"
+                >
 	                    Speichern
 	                </button>
 	            </div>

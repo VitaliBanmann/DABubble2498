@@ -1,10 +1,15 @@
 @if (showAuthScreen && showSplash) {
     <div class="splash-screen">
-        <img
-            src="assets/pictures/Logo.svg"
-            alt="DA Bubble"
-            class="splash-logo"
-        />
+        <div class="splash-brand" aria-label="DABubble">
+            <img
+                src="assets/pictures/Logo.svg"
+                alt=""
+                class="splash-logo"
+            />
+            <span class="splash-word-clip">
+                <span class="splash-word">DABubble</span>
+            </span>
+        </div>
     </div>
 }
 
@@ -222,7 +227,7 @@
                     <button
                         type="submit"
                         class="primary"
-                        [disabled]="isSubmitting"
+                        [disabled]="isPrimarySubmitDisabled"
                     >
                         {{ isRegisterMode ? 'Konto erstellen' : 'Anmelden' }}
                     </button>

@@ -17,31 +17,87 @@
     align-items: center;
     justify-content: center;
     z-index: 9999;
-    animation: fadeOutSplash 1s ease 2.5s forwards;
+    animation: fadeOutSplash 0.5s ease 3s forwards;
+}
+
+.splash-brand {
+    display: inline-flex;
+    align-items: center;
+    gap: 14px;
+    transform-origin: center center;
+    animation: splashBrandMotion 3.2s cubic-bezier(0.22, 0.84, 0.2, 1) forwards;
 }
 
 .splash-logo {
-    width: 200px;
+    width: 130px;
     height: auto;
-    animation: logoAnimation 3s ease-out forwards;
+    opacity: 0;
+    transform: scale(0.35);
+    animation: splashLogoPop 0.7s ease-out 0.1s forwards;
 }
 
-@keyframes logoAnimation {
+.splash-word-clip {
+    width: 0;
+    overflow: hidden;
+    white-space: nowrap;
+    animation: splashWordReveal 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) 0.75s forwards;
+}
+
+.splash-word {
+    display: inline-block;
+    font-size: 58px;
+    line-height: 1;
+    font-weight: 700;
+    color: #fff;
+    letter-spacing: 0.3px;
+    transform: translateX(-24px);
+    opacity: 0;
+    animation: splashWordSlide 0.85s cubic-bezier(0.2, 0.8, 0.2, 1) 0.75s forwards;
+}
+
+@keyframes splashLogoPop {
     0% {
-        transform: translate(0, 0) scale(0.3);
         opacity: 0;
+        transform: scale(0.35);
     }
-    30% {
-        transform: translate(0, 0) scale(1.05);
+    75% {
+        transform: scale(1.04);
         opacity: 1;
     }
-    50% {
+    100% {
+        transform: scale(1);
+        opacity: 1;
+    }
+}
+
+@keyframes splashWordReveal {
+    from {
+        width: 0;
+    }
+    to {
+        width: 320px;
+    }
+}
+
+@keyframes splashWordSlide {
+    0% {
+        transform: translateX(-24px);
+        opacity: 0;
+    }
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes splashBrandMotion {
+    0%,
+    58% {
         transform: translate(0, 0) scale(1);
         opacity: 1;
     }
     100% {
-        transform: translate(calc(-50vw + 100px), calc(-50vh + 60px))
-            scale(0.23);
+        transform: translate(calc(-50vw + 118px), calc(-50vh + 58px)) scale(0.36);
         opacity: 1;
     }
 }
@@ -59,7 +115,7 @@
     flex-direction: column;
     padding: 28px 40px 20px;
     opacity: 0;
-    animation: fadeIn 0.8s ease 3s forwards;
+    animation: fadeIn 0.2s ease 0s forwards;
 
     &.hidden {
         display: none;
@@ -334,6 +390,15 @@ form {
     background: #5b5de6;
     color: #ffffff;
     box-shadow: 0 8px 18px rgba(91, 93, 230, 0.3);
+
+    &:disabled {
+        background: #c7c9d1;
+        border-color: #c7c9d1;
+        color: #f5f6f8;
+        box-shadow: none;
+        cursor: not-allowed;
+        pointer-events: none;
+    }
 }
 
 .secondary {
@@ -378,6 +443,39 @@ form {
 }
 
 @media (max-width: 520px) {
+    .splash-brand {
+        gap: 10px;
+    }
+
+    .splash-logo {
+        width: 96px;
+    }
+
+    .splash-word {
+        font-size: 42px;
+    }
+
+    @keyframes splashWordReveal {
+        from {
+            width: 0;
+        }
+        to {
+            width: 230px;
+        }
+    }
+
+    @keyframes splashBrandMotion {
+        0%,
+        58% {
+            transform: translate(0, 0) scale(1);
+            opacity: 1;
+        }
+        100% {
+            transform: translate(calc(-50vw + 88px), calc(-50vh + 52px)) scale(0.34);
+            opacity: 1;
+        }
+    }
+
     .auth-page {
         padding: 12px 8px 10px;
     }
@@ -413,6 +511,14 @@ form {
 }
 
 @media (max-width: 380px) {
+    .splash-logo {
+        width: 82px;
+    }
+
+    .splash-word {
+        font-size: 36px;
+    }
+
     .auth-page {
         padding: 10px 8px;
     }

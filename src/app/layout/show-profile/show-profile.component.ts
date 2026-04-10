@@ -17,6 +17,12 @@ interface ResolvedProfileView {
     avatarUrl: string | null;
 }
 
+interface AvatarOption {
+    id: string;
+    name: string;
+    path: string;
+}
+
 @Component({
     selector: 'app-show-profile',
     standalone: true,
@@ -34,7 +40,20 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
     avatarUrl: string | null = null;
     isEditing = false;
     editDisplayName = '';
+    isEditNameEmpty = true;
+    editAvatarUrl: string | null = null;
+    selectedAvatarId: string | null = null;
+    uploadedAvatarDataUrl: string | null = null;
+    showAvatarPicker = false;
+    uploadError = '';
     isSaving = false;
+    readonly avatars: AvatarOption[] = [
+        { id: 'm1', name: 'Mann 1', path: 'profil_m1.svg' },
+        { id: 'm2', name: 'Mann 2', path: 'profil_m2.svg' },
+        { id: 'm3', name: 'Mann 3', path: 'profil_m3.svg' },
+        { id: 'w1', name: 'Frau 1', path: 'profil_w1.svg' },
+        { id: 'w2', name: 'Frau 2', path: 'profil_w2.svg' },
+    ];
 
     private readonly subscription = new Subscription();
     private readonly profileEmailKeys = ['email', 'mail', 'emailAddress', 'eMail'] as const;
@@ -65,30 +84,98 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
     enterEditMode(): void {
         this.isEditing = true;
         this.editDisplayName = this.displayName;
+        this.syncNameValidationState();
+        this.editAvatarUrl = this.avatarUrl;
+        this.selectAvatarFromProfile(this.avatarUrl);
+        this.showAvatarPicker = false;
+        this.uploadError = '';
     }
 
     /** Handles exit edit mode. */
     exitEditMode(): void {
         this.isEditing = false;
+        this.showAvatarPicker = false;
     }
 
-    /** Handles save display name edit. */
-    async saveDisplayNameEdit(): Promise<void> {
+    /** Handles save profile edit. */
+    async saveProfileEdit(): Promise<void> {
         const nextName = this.editDisplayName.trim();
         if (!this.isSaveAllowed(nextName)) return;
-        this.applyOptimisticNameAndStartSaving(nextName);
-        await this.persistDisplayNameOrRestoreEdit(nextName);
+        const nextAvatar = this.resolveAvatarForSave();
+        this.applyOptimisticProfileAndStartSaving(nextName, nextAvatar);
+        await this.persistProfileOrRestoreEdit(nextName, nextAvatar);
         this.setSavingFlag(false);
     }
 
     /** Handles update edit name draft. */
     updateEditNameDraft(value: string): void {
         this.editDisplayName = value;
+        this.syncNameValidationState();
+    }
+
+    /** Handles toggle avatar picker. */
+    toggleAvatarPicker(): void {
+        if (!this.isEditing || this.isSaving) return;
+        this.showAvatarPicker = !this.showAvatarPicker;
+    }
+
+    /** Handles select avatar in edit mode. */
+    selectAvatar(avatarId: string): void {
+        if (!this.isEditing || this.isSaving) return;
+
+        this.selectedAvatarId = avatarId;
+        this.uploadError = '';
+
+        if (avatarId === 'custom') {
+            this.editAvatarUrl = this.uploadedAvatarDataUrl;
+            return;
+        }
+
+        const selected = this.avatars.find((avatar) => avatar.id === avatarId);
+        this.editAvatarUrl = selected ? `assets/pictures/${selected.path}` : null;
+    }
+
+    /** Handles upload click. */
+    onUploadClick(fileInput: HTMLInputElement): void {
+        if (!this.isEditing || this.isSaving) return;
+        fileInput.click();
+    }
+
+    /** Handles avatar file upload. */
+    async handleFileUpload(event: Event): Promise<void> {
+        const target = event.target as HTMLInputElement;
+        const file = target.files?.[0];
+
+        if (!file) {
+            target.value = '';
+            return;
+        }
+
+        this.uploadError = '';
+
+        try {
+            const dataUrl = await this.resizeImageToDataUrl(file, 512, 0.82);
+            this.uploadedAvatarDataUrl = dataUrl;
+            this.selectedAvatarId = 'custom';
+            this.editAvatarUrl = dataUrl;
+            this.showAvatarPicker = true;
+        } catch (error) {
+            console.error('Avatar upload failed:', error);
+            this.uploadError =
+                'Das Bild konnte nicht verarbeitet werden. Bitte versuche eine andere Datei.';
+        }
+
+        target.value = '';
+    }
+
+    /** Returns avatar url for current mode. */
+    get activeAvatarUrl(): string | null {
+        return this.isEditing ? this.editAvatarUrl : this.avatarUrl;
     }
 
     /** Returns initials. */
     get initials(): string {
-        const name = this.displayName.trim();
+        const name = (this.isEditing ? this.editDisplayName : this.displayName).trim();
         if (!name) {
             return 'G';
         }
@@ -124,6 +211,11 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         this.displayName = view.displayName;
         this.email = view.email;
         this.avatarUrl = view.avatarUrl;
+
+        if (!this.isEditing) {
+            this.editAvatarUrl = view.avatarUrl;
+            this.selectAvatarFromProfile(view.avatarUrl);
+        }
     }
 
     /** Handles resolve view from profile. */
@@ -187,7 +279,11 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
     /** Handles apply seeded avatar. */
     private applySeededAvatar(value: string | null): void {
         const next = this.normalizeAvatarUrl(value);
-        if (next) this.avatarUrl = next;
+        if (next) {
+            this.avatarUrl = next;
+            this.editAvatarUrl = next;
+            this.selectAvatarFromProfile(next);
+        }
     }
 
     /** Handles extract profile email. */
@@ -235,22 +331,27 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
 
     /** Handles is save allowed. */
     private isSaveAllowed(nextName: string): boolean {
-        return !!nextName && !this.isSaving;
+        return !!nextName && !this.isSaving && !this.isEditNameEmpty;
     }
 
-    /** Handles apply optimistic name and start saving. */
-    private applyOptimisticNameAndStartSaving(nextName: string): void {
+    /** Handles apply optimistic profile and start saving. */
+    private applyOptimisticProfileAndStartSaving(nextName: string, nextAvatar: string | null): void {
         this.zone.run(() => {
             this.displayName = nextName;
+            this.avatarUrl = nextAvatar;
             this.isEditing = false;
+            this.showAvatarPicker = false;
             this.isSaving = true;
         });
     }
 
-    /** Handles persist display name or restore edit. */
-    private async persistDisplayNameOrRestoreEdit(nextName: string): Promise<void> {
+    /** Handles persist profile or restore edit. */
+    private async persistProfileOrRestoreEdit(nextName: string, avatar: string | null): Promise<void> {
         try {
-            await this.userService.updateCurrentUserProfile({ displayName: nextName });
+            await this.userService.updateCurrentUserProfile({
+                displayName: nextName,
+                ...(avatar ? { avatar } : {}),
+            });
         } catch (error) {
             console.error('Profil speichern fehlgeschlagen:', error);
             this.setEditingFlag(true);
@@ -269,5 +370,79 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         this.zone.run(() => {
             this.isEditing = value;
         });
+    }
+
+    /** Handles select avatar from existing profile value. */
+    private selectAvatarFromProfile(profileAvatar: string | null): void {
+        this.uploadedAvatarDataUrl = null;
+        this.selectedAvatarId = null;
+
+        const normalizedAvatar = this.normalizeAvatarUrl(profileAvatar);
+        if (!normalizedAvatar) return;
+
+        const matchingAvatar = this.avatars.find(
+            (avatar) => `assets/pictures/${avatar.path}` === normalizedAvatar,
+        );
+        if (matchingAvatar) {
+            this.selectedAvatarId = matchingAvatar.id;
+            return;
+        }
+
+        this.selectedAvatarId = 'custom';
+        this.uploadedAvatarDataUrl = normalizedAvatar;
+    }
+
+    /** Handles resolve avatar for save. */
+    private resolveAvatarForSave(): string | null {
+        if (this.selectedAvatarId === 'custom') {
+            return this.uploadedAvatarDataUrl;
+        }
+
+        const selectedAvatar = this.avatars.find(
+            (avatar) => avatar.id === this.selectedAvatarId,
+        );
+        if (selectedAvatar) return `assets/pictures/${selectedAvatar.path}`;
+        return this.editAvatarUrl;
+    }
+
+    /** Handles resize image to data url. */
+    private resizeImageToDataUrl(file: File, maxSize: number, quality: number): Promise<string> {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+
+            reader.onload = () => {
+                const img = new Image();
+
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
+                    const width = Math.round(img.width * scale);
+                    const height = Math.round(img.height * scale);
+
+                    canvas.width = width;
+                    canvas.height = height;
+
+                    const context = canvas.getContext('2d');
+                    if (!context) {
+                        reject(new Error('Canvas context unavailable'));
+                        return;
+                    }
+
+                    context.drawImage(img, 0, 0, width, height);
+                    resolve(canvas.toDataURL('image/jpeg', quality));
+                };
+
+                img.onerror = () => reject(new Error('Invalid image file'));
+                img.src = reader.result as string;
+            };
+
+            reader.onerror = () => reject(new Error('File could not be read'));
+            reader.readAsDataURL(file);
+        });
+    }
+
+    /** Handles sync name validation state. */
+    private syncNameValidationState(): void {
+        this.isEditNameEmpty = this.editDisplayName.trim().length === 0;
     }
 }
