@@ -382,10 +382,12 @@ export class AppComponent {
     get showPasswordError(): boolean {
         const password = this.passwordControl.value ?? '';
 
-        return this.passwordControl.touched && (
-            this.passwordControl.invalid ||
-            (this.isRegisterMode && !!password && !this.isRegisterPasswordValid(password))
-        );
+        return this.passwordControl.touched &&
+            !!password.trim() &&
+            (
+                this.passwordControl.invalid ||
+                (this.isRegisterMode && !this.isRegisterPasswordValid(password))
+            );
     }
 
     /** Handles can submit register. */

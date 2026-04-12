@@ -107,7 +107,11 @@
                     />
                 </label>
 
-                @if (emailControl.touched && emailControl.invalid) {
+                @if (
+                    emailControl.touched &&
+                    !!emailControl.value?.trim() &&
+                    (emailControl.hasError('email') || emailControl.hasError('pattern'))
+                    ) {
                     <p class="field-error">
                         Bitte gib eine gültige E-Mail-Adresse ein.
                     </p>
@@ -320,7 +324,14 @@
                     />
                 </label>
 
-                @if (forgotPasswordEmailControl.touched && forgotPasswordEmailControl.invalid) {
+                @if (
+                    forgotPasswordEmailControl.touched &&
+                    !!forgotPasswordEmailControl.value?.trim() &&
+                    (
+                        forgotPasswordEmailControl.hasError('email') ||
+                        forgotPasswordEmailControl.hasError('pattern')
+                    )
+                    ) {
                     <p class="field-error">
                         Bitte gib eine gültige E-Mail-Adresse ein.
                     </p>
