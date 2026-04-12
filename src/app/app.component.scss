@@ -687,3 +687,103 @@ form {
         background: #f5f5f5;
     }
 }
+
+/* ========================================
+   Login Feedback Popup
+======================================== */
+.login-feedback {
+    position: fixed;
+    left: 50%;
+    bottom: 24px;
+    transform: translateX(-50%);
+    z-index: 3000;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    min-height: 52px;
+    padding: 14px 18px;
+    border-radius: 24px;
+    background: #444df2;
+    color: #fff;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.18);
+    font-size: 16px;
+    font-weight: 600;
+    line-height: 1;
+    animation: loginFeedbackSlideIn 180ms ease-out;
+    max-width: calc(100vw - 32px);
+}
+
+.login-feedback--success {
+    background: #2fb344;
+}
+
+.login-feedback--error {
+    background: #e03131;
+}
+
+.login-feedback--loading {
+    background: #444df2;
+}
+
+.login-feedback__text {
+    white-space: nowrap;
+}
+
+.login-feedback__dots {
+    display: inline-flex;
+    width: 18px;
+    justify-content: space-between;
+
+    span {
+        display: inline-block;
+        animation: loginDots 1.2s infinite ease-in-out;
+    }
+
+    span:nth-child(2) {
+        animation-delay: 0.2s;
+    }
+
+    span:nth-child(3) {
+        animation-delay: 0.4s;
+    }
+}
+
+@keyframes loginDots {
+    0%,
+    80%,
+    100% {
+        opacity: 0.25;
+        transform: translateY(0);
+    }
+
+    40% {
+        opacity: 1;
+        transform: translateY(-2px);
+    }
+}
+
+@keyframes loginFeedbackSlideIn {
+    from {
+        opacity: 0;
+        transform: translateX(-50%) translateY(8px);
+    }
+
+    to {
+        opacity: 1;
+        transform: translateX(-50%) translateY(0);
+    }
+}
+
+@media (max-width: 600px) {
+    .login-feedback {
+        left: 16px;
+        right: 16px;
+        bottom: 16px;
+        transform: none;
+        max-width: none;
+        justify-content: center;
+        text-align: center;
+        font-size: 15px;
+    }
+}

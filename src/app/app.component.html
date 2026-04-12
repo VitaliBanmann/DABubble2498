@@ -106,6 +106,7 @@
                         autocomplete="email"
                     />
                 </label>
+
                 @if (emailControl.touched && emailControl.invalid) {
                     <p class="field-error">
                         Bitte gib eine gültige E-Mail-Adresse ein.
@@ -126,6 +127,7 @@
                         formControlName="password"
                         placeholder="Passwort"
                         [attr.autocomplete]="isRegisterMode ? 'new-password' : 'current-password'"
+                        (keydown.enter)="onPasswordEnter($event)"
                     />
                     <button
                         type="button"
@@ -199,26 +201,26 @@
                         [disabled]="isSubmitting"
                         (click)="onGoogleLogin()"
                     >
-                    <span class="google-icon" aria-hidden="true">
-                        <svg viewBox="0 0 48 48" role="img" aria-hidden="true">
-                            <path
-                                fill="#EA4335"
-                                d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.5 1.9 30.1 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6C12.4 13.3 17.7 9.5 24 9.5z"
-                            />
-                            <path
-                                fill="#4285F4"
-                                d="M46.6 24.5c0-1.6-.1-2.8-.4-4.1H24v7.8h12.8c-.5 3-2.3 5.6-5 7.4l7.7 6c4.6-4.2 7.1-10.4 7.1-17.1z"
-                            />
-                            <path
-                                fill="#FBBC05"
-                                d="M10.4 28.6a14.6 14.6 0 0 1 0-9.1l-7.8-6A24 24 0 0 0 0 24c0 3.8.9 7.3 2.6 10.5l7.8-5.9z"
-                            />
-                            <path
-                                fill="#34A853"
-                                d="M24 48c6.1 0 11.2-2 15-5.4l-7.7-6c-2.1 1.4-4.8 2.3-7.3 2.3-6.3 0-11.6-3.8-13.6-9.1l-7.8 5.9C6.5 42.6 14.6 48 24 48z"
-                            />
-                        </svg>
-                    </span>
+                        <span class="google-icon" aria-hidden="true">
+                            <svg viewBox="0 0 48 48" role="img" aria-hidden="true">
+                                <path
+                                    fill="#EA4335"
+                                    d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.5 1.9 30.1 0 24 0 14.6 0 6.5 5.4 2.6 13.2l7.8 6C12.4 13.3 17.7 9.5 24 9.5z"
+                                />
+                                <path
+                                    fill="#4285F4"
+                                    d="M46.6 24.5c0-1.6-.1-2.8-.4-4.1H24v7.8h12.8c-.5 3-2.3 5.6-5 7.4l7.7 6c4.6-4.2 7.1-10.4 7.1-17.1z"
+                                />
+                                <path
+                                    fill="#FBBC05"
+                                    d="M10.4 28.6a14.6 14.6 0 0 1 0-9.1l-7.8-6A24 24 0 0 0 0 24c0 3.8.9 7.3 2.6 10.5l7.8-5.9z"
+                                />
+                                <path
+                                    fill="#34A853"
+                                    d="M24 48c6.1 0 11.2-2 15-5.4l-7.7-6c-2.1 1.4-4.8 2.3-7.3 2.3-6.3 0-11.6-3.8-13.6-9.1l-7.8 5.9C6.5 42.6 14.6 48 24 48z"
+                                />
+                            </svg>
+                        </span>
                         Anmelden mit Google
                     </button>
                 }
@@ -317,8 +319,8 @@
                         autocomplete="email"
                     />
                 </label>
-                @if (forgotPasswordEmailControl.touched &&
-                forgotPasswordEmailControl.invalid) {
+
+                @if (forgotPasswordEmailControl.touched && forgotPasswordEmailControl.invalid) {
                     <p class="field-error">
                         Bitte gib eine gültige E-Mail-Adresse ein.
                     </p>
@@ -443,6 +445,27 @@
                 </button>
             </form>
         </div>
+    </div>
+}
+
+@if (loginFeedbackVisible) {
+    <div
+        class="login-feedback"
+        [class.login-feedback--success]="loginFeedbackType === 'success'"
+        [class.login-feedback--error]="loginFeedbackType === 'error'"
+        [class.login-feedback--loading]="loginFeedbackType === 'loading'"
+        aria-live="polite"
+        aria-atomic="true"
+    >
+        <span class="login-feedback__text">
+            {{ loginFeedbackMessage }}
+        </span>
+
+        @if (loginFeedbackType === 'loading') {
+            <span class="login-feedback__dots" aria-hidden="true">
+                <span>.</span><span>.</span><span>.</span>
+            </span>
+        }
     </div>
 }
 
