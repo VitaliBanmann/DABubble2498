@@ -234,9 +234,13 @@ export class AppComponent {
         type: 'loading' | 'success' | 'error' = 'loading',
     ): void {
         this.clearLoginFeedbackTimeout();
-        this.loginFeedbackMessage = message;
-        this.loginFeedbackType = type;
-        this.loginFeedbackVisible = true;
+
+        this.ngZone.run(() => {
+            this.loginFeedbackMessage = message;
+            this.loginFeedbackType = type;
+            this.loginFeedbackVisible = true;
+            this.cdr.detectChanges();
+        });
     }
 
     /** Hides login feedback popup, optionally delayed. */
@@ -244,13 +248,19 @@ export class AppComponent {
         this.clearLoginFeedbackTimeout();
 
         if (delay <= 0) {
-            this.loginFeedbackVisible = false;
+            this.ngZone.run(() => {
+                this.loginFeedbackVisible = false;
+                this.cdr.detectChanges();
+            });
             return;
         }
 
         this.loginFeedbackTimeout = setTimeout(() => {
-            this.loginFeedbackVisible = false;
-            this.loginFeedbackTimeout = null;
+            this.ngZone.run(() => {
+                this.loginFeedbackVisible = false;
+                this.loginFeedbackTimeout = null;
+                this.cdr.detectChanges();
+            });
         }, delay);
     }
 
@@ -422,7 +432,7 @@ export class AppComponent {
 
             if (mode === 'login') {
                 this.showLoginFeedback('Erfolgreich angemeldet', 'success');
-                this.hideLoginFeedback(1000);
+                this.hideLoginFeedback(1600);
             }
         } catch (error) {
             this.errorMessage = this.resolveSubmitError(mode, error);
