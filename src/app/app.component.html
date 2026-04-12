@@ -84,7 +84,12 @@
                     </label>
                 }
 
-                @if (isRegisterMode && displayNameControl.touched && !displayNameControl.value?.trim()) {
+                @if (
+                    isRegisterMode &&
+                    displayNameControl.touched &&
+                    !!displayNameControl.value &&
+                    !displayNameControl.value.trim()
+                    ) {
                     <p class="field-error">
                         Bitte gib einen Anzeigenamen ein.
                     </p>
