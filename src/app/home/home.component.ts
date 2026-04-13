@@ -21,7 +21,7 @@ import { AttachmentService } from '../services/attachment.service';
 import { AuthFlowService } from '../services/auth-flow.service';
 import { AuthService } from '../services/auth.service';
 import { ChannelService } from '../services/channel.service';
-import { MessageService } from '../services/message.service';
+import { Message, MessageService } from '../services/message.service';
 import { UiStateService } from '../services/ui-state.service';
 import { UnreadStateService } from '../services/unread-state.service';
 import { UserService } from '../services/user.service';
@@ -120,6 +120,73 @@ export class HomeComponent extends HomeDisplayBase implements OnInit, OnDestroy 
         this.liveMessagesSubscription?.unsubscribe();
         this.currentChannelSubscription?.unsubscribe();
         super.ngOnDestroy();
+    }
+
+    /** Focuses an input/textarea with small retries so it also works after rerender/open animations. */
+    private focusElementSoon(
+        getElement: () => HTMLInputElement | HTMLTextAreaElement | null,
+        attempts = 8,
+    ): void {
+        const run = (remaining: number) => {
+            requestAnimationFrame(() => {
+                const element = getElement();
+                if (element) {
+                    element.focus();
+
+                    const value = element.value ?? '';
+                    if ('setSelectionRange' in element) {
+                        const end = value.length;
+                        element.setSelectionRange(end, end);
+                    }
+                    return;
+                }
+
+                if (remaining > 1) {
+                    setTimeout(() => run(remaining - 1), 50);
+                }
+            });
+        };
+
+        run(attempts);
+    }
+
+    /** Focuses the normal chat composer. */
+    private focusComposerSoon(): void {
+        this.focusElementSoon(
+            () => this.composerTextareaRef?.nativeElement ?? null,
+        );
+    }
+
+    /** Focuses the thread input. */
+    private focusThreadComposerSoon(): void {
+        this.focusElementSoon(() => {
+            return (
+                document.querySelector('.thread-composer input') as HTMLInputElement | null
+            ) ?? (
+                document.querySelector('.thread-composer textarea') as HTMLTextAreaElement | null
+            );
+        });
+    }
+
+    /** Handles direct chat switch. */
+    protected override setupDirectMessages(userId: string, name: string): void {
+        super.setupDirectMessages(userId, name);
+        this.focusComposerSoon();
+    }
+
+    /** Handles channel switch. */
+    protected override startResolvedChannelContext(
+        channelId: string,
+        requestedChannelId: string,
+    ): void {
+        super.startResolvedChannelContext(channelId, requestedChannelId);
+        this.focusComposerSoon();
+    }
+
+    /** Handles opening a thread and focuses its reply input. */
+    override openThreadForMessage(message: Message): void {
+        super.openThreadForMessage(message);
+        this.focusThreadComposerSoon();
     }
 
     /** Handles on document click. */
