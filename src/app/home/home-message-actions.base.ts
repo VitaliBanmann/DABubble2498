@@ -259,6 +259,38 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         return reaction.userIds.includes(this.currentUserId);
     }
 
+    /** Resolves a readable display name for a reaction user. */
+    protected getReactionUserDisplayName(userId: string): string {
+        if (!userId) return 'Unbekannt';
+        if (userId === this.currentUserId) return 'Du';
+
+        const displayName = (this.usersById[userId]?.displayName ?? '').trim();
+        return displayName || userId;
+    }
+
+    /** Returns all readable user names for a reaction. */
+    getReactionUserDisplayNames(reaction: MessageReaction): string[] {
+        const names = (reaction.userIds ?? [])
+            .map((userId) => this.getReactionUserDisplayName(userId))
+            .filter((name) => !!name);
+
+        const uniqueNames = Array.from(new Set(names));
+
+        return uniqueNames.sort((a, b) => {
+            if (a === 'Du') return -1;
+            if (b === 'Du') return 1;
+            return a.localeCompare(b, 'de');
+        });
+    }
+
+    /** Returns accessible tooltip label for a reaction. */
+    getReactionTooltipLabel(reaction: MessageReaction): string {
+        const names = this.getReactionUserDisplayNames(reaction);
+        if (!names.length) return `${reaction.emoji} Reaktion`;
+
+        return `${reaction.emoji} reagiert von ${names.join(', ')}`;
+    }
+
     /** Handles can open thread from toolbar. */
     canOpenThreadFromToolbar(message: Message): boolean {
         return !this.isDirectMessage && !!message.id;

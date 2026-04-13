@@ -250,22 +250,38 @@
 
                             <div class="message__reactions"
                                 [class.message__reactions--own]="isOwnMessage(groupMessage)">
-                                @for (reaction of visibleReactions; track reaction.emoji) {
-                                <button type="button" class="reaction" [class.active]="hasCurrentUserReacted(reaction)"
-                                    (click)="toggleReaction(groupMessage, reaction.emoji)">
-                                    <span>{{ reaction.emoji }}</span>
-                                    <span>{{ reaction.userIds.length }}</span>
-                                </button>
-                                }
+                                    @for (reaction of visibleReactions; track reaction.emoji) {
+                                        <button
+                                            type="button"
+                                            class="reaction"
+                                            [class.active]="hasCurrentUserReacted(reaction)"
+                                            [attr.aria-label]="getReactionTooltipLabel(reaction)"
+                                            [attr.title]="getReactionTooltipLabel(reaction)"
+                                            (click)="toggleReaction(groupMessage, reaction.emoji)"
+                                        >
+                                            <span>{{ reaction.emoji }}</span>
+                                            <span>{{ reaction.userIds.length }}</span>
+
+                                            <span class="reaction-tooltip" role="tooltip" aria-hidden="true">
+                                                <span class="reaction-tooltip__headline">
+                                                    {{ reaction.emoji }} Reagiert von
+                                                </span>
+
+                                                @for (name of getReactionUserDisplayNames(reaction); track name) {
+                                                    <span class="reaction-tooltip__user">{{ name }}</span>
+                                                }
+                                            </span>
+                                        </button>
+                                    }
 
                                 @if (hiddenCount > 0) {
                                 <button type="button" class="reaction more" (click)="toggleReactionList(groupMessage)">
                                     +{{ hiddenCount }} weitere
                                 </button>
                                 } @else if (isExpanded && (groupMessage.reactions?.length ?? 0) > 7) {
-                                <button type="button" class="reaction more" (click)="toggleReactionList(groupMessage)">
-                                    weniger anzeigen
-                                </button>
+                                    <button type="button" class="reaction more" (click)="toggleReactionList(groupMessage)">
+                                        weniger anzeigen
+                                    </button>
                                 }
 
                                 @if (canWrite) {

@@ -426,7 +426,7 @@ export class AppComponent {
         this.startSubmitting();
 
         if (mode === 'login') {
-            this.showLoginFeedback('Anmeldung...', 'loading');
+            this.showLoginFeedback('Anmeldung', 'loading');
         }
 
         try {
