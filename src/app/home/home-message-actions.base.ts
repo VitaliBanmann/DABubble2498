@@ -1,9 +1,10 @@
 import { Injectable } from '@angular/core';
 import { ElementRef, QueryList } from '@angular/core';
 import { FormControl } from '@angular/forms';
-import { Observable, Subscription } from 'rxjs';
+import { Observable, Subscription, take } from 'rxjs';
 import { Message, MessageReaction, MessageService, ThreadMessage } from '../services/message.service';
 import { HomeSendMessageBase } from './home-send-message.base';
+import { computeUpdatedReactions } from '../services/message.helpers';
 
 @Injectable()
 export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
@@ -34,6 +35,8 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
     private threadReplyCountSubscriptions: Record<string, Subscription> = {};
 
     protected abstract editMessageTextareas?: QueryList<ElementRef<HTMLTextAreaElement>>;
+
+    protected abstract triggerViewUpdate(): void;
 
     /** Handles prepare message stream switch. */
     protected override prepareMessageStreamSwitch(): void {
@@ -252,8 +255,19 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
     }
 
     /** Handles toggle reaction. */
+    /** Handles toggle reaction. */
     toggleReaction(message: Message, emoji: string): void {
-        if (!this.canWrite || !message.id) return;
+        if (!this.canWrite || !message.id || !this.currentUserId) return;
+
+        const previousReactions = this.cloneReactionState(message.reactions ?? []);
+        const nextReactions = computeUpdatedReactions(
+            message,
+            emoji,
+            this.currentUserId,
+        );
+
+        this.applyOptimisticReactionUpdate(message, nextReactions);
+        this.rememberRecentReactionEmoji(emoji);
 
         this.messageService
             .toggleReaction({
@@ -262,14 +276,142 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
                 isDirectMessage: this.isDirectMessage,
             })
             .subscribe({
-                next: () => {
-                    this.rememberRecentReactionEmoji(emoji);
-                },
                 error: () => {
+                    this.applyOptimisticReactionUpdate(message, previousReactions);
                     this.errorMessage =
                         'Reaktion konnte nicht aktualisiert werden.';
                 },
             });
+    }
+
+    /** Applies the updated reactions immediately to all relevant local states. */
+    protected applyOptimisticReactionUpdate(
+        message: Message,
+        reactions: MessageReaction[],
+    ): void {
+        const messageId = message.id;
+        if (!messageId) return;
+
+        const clonedReactions = this.cloneReactionState(reactions);
+
+        message.reactions = clonedReactions;
+
+        this.liveMessages = this.replaceMessageReactions(
+            this.liveMessages,
+            messageId,
+            clonedReactions,
+        );
+
+        this.olderMessages = this.replaceMessageReactions(
+            this.olderMessages,
+            messageId,
+            clonedReactions,
+        );
+
+        this.messages = this.replaceMessageReactions(
+            this.messages,
+            messageId,
+            clonedReactions,
+        );
+
+        this.messageGroups = this.messageGroups.map((group) => ({
+            ...group,
+            messages: group.messages.map((groupMessage) =>
+                groupMessage.id === messageId
+                    ? {
+                        ...groupMessage,
+                        reactions: this.cloneReactionState(clonedReactions),
+                    }
+                    : groupMessage,
+            ),
+        }));
+
+        if (this.activeThreadParent?.id === messageId) {
+            this.activeThreadParent = {
+                ...this.activeThreadParent,
+                reactions: this.cloneReactionState(clonedReactions),
+            };
+        }
+
+        this.triggerViewUpdate();
+    }
+
+    /** Replaces the reactions of a single message inside an array. */
+    protected replaceMessageReactions(
+        messages: Message[],
+        messageId: string,
+        reactions: MessageReaction[],
+    ): Message[] {
+        return messages.map((entry) =>
+            entry.id === messageId
+                ? {
+                    ...entry,
+                    reactions: this.cloneReactionState(reactions),
+                }
+                : entry,
+        );
+    }
+
+    /** Deep-clones the reaction state for safe local updates. */
+    protected cloneReactionState(
+        reactions: MessageReaction[],
+    ): MessageReaction[] {
+        return reactions.map((reaction) => ({
+            ...reaction,
+            userIds: [...reaction.userIds],
+        }));
+    }
+
+    /** Applies a local reaction update so the UI changes immediately. */
+    protected applyLocalReactionUpdate(
+        messageId: string,
+        reactions: MessageReaction[],
+    ): void {
+        this.liveMessages = this.updateReactionStateInMessages(
+            this.liveMessages,
+            messageId,
+            reactions,
+        );
+
+        this.olderMessages = this.updateReactionStateInMessages(
+            this.olderMessages,
+            messageId,
+            reactions,
+        );
+
+        this.messages = this.updateReactionStateInMessages(
+            this.messages,
+            messageId,
+            reactions,
+        );
+
+        if (this.activeThreadParent?.id === messageId) {
+            this.activeThreadParent = {
+                ...this.activeThreadParent,
+                reactions,
+            };
+        }
+
+        this.rebuildMessageList();
+    }
+
+    /** Returns a new message array with updated reactions for one message. */
+    protected updateReactionStateInMessages(
+        messages: Message[],
+        messageId: string,
+        reactions: MessageReaction[],
+    ): Message[] {
+        return messages.map((item) =>
+            item.id === messageId
+                ? {
+                    ...item,
+                    reactions: reactions.map((reaction) => ({
+                        ...reaction,
+                        userIds: [...reaction.userIds],
+                    })),
+                }
+                : item,
+        );
     }
 
     /** Handles has current user reacted. */

@@ -102,6 +102,11 @@ export class HomeComponent extends HomeDisplayBase implements OnInit, OnDestroy 
     /** Handles set message control value. */
     override setMessageControlValue(value: string): void { this.messageControl.setValue(value); }
 
+    /** Forces Angular to refresh the current view after optimistic state updates. */
+    protected override triggerViewUpdate(): void {
+        this.cdr.detectChanges();
+    }
+
     /** Handles ng on init. */
     ngOnInit(): void {
         this.ui.closeThread();
