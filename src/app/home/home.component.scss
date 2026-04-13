@@ -981,6 +981,14 @@
     }
 }
 
+.message-toolbar__btn--recent {
+    background: #eceefe;
+}
+
+.message-toolbar__btn--recent:hover {
+    background: #dfe3ff;
+}
+
 .message-toolbar__btn--picker {
     overflow: visible;
 }

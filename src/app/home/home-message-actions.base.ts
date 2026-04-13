@@ -21,6 +21,11 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
         | { type: 'message'; messageId: string }
         | null = null;
 
+    readonly defaultToolbarReactionEmojis = ['👍', '✅', '🎉', '❤️'];
+    private readonly recentReactionStorageKey = 'dabubble_recent_reaction_emojis';
+    private readonly recentReactionLimit = 2;
+    private recentReactionEmojis: string[] = this.readRecentReactionEmojis();
+
     private readonly collapsedReactionLimit = 7;
     private expandedReactionMessages = new Set<string>();
     protected threadSubscription: Subscription | null = null;
@@ -249,14 +254,95 @@ export abstract class HomeMessageActionsBase extends HomeSendMessageBase {
     /** Handles toggle reaction. */
     toggleReaction(message: Message, emoji: string): void {
         if (!this.canWrite || !message.id) return;
-        this.messageService.toggleReaction({ messageId: message.id, emoji, isDirectMessage: this.isDirectMessage })
-            .subscribe({ error: () => { this.errorMessage = 'Reaktion konnte nicht aktualisiert werden.'; } });
+
+        this.messageService
+            .toggleReaction({
+                messageId: message.id,
+                emoji,
+                isDirectMessage: this.isDirectMessage,
+            })
+            .subscribe({
+                next: () => {
+                    this.rememberRecentReactionEmoji(emoji);
+                },
+                error: () => {
+                    this.errorMessage =
+                        'Reaktion konnte nicht aktualisiert werden.';
+                },
+            });
     }
 
     /** Handles has current user reacted. */
     hasCurrentUserReacted(reaction: MessageReaction): boolean {
         if (!this.currentUserId) return false;
         return reaction.userIds.includes(this.currentUserId);
+    }
+
+    /** Returns the two most recently used reaction emojis. */
+    getRecentToolbarReactionEmojis(): string[] {
+        return this.recentReactionEmojis.slice(0, this.recentReactionLimit);
+    }
+
+    /** Returns all quick reaction emojis shown in the toolbar. */
+    getToolbarReactionEmojis(): string[] {
+        return Array.from(
+            new Set([
+                ...this.getRecentToolbarReactionEmojis(),
+                ...this.defaultToolbarReactionEmojis,
+            ]),
+        );
+    }
+
+    /** Returns whether an emoji belongs to the recent quick reactions. */
+    isRecentToolbarReactionEmoji(emoji: string): boolean {
+        return this.getRecentToolbarReactionEmojis().includes(emoji);
+    }
+
+    /** Persists a used reaction emoji as a recent quick action. */
+    protected rememberRecentReactionEmoji(emoji: string): void {
+        const normalized = emoji.trim();
+        if (!normalized) return;
+
+        this.recentReactionEmojis = [
+            normalized,
+            ...this.recentReactionEmojis.filter((item) => item !== normalized),
+        ].slice(0, this.recentReactionLimit);
+
+        this.writeRecentReactionEmojis(this.recentReactionEmojis);
+    }
+
+    /** Reads recent reaction emojis from local storage. */
+    private readRecentReactionEmojis(): string[] {
+        if (typeof localStorage === 'undefined') return [];
+
+        try {
+            const raw = localStorage.getItem(this.recentReactionStorageKey);
+            if (!raw) return [];
+
+            const parsed = JSON.parse(raw);
+            if (!Array.isArray(parsed)) return [];
+
+            return parsed
+                .map((item) => (typeof item === 'string' ? item.trim() : ''))
+                .filter((item) => !!item)
+                .slice(0, this.recentReactionLimit);
+        } catch {
+            return [];
+        }
+    }
+
+    /** Writes recent reaction emojis to local storage. */
+    private writeRecentReactionEmojis(emojis: string[]): void {
+        if (typeof localStorage === 'undefined') return;
+
+        try {
+            localStorage.setItem(
+                this.recentReactionStorageKey,
+                JSON.stringify(emojis),
+            );
+        } catch {
+            // ignore storage errors
+        }
     }
 
     /** Resolves a readable display name for a reaction user. */
