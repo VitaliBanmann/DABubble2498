@@ -69,17 +69,8 @@ export abstract class SidebarChannelSyncBase extends SidebarSearchBase {
     }
 
     protected applyChannels(channels: Channel[]): void {
-        const currentIds = new Set(
-            channels
-                .map((channel) => (channel.id ?? '').trim())
-                .filter((id) => !!id),
-        );
-
-        const merged = channels.reduce(
-            (accumulator, channel) => this.mergeChannel(accumulator, channel),
-            [...this.defaultChannels],
-        );
-
+        const currentIds = this.collectCurrentChannelIds(channels);
+        const merged = this.mergeWithDefaultChannels(channels);
         this.channels.splice(0, this.channels.length, ...merged);
         this.sortChannels();
         this.syncDeletedActiveChannelState(currentIds);
@@ -88,28 +79,10 @@ export abstract class SidebarChannelSyncBase extends SidebarSearchBase {
     }
 
     private syncDeletedActiveChannelState(currentIds: Set<string>): void {
-        if (!this.activeChannelId) {
-            this.lastDeletedChannelId = null;
-            return;
-        }
-
-        const isDefaultChannel = this.defaultChannels.some(
-            (channel) => channel.id === this.activeChannelId,
-        );
-
-        if (isDefaultChannel) {
-            this.lastDeletedChannelId = null;
-            return;
-        }
-
-        if (!currentIds.has(this.activeChannelId)) {
-            this.lastDeletedChannelId = this.activeChannelId;
-            return;
-        }
-
-        if (this.lastDeletedChannelId === this.activeChannelId) {
-            this.lastDeletedChannelId = null;
-        }
+        if (!this.activeChannelId) return void this.clearDeletedChannelMarker();
+        if (this.isDefaultActiveChannel()) return void this.clearDeletedChannelMarker();
+        if (!currentIds.has(this.activeChannelId)) return void this.markActiveChannelDeleted();
+        if (this.lastDeletedChannelId === this.activeChannelId) this.clearDeletedChannelMarker();
     }
 
     private ensureActiveChannelVisible(): void {
@@ -184,5 +157,28 @@ export abstract class SidebarChannelSyncBase extends SidebarSearchBase {
             const rightLabel = (right.label ?? '').toString();
             return leftLabel.localeCompare(rightLabel, 'de');
         });
+    }
+
+    private collectCurrentChannelIds(channels: Channel[]): Set<string> {
+        return new Set(channels.map((channel) => (channel.id ?? '').trim()).filter((id) => !!id));
+    }
+
+    private mergeWithDefaultChannels(channels: Channel[]): SidebarChannel[] {
+        return channels.reduce(
+            (accumulator, channel) => this.mergeChannel(accumulator, channel),
+            [...this.defaultChannels],
+        );
+    }
+
+    private clearDeletedChannelMarker(): void {
+        this.lastDeletedChannelId = null;
+    }
+
+    private isDefaultActiveChannel(): boolean {
+        return this.defaultChannels.some((channel) => channel.id === this.activeChannelId);
+    }
+
+    private markActiveChannelDeleted(): void {
+        this.lastDeletedChannelId = this.activeChannelId;
     }
 }

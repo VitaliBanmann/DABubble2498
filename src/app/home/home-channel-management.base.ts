@@ -158,112 +158,34 @@ export abstract class HomeChannelManagementBase extends HomeMessageActionsBase {
         action: 'name' | 'description' | 'add-member' | 'remove-member' | 'delete',
         error: unknown,
     ): string {
-        const code =
-            typeof (this as any).extractFirebaseErrorCode === 'function'
-                ? (this as any).extractFirebaseErrorCode(error)
-                : '';
-
-        if (code === 'permission-denied') {
-            if (action === 'delete') {
-                return 'Channel konnte nicht gelöscht werden (keine Berechtigung).';
-            }
-
-            if (action === 'add-member' || action === 'remove-member') {
-                return 'Mitglieder konnten nicht aktualisiert werden (keine Berechtigung).';
-            }
-
-            return 'Änderung konnte nicht gespeichert werden (keine Berechtigung).';
-        }
-
-        if (action === 'name') {
-            return 'Channel-Name konnte nicht gespeichert werden. Bitte erneut versuchen.';
-        }
-
-        if (action === 'description') {
-            return 'Channel-Beschreibung konnte nicht gespeichert werden. Bitte erneut versuchen.';
-        }
-
-        if (action === 'add-member') {
-            return 'Mitglied konnte nicht hinzugefügt werden. Bitte erneut versuchen.';
-        }
-
-        if (action === 'remove-member') {
-            return 'Mitglied konnte nicht entfernt werden. Bitte erneut versuchen.';
-        }
-
-        return 'Channel konnte nicht gelöscht werden. Bitte erneut versuchen.';
+        const code = this.readFirebaseErrorCode(error);
+        if (code === 'permission-denied') return this.permissionDeniedMessage(action);
+        return this.defaultActionErrorMessage(action);
     }
 
     onChannelNameChanged(nextName: string): void {
         const name = nextName.trim();
-
-        if (!name || this.isDirectMessage || !this.currentChannelId) {
-            return;
-        }
-
-        const currentName = this.currentChannelName.trim();
-
+        if (!this.canProcessChannelNameChange(name)) return;
         this.errorMessage = '';
-
-        if (this.normalizeChannelNameForComparison(name) === this.normalizeChannelNameForComparison(currentName)) {
-            return;
-        }
-
-        if (this.hasDuplicateChannelName(name, this.currentChannelId)) {
+        if (this.channelNameUnchanged(name)) return;
+        if (this.channelNameExists(name)) {
             this.errorMessage = 'Ein Channel mit diesem Namen existiert bereits.';
             return;
         }
 
-        this.channelService
-            .updateChannel(this.currentChannelId, { name })
-            .pipe(take(1))
-            .subscribe({
-                next: () => {
-                    this.applySuccessfulChannelNameUpdate(name);
-                    this.errorMessage = '';
-                },
-                error: (error: unknown) => {
-                    console.error('[CHANNEL NAME UPDATE ERROR]', error);
-                    this.errorMessage = this.resolveChannelUpdateErrorMessage('name', error);
-                },
-            });
+        this.saveChannelName(name);
     }
 
     onChannelDescriptionChanged(nextDescription: string): void {
         const description = nextDescription.trim();
-
-        if (!description || this.isDirectMessage || !this.currentChannelId) {
-            return;
-        }
-
-        const currentDescription = this.currentChannelDescription.trim();
-
+        if (!this.canProcessChannelDescriptionChange(description)) return;
         this.errorMessage = '';
-
-        if (description === currentDescription) {
-            return;
-        }
-
-        this.channelService
-            .updateChannel(this.currentChannelId, { description })
-            .pipe(take(1))
-            .subscribe({
-                next: () => {
-                    this.applySuccessfulChannelDescriptionUpdate(description);
-                    this.errorMessage = '';
-                },
-                error: (error: unknown) => {
-                    console.error('[CHANNEL DESCRIPTION UPDATE ERROR]', error);
-                    this.errorMessage = this.resolveChannelUpdateErrorMessage('description', error);
-                },
-            });
+        if (description === this.currentChannelDescription.trim()) return;
+        this.saveChannelDescription(description);
     }
 
     onDeleteChannelRequested(): void {
-        if (this.isDirectMessage || !this.currentChannelId || !this.currentUserId) {
-            return;
-        }
-
+        if (!this.canProcessChannelDelete()) return;
         if (!this.canDeleteCurrentChannel) {
             this.errorMessage = 'Nur der Ersteller dieses Channels kann ihn löschen.';
             return;
@@ -271,20 +193,7 @@ export abstract class HomeChannelManagementBase extends HomeMessageActionsBase {
 
         const deletedChannelId = this.currentChannelId;
         this.errorMessage = '';
-
-        this.channelService
-            .deleteChannel(deletedChannelId)
-            .pipe(
-                take(1),
-                switchMap(() => this.channelService.getAllChannels().pipe(take(1))),
-            )
-            .subscribe({
-                next: (channels: Channel[]) => this.handleChannelDeleted(channels, deletedChannelId),
-                error: (error: unknown) => {
-                    console.error('[CHANNEL DELETE ERROR]', error);
-                    this.errorMessage = this.resolveChannelUpdateErrorMessage('delete', error);
-                },
-            });
+        this.deleteChannelAndNavigate(deletedChannelId);
     }
 
     debugDeleteState(): void {
@@ -296,12 +205,7 @@ export abstract class HomeChannelManagementBase extends HomeMessageActionsBase {
             !this.isProtectedDefaultChannel(this.currentChannelId) &&
             !!createdBy &&
             createdBy === this.currentUserId;
-
-        console.log('currentChannelId', this.currentChannelId);
-        console.log('currentUserId', this.currentUserId);
-        console.log('currentChannel', this.currentChannel);
-        console.log('createdBy', createdBy);
-        console.log('canDeleteCurrentChannel', canDelete);
+        this.logDeleteDebugState(createdBy, canDelete);
     }
 
     private canUpdateChannelMember(userId: string): boolean {
@@ -339,20 +243,119 @@ export abstract class HomeChannelManagementBase extends HomeMessageActionsBase {
     private handleChannelDeleted(channels: Channel[], deletedChannelId: string): void {
         delete this.channelNames[deletedChannelId];
         delete this.channelDescriptions[deletedChannelId];
+        this.closeChannelOverlays();
+        this.navigateAfterChannelDelete(channels, deletedChannelId);
+    }
 
+    private readFirebaseErrorCode(error: unknown): string {
+        return typeof (this as any).extractFirebaseErrorCode === 'function'
+            ? (this as any).extractFirebaseErrorCode(error)
+            : '';
+    }
+
+    private permissionDeniedMessage(action: 'name' | 'description' | 'add-member' | 'remove-member' | 'delete'): string {
+        if (action === 'delete') return 'Channel konnte nicht gelöscht werden (keine Berechtigung).';
+        if (action === 'add-member' || action === 'remove-member') return 'Mitglieder konnten nicht aktualisiert werden (keine Berechtigung).';
+        return 'Änderung konnte nicht gespeichert werden (keine Berechtigung).';
+    }
+
+    private defaultActionErrorMessage(action: 'name' | 'description' | 'add-member' | 'remove-member' | 'delete'): string {
+        if (action === 'name') return 'Channel-Name konnte nicht gespeichert werden. Bitte erneut versuchen.';
+        if (action === 'description') return 'Channel-Beschreibung konnte nicht gespeichert werden. Bitte erneut versuchen.';
+        if (action === 'add-member') return 'Mitglied konnte nicht hinzugefügt werden. Bitte erneut versuchen.';
+        if (action === 'remove-member') return 'Mitglied konnte nicht entfernt werden. Bitte erneut versuchen.';
+        return 'Channel konnte nicht gelöscht werden. Bitte erneut versuchen.';
+    }
+
+    private canProcessChannelNameChange(name: string): boolean {
+        return !!name && !this.isDirectMessage && !!this.currentChannelId;
+    }
+
+    private channelNameUnchanged(name: string): boolean {
+        const currentName = this.currentChannelName.trim();
+        return this.normalizeChannelNameForComparison(name) === this.normalizeChannelNameForComparison(currentName);
+    }
+
+    private channelNameExists(name: string): boolean {
+        return this.hasDuplicateChannelName(name, this.currentChannelId);
+    }
+
+    private saveChannelName(name: string): void {
+        this.channelService.updateChannel(this.currentChannelId, { name }).pipe(take(1)).subscribe({
+            next: () => this.onChannelNameSaved(name),
+            error: (error: unknown) => this.onChannelNameSaveError(error),
+        });
+    }
+
+    private onChannelNameSaved(name: string): void {
+        this.applySuccessfulChannelNameUpdate(name);
+        this.errorMessage = '';
+    }
+
+    private onChannelNameSaveError(error: unknown): void {
+        console.error('[CHANNEL NAME UPDATE ERROR]', error);
+        this.errorMessage = this.resolveChannelUpdateErrorMessage('name', error);
+    }
+
+    private canProcessChannelDescriptionChange(description: string): boolean {
+        return !!description && !this.isDirectMessage && !!this.currentChannelId;
+    }
+
+    private saveChannelDescription(description: string): void {
+        this.channelService.updateChannel(this.currentChannelId, { description }).pipe(take(1)).subscribe({
+            next: () => this.onChannelDescriptionSaved(description),
+            error: (error: unknown) => this.onChannelDescriptionSaveError(error),
+        });
+    }
+
+    private onChannelDescriptionSaved(description: string): void {
+        this.applySuccessfulChannelDescriptionUpdate(description);
+        this.errorMessage = '';
+    }
+
+    private onChannelDescriptionSaveError(error: unknown): void {
+        console.error('[CHANNEL DESCRIPTION UPDATE ERROR]', error);
+        this.errorMessage = this.resolveChannelUpdateErrorMessage('description', error);
+    }
+
+    private canProcessChannelDelete(): boolean {
+        return !this.isDirectMessage && !!this.currentChannelId && !!this.currentUserId;
+    }
+
+    private deleteChannelAndNavigate(deletedChannelId: string): void {
+        this.channelService.deleteChannel(deletedChannelId).pipe(
+            take(1),
+            switchMap(() => this.channelService.getAllChannels().pipe(take(1))),
+        ).subscribe({
+            next: (channels: Channel[]) => this.handleChannelDeleted(channels, deletedChannelId),
+            error: (error: unknown) => this.onChannelDeleteError(error),
+        });
+    }
+
+    private onChannelDeleteError(error: unknown): void {
+        console.error('[CHANNEL DELETE ERROR]', error);
+        this.errorMessage = this.resolveChannelUpdateErrorMessage('delete', error);
+    }
+
+    private logDeleteDebugState(createdBy: string, canDelete: boolean): void {
+        console.log({
+            currentChannelId: this.currentChannelId,
+            currentUserId: this.currentUserId,
+            currentChannel: this.currentChannel,
+            createdBy,
+            canDeleteCurrentChannel: canDelete,
+        });
+    }
+
+    private closeChannelOverlays(): void {
         this.isChannelPopupOpen = false;
         this.isAddMemberPopupOpen = false;
         this.isChannelMembersPopupOpen = false;
+    }
 
-        const nextChannel = channels.find(
-            (channel) => !!channel.id && channel.id !== deletedChannelId,
-        );
-
-        if (nextChannel?.id) {
-            this.router.navigate(['/app/channel', nextChannel.id]);
-            return;
-        }
-
-        this.router.navigate(['/app']);
+    private navigateAfterChannelDelete(channels: Channel[], deletedChannelId: string): void {
+        const nextChannel = channels.find((channel) => !!channel.id && channel.id !== deletedChannelId);
+        if (nextChannel?.id) this.router.navigate(['/app/channel', nextChannel.id]);
+        else this.router.navigate(['/app']);
     }
 }

@@ -48,19 +48,12 @@ export abstract class AppAuthBase extends AppAuthStateBase {
 
     async sendPasswordResetEmail(): Promise<void> {
         if (!this.ensureValidResetForm()) return;
-
         const email = this.prepareResetEmailSubmit();
 
         try {
-            await this.authService.sendPasswordResetEmail(email);
-            this.forgotPasswordMessage =
-                'Wenn für diese E-Mail ein Konto mit Passwort-Anmeldung existiert, wurde eine Reset-E-Mail versendet. Bitte überprüfe dein Postfach (auch Spam-Ordner).';
-            setTimeout(() => this.closeForgotPasswordOverlay(), 3000);
+            await this.sendResetEmailAndApplySuccess(email);
         } catch (error) {
-            this.forgotPasswordError = this.getAuthErrorMessage(
-                error,
-                'Fehler beim Senden der E-Mail. Bitte versuche es erneut.',
-            );
+            this.applyResetEmailError(error);
         } finally {
             this.isSubmitting = false;
         }
@@ -103,33 +96,54 @@ export abstract class AppAuthBase extends AppAuthStateBase {
         password: string,
     ): Promise<void> {
         this.startSubmitting();
-
-        if (mode === 'login') {
-            this.showLoginFeedback('Anmeldung', 'loading');
-        }
+        this.showLoginLoadingFeedback(mode);
 
         try {
             await this.authenticate(mode, displayName, email, password);
-
-            if (mode === 'login') {
-                this.showLoginFeedback('Erfolgreich angemeldet', 'success');
-                this.hideLoginFeedback(1600);
-            }
+            this.showLoginSuccessFeedback(mode);
         } catch (error) {
-            this.errorMessage = this.getAuthErrorMessage(
-                error,
-                mode === 'login'
-                    ? 'Anmeldung fehlgeschlagen. Bitte überprüfe E-Mail und Passwort.'
-                    : 'Registrierung fehlgeschlagen. Bitte versuche es erneut.',
-            );
-
-            if (mode === 'login') {
-                this.showLoginFeedback('Anmeldung fehlgeschlagen', 'error');
-                this.hideLoginFeedback(2200);
-            }
+            this.applySubmitError(mode, error);
+            this.showLoginFailureFeedback(mode);
         } finally {
             this.isSubmitting = false;
         }
+    }
+
+    private async sendResetEmailAndApplySuccess(email: string): Promise<void> {
+        await this.authService.sendPasswordResetEmail(email);
+        this.forgotPasswordMessage =
+            'Wenn für diese E-Mail ein Konto mit Passwort-Anmeldung existiert, wurde eine Reset-E-Mail versendet. Bitte überprüfe dein Postfach (auch Spam-Ordner).';
+        setTimeout(() => this.closeForgotPasswordOverlay(), 3000);
+    }
+
+    private applyResetEmailError(error: unknown): void {
+        this.forgotPasswordError = this.getAuthErrorMessage(
+            error,
+            'Fehler beim Senden der E-Mail. Bitte versuche es erneut.',
+        );
+    }
+
+    private showLoginLoadingFeedback(mode: 'login' | 'register'): void {
+        if (mode === 'login') this.showLoginFeedback('Anmeldung', 'loading');
+    }
+
+    private showLoginSuccessFeedback(mode: 'login' | 'register'): void {
+        if (mode !== 'login') return;
+        this.showLoginFeedback('Erfolgreich angemeldet', 'success');
+        this.hideLoginFeedback(1600);
+    }
+
+    private showLoginFailureFeedback(mode: 'login' | 'register'): void {
+        if (mode !== 'login') return;
+        this.showLoginFeedback('Anmeldung fehlgeschlagen', 'error');
+        this.hideLoginFeedback(2200);
+    }
+
+    private applySubmitError(mode: 'login' | 'register', error: unknown): void {
+        const fallback = mode === 'login'
+            ? 'Anmeldung fehlgeschlagen. Bitte überprüfe E-Mail und Passwort.'
+            : 'Registrierung fehlgeschlagen. Bitte versuche es erneut.';
+        this.errorMessage = this.getAuthErrorMessage(error, fallback);
     }
 
     private async runGoogleLogin(): Promise<void> {

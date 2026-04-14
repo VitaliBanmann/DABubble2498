@@ -121,21 +121,8 @@ export abstract class AppAuthStateBase {
 
     hideLoginFeedback(delay = 0): void {
         this.clearLoginFeedbackTimeout();
-        if (delay <= 0) {
-            this.ngZone.run(() => {
-                this.loginFeedbackVisible = false;
-                this.cdr.detectChanges();
-            });
-            return;
-        }
-
-        this.loginFeedbackTimeout = setTimeout(() => {
-            this.ngZone.run(() => {
-                this.loginFeedbackVisible = false;
-                this.loginFeedbackTimeout = null;
-                this.cdr.detectChanges();
-            });
-        }, delay);
+        if (delay <= 0) return this.hideFeedbackImmediately();
+        this.scheduleDelayedFeedbackHide(delay);
     }
 
     get emailControl() { return this.loginForm.controls.email; }
@@ -245,6 +232,23 @@ export abstract class AppAuthStateBase {
         if (!this.loginFeedbackTimeout) return;
         clearTimeout(this.loginFeedbackTimeout);
         this.loginFeedbackTimeout = null;
+    }
+
+    private hideFeedbackImmediately(): void {
+        this.ngZone.run(() => {
+            this.loginFeedbackVisible = false;
+            this.cdr.detectChanges();
+        });
+    }
+
+    private scheduleDelayedFeedbackHide(delay: number): void {
+        this.loginFeedbackTimeout = setTimeout(() => {
+            this.ngZone.run(() => {
+                this.loginFeedbackVisible = false;
+                this.loginFeedbackTimeout = null;
+                this.cdr.detectChanges();
+            });
+        }, delay);
     }
 
     abstract onSubmit(mode: 'login' | 'register'): Promise<void>;

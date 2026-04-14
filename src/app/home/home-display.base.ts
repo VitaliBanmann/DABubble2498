@@ -162,18 +162,21 @@ export abstract class HomeDisplayBase extends HomeChannelManagementBase {
     protected extractChannelMemberIds(): string[] {
         const channel = this.currentChannel as Record<string, unknown> | null;
         if (!channel) return [];
+        const directIds = this.extractDirectMemberIds(channel);
+        if (directIds) return directIds;
+        return this.extractNestedMemberIds(channel);
+    }
 
+    private extractDirectMemberIds(channel: Record<string, unknown>): string[] | null {
         const direct = channel['memberIds'];
-        if (Array.isArray(direct)) {
-            return direct.filter((id): id is string => typeof id === 'string' && !!id);
-        }
+        if (!Array.isArray(direct)) return null;
+        return direct.filter((id): id is string => typeof id === 'string' && !!id);
+    }
 
+    private extractNestedMemberIds(channel: Record<string, unknown>): string[] {
         const members = channel['members'];
         if (!Array.isArray(members)) return [];
-
-        return members
-            .map((entry) => this.extractMemberId(entry))
-            .filter((id): id is string => !!id);
+        return members.map((entry) => this.extractMemberId(entry)).filter((id): id is string => !!id);
     }
 
     protected extractMemberId(entry: unknown): string | null {

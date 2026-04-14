@@ -78,23 +78,8 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
     protected applyOptimisticReactionUpdate(message: Message, reactions: MessageReaction[]): void {
         const messageId = message.id;
         if (!messageId) return;
-
         const clonedReactions = this.cloneReactionState(reactions);
-        message.reactions = clonedReactions;
-        this.liveMessages = this.replaceMessageReactions(this.liveMessages, messageId, clonedReactions);
-        this.olderMessages = this.replaceMessageReactions(this.olderMessages, messageId, clonedReactions);
-        this.messages = this.replaceMessageReactions(this.messages, messageId, clonedReactions);
-        this.messageGroups = this.messageGroups.map((group) => ({
-            ...group,
-            messages: group.messages.map((groupMessage) => groupMessage.id === messageId
-                ? { ...groupMessage, reactions: this.cloneReactionState(clonedReactions) }
-                : groupMessage),
-        }));
-
-        if (this.activeThreadParent?.id === messageId) {
-            this.activeThreadParent = { ...this.activeThreadParent, reactions: this.cloneReactionState(clonedReactions) };
-        }
-
+        this.applyReactionStateToMessageCollections(message, messageId, clonedReactions);
         this.triggerViewUpdate();
     }
 
@@ -257,21 +242,11 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
     }
 
     private ensureThreadReplyCountSynced(messageId: string): void {
-        if (this.threadReplyCountSubscriptions[messageId] || this.loadingThreadReplyCounts.has(messageId)) return;
+        if (!this.canStartThreadReplySync(messageId)) return;
         this.loadingThreadReplyCounts.add(messageId);
-
-        this.threadReplyCountSubscriptions[messageId] = this.messageService.getChannelThreadMessages(messageId).subscribe({
-            next: (threadMessages: ThreadMessage[]) => {
-                this.threadReplyCountByMessageId[messageId] = threadMessages.length;
-                this.loadingThreadReplyCounts.delete(messageId);
-            },
-            error: () => {
-                this.loadingThreadReplyCounts.delete(messageId);
-                const sub = this.threadReplyCountSubscriptions[messageId];
-                sub?.unsubscribe();
-                delete this.threadReplyCountSubscriptions[messageId];
-            },
-        });
+        this.threadReplyCountSubscriptions[messageId] = this.messageService
+            .getChannelThreadMessages(messageId)
+            .subscribe(this.threadReplySyncObserver(messageId));
     }
 
     private clearThreadReplyCountSubscriptions(): void {
@@ -281,20 +256,76 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
 
     private readRecentReactionEmojis(): string[] {
         if (typeof localStorage === 'undefined') return [];
-
         try {
             const raw = localStorage.getItem(this.recentReactionStorageKey);
             if (!raw) return [];
-            const parsed = JSON.parse(raw);
-            if (!Array.isArray(parsed)) return [];
-
-            return parsed
-                .map((item) => (typeof item === 'string' ? item.trim() : ''))
-                .filter((item) => !!item)
-                .slice(0, this.recentReactionLimit);
+            return this.parseStoredRecentReactions(raw);
         } catch {
             return [];
         }
+    }
+
+    private applyReactionStateToMessageCollections(
+        message: Message,
+        messageId: string,
+        clonedReactions: MessageReaction[],
+    ): void {
+        message.reactions = clonedReactions;
+        this.updateReactionStateLists(messageId, clonedReactions);
+        this.updateReactionStateGroups(messageId, clonedReactions);
+        this.updateReactionStateThreadParent(messageId, clonedReactions);
+    }
+
+    private updateReactionStateLists(messageId: string, clonedReactions: MessageReaction[]): void {
+        this.liveMessages = this.replaceMessageReactions(this.liveMessages, messageId, clonedReactions);
+        this.olderMessages = this.replaceMessageReactions(this.olderMessages, messageId, clonedReactions);
+        this.messages = this.replaceMessageReactions(this.messages, messageId, clonedReactions);
+    }
+
+    private updateReactionStateGroups(messageId: string, clonedReactions: MessageReaction[]): void {
+        this.messageGroups = this.messageGroups.map((group) => ({
+            ...group,
+            messages: group.messages.map((groupMessage) => groupMessage.id === messageId
+                ? { ...groupMessage, reactions: this.cloneReactionState(clonedReactions) }
+                : groupMessage),
+        }));
+    }
+
+    private updateReactionStateThreadParent(messageId: string, clonedReactions: MessageReaction[]): void {
+        if (this.activeThreadParent?.id !== messageId) return;
+        this.activeThreadParent = { ...this.activeThreadParent, reactions: this.cloneReactionState(clonedReactions) };
+    }
+
+    private canStartThreadReplySync(messageId: string): boolean {
+        return !this.threadReplyCountSubscriptions[messageId] && !this.loadingThreadReplyCounts.has(messageId);
+    }
+
+    private threadReplySyncObserver(messageId: string) {
+        return {
+            next: (threadMessages: ThreadMessage[]) => this.onThreadReplySyncSuccess(messageId, threadMessages),
+            error: () => this.onThreadReplySyncError(messageId),
+        };
+    }
+
+    private onThreadReplySyncSuccess(messageId: string, threadMessages: ThreadMessage[]): void {
+        this.threadReplyCountByMessageId[messageId] = threadMessages.length;
+        this.loadingThreadReplyCounts.delete(messageId);
+    }
+
+    private onThreadReplySyncError(messageId: string): void {
+        this.loadingThreadReplyCounts.delete(messageId);
+        const sub = this.threadReplyCountSubscriptions[messageId];
+        sub?.unsubscribe();
+        delete this.threadReplyCountSubscriptions[messageId];
+    }
+
+    private parseStoredRecentReactions(raw: string): string[] {
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) return [];
+        return parsed
+            .map((item) => (typeof item === 'string' ? item.trim() : ''))
+            .filter((item) => !!item)
+            .slice(0, this.recentReactionLimit);
     }
 
     private writeRecentReactionEmojis(emojis: string[]): void {
