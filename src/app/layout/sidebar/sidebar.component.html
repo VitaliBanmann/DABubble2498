@@ -355,86 +355,86 @@
                     </button>
                 </header>
 
-                <label>
-                    <span>Channel-Name*</span>
+                <article class="create-card__input">
+                    <p>
+                        Channels dienen deinem Team zur Kommunikation. Am besten sollten sie themenbezogen sein  #marketing zum Beispiel.
+                    </p>
+
+                    <span>Channel-Name</span>
+
                     <input
                         type="text"
                         [formControl]="channelNameControl"
-                        placeholder="z. B. Kooperationprojekte"
+                        placeholder="#   z.B. Kooperationsprojekte"
                     />
-                </label>
+                </article>
 
-                <label>
-                    <span>Beschreibung (optional)</span>
-                    <textarea
+                <label class="create-card__description">
+                    <span>Beschreibung <span style="color: #686868; margin: 0; font-weight: normal">(optional)</span></span>
+
+                    <input
                         [formControl]="channelDescriptionControl"
                         rows="3"
                         placeholder="Dein Text hier"
-                    ></textarea>
+                    />
                 </label>
 
-                <div class="member-box">
+                <!--<div class="member-box">
                     <div class="member-box__title">Mitglieder</div>
                     <ul>
                         @for (
                             member of availableMembers$ | async;
                             track member.id
-                        ) {
-                            <li>
+                            ) {
+                                <li
+                                    (click)="member.id && toggleMemberSelection(member.id)"
+                                    [class.member-item&#45;&#45;disabled]="!member.id"
+                                >
                                 <button
                                     type="button"
                                     class="member-view"
-                                    (click)="openMemberProfile(member)"
+                                    (click)="openMemberProfile(member); $event.stopPropagation()"
                                 >
-                                    <span
-                                        >{{ member.displayName
-                                        }}{{
-                                            member.id === currentUserId
-                                                ? " (Du)"
-                                                : ""
-                                        }}</span
-                                    >
-                                    <span
-                                        class="member-status"
-                                        [class.online]="
-                                            member.presenceStatus === 'online'
-                                        "
-                                    ></span>
+                                <span>
+                                    {{ member.displayName }}
+                                    {{ member.id === currentUserId ? " (Du)" : "" }}
+                                </span>
+                                <span
+                                    class="member-status"
+                                    [class.online]="member.presenceStatus === 'online'"
+                                ></span>
                                 </button>
-                                <label class="member-toggle">
+
+                                <label
+                                    class="member-toggle"
+                                    (click)="$event.stopPropagation()"
+                                >
                                     <input
                                         type="checkbox"
-                                        [checked]="
-                                            selectedMemberIds.has(
-                                                member.id ?? ''
-                                            )
-                                        "
-                                        (change)="
-                                            toggleMemberSelection(
-                                                member.id ?? ''
-                                            )
-                                        "
+                                        [checked]="selectedMemberIds.has(member.id ?? '')"
+                                        (change)="toggleMemberSelection(member.id ?? '')"
                                         [disabled]="!member.id"
                                     />
-                                    <span>hinzufügen</span>
                                 </label>
                             </li>
                         }
                     </ul>
-                </div>
+                </div>-->
 
                 @if (saveError) {
                     <p class="save-error">{{ saveError }}</p>
                 }
 
-                <button
-                    type="button"
-                    class="create-btn"
-                    [disabled]="isCreateDisabled"
-                    (click)="createChannel()"
-                >
-                    {{ isSaving ? "Erstelle..." : "Erstellen" }}
-                </button>
+                <div class="create-card__footer">
+                    <button
+                        type="button"
+                        class="create-btn"
+                        [disabled]="isCreateDisabled"
+                        (click)="createChannel()"
+                    >
+                        {{ isSaving ? "Erstelle..." : "Erstellen" }}
+                    </button>
+                </div>
             </section>
         </div>
     }
