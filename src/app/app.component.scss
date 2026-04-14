@@ -290,6 +290,97 @@ form {
     color: #e74c3c;
 }
 
+.field--password {
+    position: relative;
+}
+
+.password-tooltip-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+}
+
+.password-info {
+    width: 22px;
+    height: 22px;
+    border: 1px solid #c7caf5;
+    border-radius: 50%;
+    background: #fff;
+    color: #6d72e6;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 700;
+    line-height: 1;
+    cursor: pointer;
+    padding: 0;
+    transition:
+        background 0.15s ease,
+        border-color 0.15s ease,
+        color 0.15s ease;
+
+    &:hover,
+    &:focus-visible {
+        background: #eef0ff;
+        border-color: #9aa0ff;
+        outline: none;
+    }
+}
+
+.password-tooltip {
+    position: absolute;
+    right: 0;
+    top: calc(100% + 10px);
+    width: min(260px, calc(100vw - 32px));
+    background: #fff;
+    border: 1px solid #d8d9e8;
+    border-radius: 16px;
+    box-shadow: 0 14px 32px rgba(43, 45, 66, 0.16);
+    padding: 12px 14px;
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-4px);
+    transition:
+        opacity 0.16s ease,
+        transform 0.16s ease,
+        visibility 0.16s ease;
+    z-index: 20;
+    pointer-events: none;
+
+    p {
+        margin: 0 0 6px;
+        font-size: 12px;
+        font-weight: 600;
+        color: #535872;
+    }
+
+    ul {
+        margin: 0;
+        padding-left: 18px;
+        display: grid;
+        gap: 4px;
+    }
+
+    li {
+        font-size: 12px;
+        color: #7d7f96;
+    }
+
+    li.met {
+        color: #0f766e;
+        font-weight: 600;
+    }
+}
+
+.password-tooltip-wrap:hover .password-tooltip,
+.password-tooltip-wrap:focus-within .password-tooltip {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
 .password-hints {
     margin-top: -4px;
     margin-bottom: 2px;
@@ -461,6 +552,13 @@ form {
 }
 
 @media (max-width: 520px) {
+    .password-tooltip {
+        right: -8px;
+        width: min(240px, calc(100vw - 24px));
+        padding: 10px 12px;
+        border-radius: 14px;
+    }
+
     .splash-brand {
         gap: 10px;
     }
@@ -529,6 +627,22 @@ form {
 }
 
 @media (max-width: 380px) {
+    .password-info {
+        width: 20px;
+        height: 20px;
+        font-size: 11px;
+    }
+
+    .password-tooltip {
+        right: -12px;
+        width: min(220px, calc(100vw - 20px));
+
+        p,
+        li {
+            font-size: 11px;
+        }
+    }
+
     .splash-logo {
         width: 82px;
     }

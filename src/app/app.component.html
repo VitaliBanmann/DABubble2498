@@ -127,7 +127,7 @@
                 </div>
 
                 <div class="field-group">
-                    <label class="field" for="password">
+                    <label class="field field--password" for="password">
                         <span class="icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
                                 <path
@@ -135,14 +135,53 @@
                                 />
                             </svg>
                         </span>
+
                         <input
                             id="password"
                             [type]="showPassword ? 'text' : 'password'"
                             formControlName="password"
                             placeholder="Passwort"
-                            [attr.autocomplete]="isRegisterMode ? 'new-password' : 'current-password'"
+                            [attr.autocomplete]="
+                                isRegisterMode ? 'new-password' : 'current-password'
+                            "
                             (keydown.enter)="onPasswordEnter($event)"
+                            [attr.aria-describedby]="
+                                isRegisterMode ? 'password-rules-tooltip' : null
+                            "
                         />
+
+                        @if (isRegisterMode) {
+                            <div class="password-tooltip-wrap">
+                                <button
+                                    type="button"
+                                    class="password-info"
+                                    aria-label="Passwortregeln anzeigen"
+                                    aria-describedby="password-rules-tooltip"
+                                >
+                                    i
+                                </button>
+
+                                <div
+                                    id="password-rules-tooltip"
+                                    class="password-tooltip"
+                                    role="tooltip"
+                                >
+                                    <p>Für „Konto erstellen“ gilt:</p>
+                                    <ul>
+                                        <li [class.met]="passwordChecks.minLength">
+                                            Mindestens 8 Zeichen
+                                        </li>
+                                        <li [class.met]="passwordChecks.uppercase">
+                                            Mindestens 1 Großbuchstabe
+                                        </li>
+                                        <li [class.met]="passwordChecks.specialChar">
+                                            Mindestens 1 Sonderzeichen
+                                        </li>
+                                    </ul>
+                                </div>
+                            </div>
+                        }
+
                         <button
                             type="button"
                             class="password-toggle"
@@ -166,23 +205,6 @@
                         </p>
                     }
                 </div>
-
-                @if (isRegisterMode) {
-                    <div class="password-hints" aria-live="polite">
-                        <p>Für „Konto erstellen" gilt:</p>
-                        <ul>
-                            <li [class.met]="passwordChecks.minLength">
-                                Mindestens 8 Zeichen
-                            </li>
-                            <li [class.met]="passwordChecks.uppercase">
-                                Mindestens 1 Großbuchstabe
-                            </li>
-                            <li [class.met]="passwordChecks.specialChar">
-                                Mindestens 1 Sonderzeichen
-                            </li>
-                        </ul>
-                    </div>
-                }
 
                 @if (!isRegisterMode) {
                     <button
@@ -411,7 +433,11 @@
                         <button
                             type="button"
                             class="password-toggle"
-                            [attr.aria-label]="showNewPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                            [attr.aria-label]="
+                                showNewPassword
+                                    ? 'Passwort verbergen'
+                                    : 'Passwort anzeigen'
+                            "
                             [disabled]="resetFlow.isSubmitting"
                             (click)="toggleNewPasswordVisibility()"
                         >
@@ -441,7 +467,11 @@
                         <button
                             type="button"
                             class="password-toggle"
-                            [attr.aria-label]="showConfirmPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                            [attr.aria-label]="
+                                showConfirmPassword
+                                    ? 'Passwort verbergen'
+                                    : 'Passwort anzeigen'
+                            "
                             [disabled]="resetFlow.isSubmitting"
                             (click)="toggleConfirmPasswordVisibility()"
                         >
