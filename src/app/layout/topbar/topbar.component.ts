@@ -24,6 +24,7 @@ import { MessageService } from '../../services/message.service';
 import { ShowProfileComponent } from '../show-profile/show-profile.component';
 import { normalizeSearchToken } from '../../services/search-token.util';
 import {
+    mergeWithDefaults,
     SearchChannelResult,
     SearchMessageResult,
     SearchUserResult,
@@ -52,6 +53,7 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     private readonly searchInput$ = new Subject<string>();
     private readonly _subscription = new Subscription();
     private searchSubscription: Subscription | null = null;
+    private readonly shortcutResultLimit = 20;
 
 
     /** Returns subscription. */
@@ -147,12 +149,25 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     /** Handles on search input. */
     onSearchInput(value: string): void {
         this.searchTerm = value;
+        const shortcut = this.parseShortcutQuery(value);
+        if (shortcut) {
+            this.activeResultIndex = -1;
+            this.isSearching = true;
+            this.showSearchResults = true;
+            this.runShortcutSearch(shortcut.mode, shortcut.token);
+            return;
+        }
+
         if (!value.trim()) this.clearSearchResults();
         this.searchInput$.next(value);
     }
 
     /** Handles on search focus. */
     onSearchFocus(): void {
+        if (this.parseShortcutQuery(this.searchTerm)) {
+            this.showSearchResults = true;
+            return;
+        }
         if (this.searchTerm.trim().length >= 2) {
             this.showSearchResults = true;
         }
@@ -281,7 +296,7 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     /** Handles run indexed search. */
     private runIndexedSearch(rawQuery: string): void {
         const token = normalizeSearchToken(rawQuery);
-        if (!token) return this.clearSearchResults();
+        if (!token) return this.clearSearchResults(false);
 
         this.searchSubscription?.unsubscribe();
         this.searchSubscription = this.globalSearchService
@@ -292,11 +307,11 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
     }
 
     /** Handles clear search results. */
-    private clearSearchResults(): void {
+    private clearSearchResults(resetTerm = true): void {
         this.showSearchResults = false;
         this.isSearching = false;
         this.activeResultIndex = -1;
-        this.searchTerm = '';
+        if (resetTerm) this.searchTerm = '';
         this.channelResults = [];
         this.userResults = [];
         this.messageResults = [];
@@ -313,6 +328,68 @@ export class TopbarComponent extends TopbarProfileBase implements OnInit, OnDest
         this.messageResults = messages;
         this.isSearching = false;
         this.showSearchResults = this.searchTerm.trim().length > 0;
+    }
+
+    /** Parses an @/# trigger query from the search input. */
+    private parseShortcutQuery(value: string): { mode: 'channel' | 'user'; token: string } | null {
+        const trimmed = value.trim();
+        if (!trimmed) return null;
+        if (!trimmed.startsWith('#') && !trimmed.startsWith('@')) return null;
+        return {
+            mode: trimmed.startsWith('#') ? 'channel' : 'user',
+            token: normalizeSearchToken(trimmed.slice(1)),
+        };
+    }
+
+    /** Runs channel/user shortcut search with realtime updates. */
+    private runShortcutSearch(mode: 'channel' | 'user', token: string): void {
+        this.searchSubscription?.unsubscribe();
+        this.searchSubscription = mode === 'channel'
+            ? this.channelService.getAllChannels().subscribe((channels) =>
+                this.applyShortcutChannelResults(channels, token),
+            )
+            : this.userService.getAllUsersRealtime().subscribe((users) =>
+                this.applyShortcutUserResults(users, token),
+            );
+    }
+
+    /** Applies filtered channel shortcut results. */
+    private applyShortcutChannelResults(channels: Array<{ id?: string; name?: string }>, token: string): void {
+        this.channelResults = mergeWithDefaults(channels)
+            .filter((channel) =>
+                !token ||
+                normalizeSearchToken(channel.name).includes(token) ||
+                normalizeSearchToken(channel.id).includes(token),
+            )
+            .slice(0, this.shortcutResultLimit);
+        this.userResults = [];
+        this.messageResults = [];
+        this.isSearching = false;
+        this.showSearchResults = true;
+    }
+
+    /** Applies filtered user shortcut results. */
+    private applyShortcutUserResults(
+        users: Array<{ id?: string; displayName?: string; email?: string }>,
+        token: string,
+    ): void {
+        this.userResults = users
+            .filter((user) => !!user.id)
+            .map((user) => ({
+                id: user.id as string,
+                name: user.displayName ?? '',
+                email: user.email ?? '',
+            }))
+            .filter((user) =>
+                !token ||
+                normalizeSearchToken(user.name).includes(token) ||
+                normalizeSearchToken(user.email).includes(token),
+            )
+            .slice(0, this.shortcutResultLimit);
+        this.channelResults = [];
+        this.messageResults = [];
+        this.isSearching = false;
+        this.showSearchResults = true;
     }
 
     /** Returns true for extra small viewport. */

@@ -105,13 +105,13 @@ export abstract class SidebarComponentBase extends SidebarSearchBase {
     );
     protected constructor(
         protected readonly authService: AuthService,
-        protected readonly channelService: ChannelService,
-        protected readonly userService: UserService,
+        protected override readonly channelService: ChannelService,
+        protected override readonly userService: UserService,
         router: Router,
         protected readonly ui: UiStateService,
         globalSearchService: GlobalSearchService,
     ) {
-        super(router, globalSearchService);
+        super(router, globalSearchService, userService, channelService);
     }
     protected initSidebarState(): void {
         this.syncViewportFlags();
@@ -373,4 +373,3 @@ export abstract class SidebarComponentBase extends SidebarSearchBase {
         });
     }
 }
-
