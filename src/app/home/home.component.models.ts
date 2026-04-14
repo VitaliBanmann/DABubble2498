@@ -6,6 +6,13 @@ export interface MentionCandidate {
     label: string;
 }
 
+/** Dropdown suggestion for composer tags started with @ or #. */
+export interface ComposerTagSuggestion {
+    id: string;
+    label: string;
+    kind: 'user' | 'channel';
+}
+
 /** Target suggestion used for compose routing shortcuts. */
 export interface ComposeTargetSuggestion {
     kind: 'channel' | 'user';

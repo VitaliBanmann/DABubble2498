@@ -449,6 +449,7 @@
                         <div class="mention-suggestions">
                             @for (candidate of mentionSuggestions; track candidate.id) {
                                 <button type="button" class="mention-option" (click)="selectMention(candidate)">
+                                    @if (candidate.kind === 'user') {
                                     <div class="user-avatar">
                                         <img
                                             [src]="getMentionAvatar(candidate.id)"
@@ -460,8 +461,13 @@
                                             [class.user-avatar__status--online]="isMentionUserOnline(candidate.id)"
                                         ></span>
                                     </div>
+                                    } @else {
+                                    <div class="channel-tag-avatar" aria-hidden="true">#</div>
+                                    }
 
-                                    <div class="candidate">{{ candidate.label }}</div>
+                                    <div class="candidate">
+                                        {{ candidate.kind === 'user' ? '@' + candidate.label : '#' + candidate.label }}
+                                    </div>
                                 </button>
                             }
                         </div>

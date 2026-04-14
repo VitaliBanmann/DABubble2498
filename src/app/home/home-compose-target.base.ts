@@ -1,11 +1,17 @@
 import { Injectable } from '@angular/core';
 import { FormControl } from '@angular/forms';
+import { Channel } from '../services/channel.service';
 import { User } from '../services/user.service';
-import { ComposeTargetSuggestion, MentionCandidate } from './home.component.models';
+import {
+    ComposeTargetSuggestion,
+    ComposerTagSuggestion,
+    MentionCandidate,
+} from './home.component.models';
 import { HomeMessageGroupsBase } from './home-message-groups.base';
 
 @Injectable()
 export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
+    protected readonly composeSuggestionLimit = 50;
     readonly composeTargetControl = new FormControl('', { nonNullable: true });
 
     composeTargetSuggestions: ComposeTargetSuggestion[] = [];
@@ -116,8 +122,13 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
     /** Handles set channel suggestions. */
     protected setChannelSuggestions(query: string): void {
         const entries = (Object.entries(this.channelNames) as Array<[string, string]>)
-            .filter(([id, label]) => !query || id.includes(query) || label.toLowerCase().includes(query))
-            .slice(0, 6)
+            .sort((left, right) => left[1].localeCompare(right[1], 'de'))
+            .filter(([id, label]) =>
+                !query ||
+                this.normalizeSuggestionToken(id).includes(this.normalizeSuggestionToken(query)) ||
+                this.normalizeSuggestionToken(label).includes(this.normalizeSuggestionToken(query)),
+            )
+            .slice(0, this.composeSuggestionLimit)
             .map(([id, label]): ComposeTargetSuggestion => ({
                 kind: 'channel', id, label: `#${label}`, value: `#${id}`, subtitle: `Channel: #${id}`,
             }));
@@ -128,10 +139,15 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
     protected setUserSuggestions(query: string): void {
         const entries = (Object.values(this.usersById) as User[])
             .filter((u) => !!u.id && u.id !== this.currentUserId)
+            .sort((left, right) => left.displayName.localeCompare(right.displayName, 'de'))
             .filter((u) => !query ||
-                (u.displayName ?? '').toLowerCase().includes(query) ||
-                (u.email ?? '').toLowerCase().includes(query))
-            .slice(0, 6)
+                this.normalizeSuggestionToken(u.displayName ?? '').includes(
+                    this.normalizeSuggestionToken(query),
+                ) ||
+                this.normalizeSuggestionToken(u.email ?? '').includes(
+                    this.normalizeSuggestionToken(query),
+                ))
+            .slice(0, this.composeSuggestionLimit)
             .map((u): ComposeTargetSuggestion => ({
                 kind: 'user', id: u.id as string,
                 label: `@${u.displayName}`, value: `@${u.displayName}`, subtitle: u.email ?? '',
@@ -198,47 +214,114 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
         this.composeResolvedTarget = null;
     }
 
-    protected mentionSuggestions: MentionCandidate[] = [];
+    protected mentionSuggestions: ComposerTagSuggestion[] = [];
     protected showMentionSuggestions = false;
     protected selectedMentions = new Map<string, MentionCandidate>();
 
     /** Returns message control value. */
     protected abstract get messageControlValue(): string;
 
+    /** Keeps channel metadata synced for compose target and # tag suggestions. */
+    protected subscribeToChannelsForSuggestions(): void {
+        this.subscription.add(
+            this.channelService.getAllChannels().subscribe({
+                next: (channels) => this.applyChannelSuggestionData(channels),
+            }),
+        );
+    }
+
+    /** Applies realtime channel data into local channel lookup maps. */
+    protected applyChannelSuggestionData(channels: Channel[]): void {
+        channels.forEach((channel) => {
+            const id = (channel.id ?? '').trim();
+            if (!id) return;
+            const name = (channel.name ?? '').toString().trim();
+            if (name) this.channelNames[id] = name;
+            const description = (channel.description ?? '').toString().trim();
+            if (description) this.channelDescriptions[id] = description;
+        });
+    }
+
     /** Handles update mention suggestions. */
     protected updateMentionSuggestions(): void {
-        const query = this.extractMentionQuery(this.messageControlValue);
-        if (query === null) { this.showMentionSuggestions = false; this.mentionSuggestions = []; return; }
-        this.mentionSuggestions = this.findMentionCandidates(query);
+        const context = this.extractTagQuery(this.messageControlValue);
+        if (!context) {
+            this.showMentionSuggestions = false;
+            this.mentionSuggestions = [];
+            return;
+        }
+
+        this.mentionSuggestions = context.trigger === '@'
+            ? this.findUserMentionCandidates(context.query)
+            : this.findChannelMentionCandidates(context.query);
         this.showMentionSuggestions = this.mentionSuggestions.length > 0;
     }
 
-    /** Handles extract mention query. */
-    protected extractMentionQuery(value: string): string | null {
-        const start = value.lastIndexOf('@');
+    /** Returns the currently active @/# tag context near the cursor tail. */
+    protected extractTagQuery(value: string): { trigger: '@' | '#'; start: number; query: string } | null {
+        const atIndex = value.lastIndexOf('@');
+        const hashIndex = value.lastIndexOf('#');
+        const start = Math.max(atIndex, hashIndex);
         if (start < 0) return null;
+
+        const trigger = value[start];
+        if (trigger !== '@' && trigger !== '#') return null;
+
+        const prevChar = start > 0 ? value[start - 1] : '';
+        if (prevChar && !/\s/.test(prevChar)) return null;
+
         const tail = value.slice(start + 1);
-        if (tail.includes(' ')) return null;
-        return tail.trim().toLowerCase();
+        if (/[\s]/.test(tail)) return null;
+
+        return {
+            trigger: trigger as '@' | '#',
+            start,
+            query: tail.trim().toLowerCase(),
+        };
     }
 
-    /** Handles find mention candidates. */
-    protected findMentionCandidates(query: string): MentionCandidate[] {
+    /** Finds @ mention candidates. */
+    protected findUserMentionCandidates(query: string): ComposerTagSuggestion[] {
+        const normalizedQuery = this.normalizeSuggestionToken(query);
         return (Object.values(this.usersById) as User[])
             .filter((u) => !!u.id && u.id !== this.currentUserId)
-            .map((u) => ({ id: u.id as string, label: u.displayName }))
-            .filter((c) => c.label.toLowerCase().includes(query))
-            .slice(0, 6);
+            .sort((left, right) => left.displayName.localeCompare(right.displayName, 'de'))
+            .map((u) => ({ id: u.id as string, label: u.displayName, kind: 'user' as const }))
+            .filter((c) => this.normalizeSuggestionToken(c.label).includes(normalizedQuery))
+            .slice(0, this.composeSuggestionLimit);
+    }
+
+    /** Finds # channel tag candidates. */
+    protected findChannelMentionCandidates(query: string): ComposerTagSuggestion[] {
+        const normalizedQuery = this.normalizeSuggestionToken(query);
+        return (Object.entries(this.channelNames) as Array<[string, string]>)
+            .map(([id, label]) => ({ id, label: label || id, kind: 'channel' as const }))
+            .sort((left, right) => left.label.localeCompare(right.label, 'de'))
+            .filter((channel) => {
+                if (!normalizedQuery) return true;
+                return this.normalizeSuggestionToken(channel.id).includes(normalizedQuery) ||
+                    this.normalizeSuggestionToken(channel.label).includes(normalizedQuery);
+            })
+            .slice(0, this.composeSuggestionLimit);
     }
 
     /** Handles select mention. */
-    selectMention(candidate: MentionCandidate): void {
+    selectMention(candidate: ComposerTagSuggestion): void {
         const value = this.messageControlValue;
-        const start = value.lastIndexOf('@');
-        if (start < 0) return;
-        const before = value.slice(0, start);
-        this.setMessageControlValue(`${before}@${candidate.label} `);
-        this.selectedMentions.set(candidate.id, candidate);
+        const context = this.extractTagQuery(value);
+        if (!context) return;
+
+        const prefix = context.trigger;
+        const before = value.slice(0, context.start);
+        this.setMessageControlValue(`${before}${prefix}${candidate.label} `);
+
+        if (candidate.kind === 'user') {
+            this.selectedMentions.set(candidate.id, {
+                id: candidate.id,
+                label: candidate.label,
+            });
+        }
+
         this.hideMentionSuggestions();
     }
 
@@ -269,5 +352,14 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
     protected hideMentionSuggestions(): void {
         this.mentionSuggestions = [];
         this.showMentionSuggestions = false;
+    }
+
+    /** Normalizes tokens for case- and accent-insensitive matching. */
+    protected normalizeSuggestionToken(value: string): string {
+        return (value ?? '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/\p{Diacritic}/gu, '')
+            .trim();
     }
 }

@@ -118,6 +118,7 @@ export class HomeComponent extends HomeDisplayBase implements OnInit, OnDestroy 
         this.initializeConversationFromSnapshot();
         this.subscribeToAuth();
         this.subscribeToUsers();
+        this.subscribeToChannelsForSuggestions();
         this.subscribeToRouteMessages();
         this.subscribeToQueryParams();
         this.syncComposerState();
