@@ -131,13 +131,6 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
 
     /** Handles handle route message context. */
     protected handleRouteMessageContext(user: FirebaseUser | null, params: ParamMap): void {
-        console.log('[ROUTE CONTEXT]', {
-            user: user?.uid ?? null,
-            channelId: params.get('channelId'),
-            userId: params.get('userId'),
-            url: this.router.url,
-        });
-
         if (!user) { this.clearMessagesState(); return; }
         this.loadMessagesForRoute(params);
     }
@@ -154,8 +147,6 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
 
     /** Handles setup direct messages. */
     protected setupDirectMessages(userId: string, name: string): void {
-        console.log('[SETUP DIRECT]', { userId, name });
-
         this.applyDirectSnapshot(userId, name);
         this.currentChannelSubscription?.unsubscribe();
         this.currentChannelSubscription = null;
@@ -171,13 +162,10 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
     /** Handles setup channel messages. */
     protected setupChannelMessages(params: ParamMap): void {
         const requestedChannelId = params.get('channelId') ?? 'allgemein';
-        console.log('[SETUP CHANNEL] requestedChannelId =', requestedChannelId);
-
         this.resolveAccessibleChannelId(requestedChannelId)
             .pipe(take(1))
             .subscribe({
                 next: (channelId) => {
-                    console.log('[SETUP CHANNEL] resolved channelId =', channelId);
                     this.startResolvedChannelContext(channelId, requestedChannelId);
                 },
                 error: (error) => this.handleRouteMessageError(error),
