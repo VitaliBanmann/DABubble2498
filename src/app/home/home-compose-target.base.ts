@@ -29,8 +29,8 @@ export abstract class HomeComposeTargetBase extends HomeMessageGroupsBase {
     };
 
     readonly channelDescriptions: Record<string, string> = {
-        allgemein: 'Dieser Channel ist fuer alles rund um #dfsdf vorgesehen. Hier kannst du zusammen mit deinem Team Meetings abhalten, Dokumente teilen und Entscheidungen treffen.',
-        entwicklerteam: 'Dieser Channel ist fuer alles rund um #dfsdf vorgesehen. Hier kannst du zusammen mit deinem Team Meetings abhalten, Dokumente teilen und Entscheidungen treffen.',
+        allgemein: 'Dieser Channel ist fuer alles rund um das Entwickeln vorgesehen. Hier kannst du zusammen mit deinem Team Meetings abhalten, Dokumente teilen und Entscheidungen treffen.',
+        entwicklerteam: 'Dieser Channel ist fuer alles rund um das Entwickeln vorgesehen. Hier kannst du zusammen mit deinem Team Meetings abhalten, Dokumente teilen und Entscheidungen treffen.',
     };
 
     /** Handles on compose target input. */

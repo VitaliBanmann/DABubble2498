@@ -506,20 +506,39 @@
     </section>
 
     @if (isChannelPopupOpen) {
-    <app-channel-popup [channelName]="currentConversationTitle" [description]="currentChannelDescription"
-        [createdBy]="currentChannelCreatorName" [left]="channelPopupLeft" [top]="channelPopupTop"
-        (channelNameChange)="onChannelNameChanged($event)" (descriptionChange)="onChannelDescriptionChanged($event)"
-        (leaveChannel)="onLeaveChannelRequested()" (close)="closeChannelPopup()" />
+        <app-channel-popup
+            [channelName]="currentConversationTitle"
+            [description]="currentChannelDescription"
+            [createdBy]="currentChannelCreatorName"
+            [left]="channelPopupLeft"
+            [top]="channelPopupTop"
+            [errorMessage]="errorMessage"
+            [canDeleteChannel]="canDeleteCurrentChannel"
+            (channelNameChange)="onChannelNameChanged($event)"
+            (descriptionChange)="onChannelDescriptionChanged($event)"
+            (leaveChannel)="onLeaveChannelRequested()"
+            (deleteChannel)="onDeleteChannelRequested()"
+            (close)="closeChannelPopup()"
+        />
     }
 
     @if (isAddMemberPopupOpen) {
-    <app-add-member-to-channel [channelName]="currentConversationTitle" [availableUsers]="addMemberPopupAvailableUsers"
-        (close)="closeAddMemberPopup()" (addMember)="onAddMemberSubmit($event)" />
+        <app-add-member-to-channel
+            [channelName]="currentConversationTitle"
+            [availableUsers]="addMemberPopupAvailableUsers"
+            (close)="closeAddMemberPopup()"
+            (addMember)="onAddMemberSubmit($event)"
+        />
     }
 
     @if (isChannelMembersPopupOpen) {
-    <app-channel-members-popup [members]="channelMembersPopupEntries" [left]="channelMembersPopupLeft"
-        [top]="channelMembersPopupTop" (close)="closeChannelMembersPopup()" (addMember)="onAddMemberClick()"
-        (removeMember)="onRemoveMemberSubmit($event)" />
+        <app-channel-members-popup
+            [members]="channelMembersPopupEntries"
+            [left]="channelMembersPopupLeft"
+            [top]="channelMembersPopupTop"
+            (close)="closeChannelMembersPopup()"
+            (addMember)="onAddMemberClick()"
+            (removeMember)="onRemoveMemberSubmit($event)"
+        />
     }
 </main>

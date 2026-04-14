@@ -36,22 +36,27 @@ export abstract class SidebarComponentBase extends SidebarSearchBase {
         { id: 'allgemein', label: 'Allgemein' },
         { id: 'entwicklerteam', label: 'Entwicklerteam' },
     ];
+
     private readonly newMessageClick$ = new Subject<void>();
     readonly canStartNewMessage$ = this.authService.currentUser$.pipe(
         startWith(this.authService.getCurrentUser()),
         map((user) => !!user && !user.isAnonymous),
     );
+
     private readonly canonicalChannelLabels: Record<string, string> = {
         allgemein: 'Allgemein',
         entwicklerteam: 'Entwicklerteam',
     };
+
     readonly channelNameControl = new FormControl('', {
         nonNullable: true,
         validators: [Validators.required],
     });
+
     readonly channelDescriptionControl = new FormControl('', {
         nonNullable: true,
     });
+
     showCreateChannelDialog = false;
     isSaving = false;
     saveError = '';
@@ -75,12 +80,14 @@ export abstract class SidebarComponentBase extends SidebarSearchBase {
             ),
         ),
     );
+
     private readonly routeState$ = this.router.events.pipe(
         filter((event) => event instanceof NavigationEnd),
         startWith(null),
         map(() => this.router.url),
         map((url) => resolveSidebarRouteState(url)),
     );
+
     readonly directMessages$ = combineLatest([
         this.authService.currentUser$.pipe(startWith(this.authService.getCurrentUser())),
         this.userService.getAllUsersRealtime().pipe(
@@ -103,6 +110,9 @@ export abstract class SidebarComponentBase extends SidebarSearchBase {
             );
         }),
     );
+
+    private lastDeletedChannelId: string | null = null;
+
     protected constructor(
         protected readonly authService: AuthService,
         protected override readonly channelService: ChannelService,
@@ -309,15 +319,49 @@ export abstract class SidebarComponentBase extends SidebarSearchBase {
         this.saveError = 'Channel konnte nicht erstellt werden. Bitte erneut versuchen.';
     }
     private applyChannels(channels: Channel[]): void {
+        const currentIds = new Set(
+            channels
+                .map((channel) => (channel.id ?? '').trim())
+                .filter((id) => !!id),
+        );
+
         const merged = channels.reduce(
             (accumulator, channel) => this.mergeChannel(accumulator, channel),
             [...this.defaultChannels],
         );
+
         this.channels.splice(0, this.channels.length, ...merged);
         this.sortChannels();
+        this.syncDeletedActiveChannelState(currentIds);
         this.ensureActiveChannelVisible();
         this.refreshUnreadTracking();
     }
+
+    private syncDeletedActiveChannelState(currentIds: Set<string>): void {
+        if (!this.activeChannelId) {
+            this.lastDeletedChannelId = null;
+            return;
+        }
+
+        const isDefaultChannel = this.defaultChannels.some(
+            (channel) => channel.id === this.activeChannelId,
+        );
+
+        if (isDefaultChannel) {
+            this.lastDeletedChannelId = null;
+            return;
+        }
+
+        if (!currentIds.has(this.activeChannelId)) {
+            this.lastDeletedChannelId = this.activeChannelId;
+            return;
+        }
+
+        if (this.lastDeletedChannelId === this.activeChannelId) {
+            this.lastDeletedChannelId = null;
+        }
+    }
+
     private ensureActiveChannelVisible(): void {
         const missingId = this.getMissingActiveChannelId();
         if (!missingId) return;
@@ -336,16 +380,37 @@ export abstract class SidebarComponentBase extends SidebarSearchBase {
     }
     private getMissingActiveChannelId(): string | null {
         if (!this.activeChannelId) return null;
+
+        if (this.lastDeletedChannelId === this.activeChannelId) {
+            return null;
+        }
+
         if (this.channels.some((channel) => channel.id === this.activeChannelId)) {
             return null;
         }
+
         return this.activeChannelId;
     }
+
     private addActiveChannelIfFound(channel: Channel | null): void {
         if (!channel?.id) return;
+
+        if (this.lastDeletedChannelId === channel.id) {
+            return;
+        }
+
+        if (this.activeChannelId !== channel.id) {
+            return;
+        }
+
+        if (this.channels.some((item) => item.id === channel.id)) {
+            return;
+        }
+
         this.channels.push(this.mapChannelForSidebar(channel));
         this.sortChannels();
     }
+
     private mapChannelForSidebar(channel: Channel): SidebarChannel {
         return mapSidebarChannel(
             channel,

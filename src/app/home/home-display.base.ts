@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import { ElementRef } from '@angular/core';
-import { take } from 'rxjs';
+import { switchMap, take } from 'rxjs';
 import { Channel, ChannelService } from '../services/channel.service';
 import { Message, MessageService, ThreadMessage } from '../services/message.service';
 import { User } from '../services/user.service';
@@ -29,7 +29,7 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         const live = (this.currentChannel?.description ?? '').trim();
         if (live) return live;
         return this.channelDescriptions[this.currentChannelId] ??
-            'Dieser Channel ist fuer alles rund um #dfsdf vorgesehen. Hier kannst du zusammen mit deinem Team Meetings abhalten, Dokumente teilen und Entscheidungen treffen.';
+            'Dieser Channel ist fuer alles rund um das Entwickeln vorgesehen. Hier kannst du zusammen mit deinem Team Meetings abhalten, Dokumente teilen und Entscheidungen treffen.';
     }
 
     /** Returns current channel name. */
@@ -45,6 +45,20 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         if (!creatorIdOrName) return 'Unbekannt';
         const user = this.usersById[creatorIdOrName];
         return (user?.displayName ?? '').trim() || creatorIdOrName;
+    }
+
+    /** Returns whether the current user may delete the current channel. */
+    get canDeleteCurrentChannel(): boolean {
+        if (this.isDirectMessage || !this.currentChannelId || !this.currentUserId) {
+            return false;
+        }
+
+        if (this.isProtectedDefaultChannel(this.currentChannelId)) {
+            return false;
+        }
+
+        const createdBy = (this.currentChannel?.createdBy ?? '').toString().trim();
+        return !!createdBy && createdBy === this.currentUserId;
     }
 
     /** Returns current conversation title. */
@@ -114,6 +128,24 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
     /** Returns channel members count. */
     get channelMembersCount(): number { return this.getChannelMembers().length; }
 
+    /** Debug helper for current channel delete state. */
+    debugDeleteState(): void {
+        const createdBy = (this.currentChannel?.createdBy ?? '').toString().trim();
+        const canDelete =
+            !this.isDirectMessage &&
+            !!this.currentChannelId &&
+            !!this.currentUserId &&
+            !this.isProtectedDefaultChannel(this.currentChannelId) &&
+            !!createdBy &&
+            createdBy === this.currentUserId;
+
+        console.log('currentChannelId', this.currentChannelId);
+        console.log('currentUserId', this.currentUserId);
+        console.log('currentChannel', this.currentChannel);
+        console.log('createdBy', createdBy);
+        console.log('canDeleteCurrentChannel', canDelete);
+    }
+
     /** Handles open channel popup. */
     openChannelPopup(): void {
         if ((this as any).isComposeMode || this.isDirectMessage) return;
@@ -121,6 +153,7 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         this.isAddMemberPopupOpen = false;
         this.isChannelMembersPopupOpen = false;
         this.isChannelPopupOpen = true;
+        this.debugDeleteState();
     }
 
     /** Handles close channel popup. */
@@ -139,6 +172,9 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
     /** Handles on add member submit. */
     onAddMemberSubmit(userId: string): void {
         if (!this.canUpdateChannelMember(userId)) return;
+
+        this.errorMessage = '';
+
         this.channelService
             .addMemberToChannel(this.currentChannelId, userId)
             .pipe(take(1))
@@ -148,6 +184,9 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
     /** Handles on remove member submit. */
     onRemoveMemberSubmit(userId: string): void {
         if (!this.canUpdateChannelMember(userId)) return;
+
+        this.errorMessage = '';
+
         this.channelService
             .removeMemberFromChannel(this.currentChannelId, userId)
             .pipe(take(1))
@@ -163,22 +202,36 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
     private addMemberObserver() {
         return {
             next: () => {
+                this.errorMessage = '';
                 this.isAddMemberPopupOpen = false;
             },
-            error: (error: unknown) => this.logChannelMemberError('ADD', error),
+            error: (error: unknown) =>
+                this.logChannelMemberError('ADD', error),
         };
     }
 
     /** Handles remove member observer. */
     private removeMemberObserver() {
         return {
-            error: (error: unknown) => this.logChannelMemberError('REMOVE', error),
+            next: () => {
+                this.errorMessage = '';
+            },
+            error: (error: unknown) =>
+                this.logChannelMemberError('REMOVE', error),
         };
     }
 
     /** Handles log channel member error. */
-    private logChannelMemberError(action: 'ADD' | 'REMOVE', error: unknown): void {
+    private logChannelMemberError(
+        action: 'ADD' | 'REMOVE',
+        error: unknown,
+    ): void {
         console.error(`[${action} CHANNEL MEMBER ERROR]`, error);
+
+        this.errorMessage =
+            action === 'ADD'
+                ? this.resolveChannelUpdateErrorMessage('add-member', error)
+                : this.resolveChannelUpdateErrorMessage('remove-member', error);
     }
 
     /** Handles open channel members popup. */
@@ -215,26 +268,227 @@ export abstract class HomeDisplayBase extends HomeMessageActionsBase {
         this.channelPopupTop = Math.round(rect.bottom + 12);
     }
 
+    /** Returns whether a channel id is protected from deletion. */
+    protected isProtectedDefaultChannel(channelId: string): boolean {
+        return ['allgemein', 'entwicklerteam'].includes((channelId ?? '').trim().toLowerCase());
+    }
+
+    /** Normalizes a channel name for duplicate checks. */
+    protected normalizeChannelNameForComparison(value: string): string {
+        return (value ?? '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/\p{Diacritic}/gu, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
+    /** Returns whether another existing channel already uses the same name. */
+    protected hasDuplicateChannelName(
+        nextName: string,
+        currentChannelId: string,
+    ): boolean {
+        const normalizedNextName =
+            this.normalizeChannelNameForComparison(nextName);
+
+        return Object.entries(this.channelNames).some(([channelId, channelName]) => {
+            if (channelId === currentChannelId) {
+                return false;
+            }
+
+            return (
+                this.normalizeChannelNameForComparison(channelName) ===
+                normalizedNextName
+            );
+        });
+    }
+
+    /** Applies a successful channel name update into local state. */
+    protected applySuccessfulChannelNameUpdate(name: string): void {
+        this.channelNames[this.currentChannelId] = name;
+
+        if (this.currentChannel) {
+            this.currentChannel = {
+                ...this.currentChannel,
+                name,
+            };
+        }
+    }
+
+    /** Applies a successful channel description update into local state. */
+    protected applySuccessfulChannelDescriptionUpdate(description: string): void {
+        this.channelDescriptions[this.currentChannelId] = description;
+
+        if (this.currentChannel) {
+            this.currentChannel = {
+                ...this.currentChannel,
+                description,
+            };
+        }
+    }
+
+    /** Resolves a readable channel update error message. */
+    protected resolveChannelUpdateErrorMessage(
+        action: 'name' | 'description' | 'add-member' | 'remove-member' | 'delete',
+        error: unknown,
+    ): string {
+        const code =
+            typeof (this as any).extractFirebaseErrorCode === 'function'
+                ? (this as any).extractFirebaseErrorCode(error)
+                : '';
+
+        if (code === 'permission-denied') {
+            if (action === 'delete') {
+                return 'Channel konnte nicht gelöscht werden (keine Berechtigung).';
+            }
+
+            if (action === 'add-member' || action === 'remove-member') {
+                return 'Mitglieder konnten nicht aktualisiert werden (keine Berechtigung).';
+            }
+
+            return 'Änderung konnte nicht gespeichert werden (keine Berechtigung).';
+        }
+
+        if (action === 'name') {
+            return 'Channel-Name konnte nicht gespeichert werden. Bitte erneut versuchen.';
+        }
+
+        if (action === 'description') {
+            return 'Channel-Beschreibung konnte nicht gespeichert werden. Bitte erneut versuchen.';
+        }
+
+        if (action === 'add-member') {
+            return 'Mitglied konnte nicht hinzugefügt werden. Bitte erneut versuchen.';
+        }
+
+        if (action === 'remove-member') {
+            return 'Mitglied konnte nicht entfernt werden. Bitte erneut versuchen.';
+        }
+
+        return 'Channel konnte nicht gelöscht werden. Bitte erneut versuchen.';
+    }
+
     /** Handles on channel name changed. */
     onChannelNameChanged(nextName: string): void {
         const name = nextName.trim();
-        if (!name || this.isDirectMessage || !this.currentChannelId) return;
-        this.channelNames[this.currentChannelId] = name;
-        if (this.currentChannel) this.currentChannel = { ...this.currentChannel, name };
-        this.channelService.updateChannel(this.currentChannelId, { name }).pipe(take(1)).subscribe({
-            error: (e: unknown) => console.error('[CHANNEL NAME UPDATE ERROR]', e),
-        });
+
+        if (!name || this.isDirectMessage || !this.currentChannelId) {
+            return;
+        }
+
+        const currentName = this.currentChannelName.trim();
+
+        this.errorMessage = '';
+
+        if (this.normalizeChannelNameForComparison(name) === this.normalizeChannelNameForComparison(currentName)) {
+            return;
+        }
+
+        if (this.hasDuplicateChannelName(name, this.currentChannelId)) {
+            this.errorMessage =
+                'Ein Channel mit diesem Namen existiert bereits.';
+            return;
+        }
+
+        this.channelService
+            .updateChannel(this.currentChannelId, { name })
+            .pipe(take(1))
+            .subscribe({
+                next: () => {
+                    this.applySuccessfulChannelNameUpdate(name);
+                    this.errorMessage = '';
+                },
+                error: (error: unknown) => {
+                    console.error('[CHANNEL NAME UPDATE ERROR]', error);
+                    this.errorMessage =
+                        this.resolveChannelUpdateErrorMessage('name', error);
+                },
+            });
     }
 
     /** Handles on channel description changed. */
     onChannelDescriptionChanged(nextDescription: string): void {
         const description = nextDescription.trim();
-        if (!description || this.isDirectMessage || !this.currentChannelId) return;
-        this.channelDescriptions[this.currentChannelId] = description;
-        if (this.currentChannel) this.currentChannel = { ...this.currentChannel, description };
-        this.channelService.updateChannel(this.currentChannelId, { description }).pipe(take(1)).subscribe({
-            error: (e: unknown) => console.error('[CHANNEL DESCRIPTION UPDATE ERROR]', e),
-        });
+
+        if (!description || this.isDirectMessage || !this.currentChannelId) {
+            return;
+        }
+
+        const currentDescription = this.currentChannelDescription.trim();
+
+        this.errorMessage = '';
+
+        if (description === currentDescription) {
+            return;
+        }
+
+        this.channelService
+            .updateChannel(this.currentChannelId, { description })
+            .pipe(take(1))
+            .subscribe({
+                next: () => {
+                    this.applySuccessfulChannelDescriptionUpdate(description);
+                    this.errorMessage = '';
+                },
+                error: (error: unknown) => {
+                    console.error('[CHANNEL DESCRIPTION UPDATE ERROR]', error);
+                    this.errorMessage =
+                        this.resolveChannelUpdateErrorMessage(
+                            'description',
+                            error,
+                        );
+                },
+            });
+    }
+
+    /** Handles delete current channel request. */
+    onDeleteChannelRequested(): void {
+        if (this.isDirectMessage || !this.currentChannelId || !this.currentUserId) {
+            return;
+        }
+
+        if (!this.canDeleteCurrentChannel) {
+            this.errorMessage =
+                'Nur der Ersteller dieses Channels kann ihn löschen.';
+            return;
+        }
+
+        const deletedChannelId = this.currentChannelId;
+
+        this.errorMessage = '';
+
+        this.channelService
+            .deleteChannel(deletedChannelId)
+            .pipe(
+                take(1),
+                switchMap(() => this.channelService.getAllChannels().pipe(take(1))),
+            )
+            .subscribe({
+                next: (channels: Channel[]) => {
+                    delete this.channelNames[deletedChannelId];
+                    delete this.channelDescriptions[deletedChannelId];
+
+                    this.isChannelPopupOpen = false;
+                    this.isAddMemberPopupOpen = false;
+                    this.isChannelMembersPopupOpen = false;
+
+                    const nextChannel = channels.find(
+                        (channel) => !!channel.id && channel.id !== deletedChannelId,
+                    );
+
+                    if (nextChannel?.id) {
+                        this.router.navigate(['/app/channel', nextChannel.id]);
+                        return;
+                    }
+
+                    this.router.navigate(['/app']);
+                },
+                error: (error: unknown) => {
+                    console.error('[CHANNEL DELETE ERROR]', error);
+                    this.errorMessage =
+                        this.resolveChannelUpdateErrorMessage('delete', error);
+                },
+            });
     }
 
     /** Handles get user avatar. */

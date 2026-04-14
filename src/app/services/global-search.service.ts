@@ -41,7 +41,7 @@ export class GlobalSearchService {
         subscription.add(
             this.channelService
                 .getAllChannels()
-                .pipe(take(1), catchError(() => of([] as Channel[])))
+                .pipe(catchError(() => of([] as Channel[])))
                 .subscribe((channels) => {
                     this.cachedChannels = mapSearchResults(channels, [], []).channels;
                 }),
@@ -50,7 +50,7 @@ export class GlobalSearchService {
         subscription.add(
             this.userService
                 .getAllUsersRealtime()
-                .pipe(take(1), catchError(() => of([] as User[])))
+                .pipe(catchError(() => of([] as User[])))
                 .subscribe((users) => {
                     this.cachedUsers = users;
                 }),

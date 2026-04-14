@@ -150,12 +150,6 @@ export abstract class HomeMessageStreamsBase extends HomeRouteContextBase {
 
     /** Handles apply live messages. */
     protected applyLiveMessages(messages: Message[]): void {
-        console.log('[LIVE MESSAGES ARRIVED]', messages.length, {
-            isDirectMessage: this.isDirectMessage,
-            currentChannelId: this.currentChannelId,
-            currentDirectUserId: this.currentDirectUserId,
-        });
-
         this.connectionHint = '';
         this.liveMessages = this.sortMessagesByTimestamp(messages);
         this.rebuildMessageList();

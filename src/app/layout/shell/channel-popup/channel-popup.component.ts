@@ -1,5 +1,12 @@
 import { CommonModule } from '@angular/common';
-import { Component, EventEmitter, Input, OnChanges, Output, SimpleChanges } from '@angular/core';
+import {
+    Component,
+    EventEmitter,
+    Input,
+    OnChanges,
+    Output,
+    SimpleChanges,
+} from '@angular/core';
 import { FormsModule } from '@angular/forms';
 
 @Component({
@@ -14,15 +21,21 @@ export class ChannelPopupComponent implements OnChanges {
     @Input() left = 24;
     @Input() top = 100;
     @Input() description =
-        'Dieser Channel ist für alles rund um #dfsdf vorgesehen. Hier kannst du zusammen mit deinem Team Meetings abhalten, Dokumente teilen und Entscheidungen treffen.';
+        'Dieser Channel ist für alles rund um das Entwickeln vorgesehen. Hier kannst du zusammen mit deinem Team Meetings abhalten, Dokumente teilen und Entscheidungen treffen.';
     @Input() createdBy = 'Unbekannt';
+    @Input() errorMessage = '';
+    @Input() canDeleteChannel = false;
+
     @Output() close = new EventEmitter<void>();
     @Output() channelNameChange = new EventEmitter<string>();
     @Output() descriptionChange = new EventEmitter<string>();
     @Output() leaveChannel = new EventEmitter<void>();
+    @Output() deleteChannel = new EventEmitter<void>();
+
     currentChannelName = this.channelName;
     editableChannelName = this.channelName;
     isEditingChannelName = false;
+
     currentDescription = this.description;
     editableDescription = this.description;
     isEditingDescription = false;
@@ -53,10 +66,14 @@ export class ChannelPopupComponent implements OnChanges {
     onToggleChannelNameEdit(): void {
         if (this.isEditingChannelName) {
             const nextChannelName = this.editableChannelName.trim();
-            if (nextChannelName) {
-                this.currentChannelName = nextChannelName;
-                this.channelNameChange.emit(nextChannelName);
+
+            if (!nextChannelName) {
+                this.editableChannelName = this.currentChannelName;
+                this.isEditingChannelName = false;
+                return;
             }
+
+            this.channelNameChange.emit(nextChannelName);
             this.editableChannelName = this.currentChannelName;
             this.isEditingChannelName = false;
             return;
@@ -70,21 +87,30 @@ export class ChannelPopupComponent implements OnChanges {
     onToggleDescriptionEdit(): void {
         if (this.isEditingDescription) {
             const nextDescription = this.editableDescription.trim();
-            if (nextDescription) {
-                this.currentDescription = nextDescription;
-                this.descriptionChange.emit(nextDescription);
+
+            if (!nextDescription) {
+                this.editableDescription = this.currentDescription;
+                this.isEditingDescription = false;
+                return;
             }
+
+            this.descriptionChange.emit(nextDescription);
             this.editableDescription = this.currentDescription;
             this.isEditingDescription = false;
             return;
         }
 
-        this.editableDescription = '';
+        this.editableDescription = this.currentDescription;
         this.isEditingDescription = true;
     }
 
     /** Handles on leave channel click. */
     onLeaveChannelClick(): void {
         this.leaveChannel.emit();
+    }
+
+    /** Handles on delete channel click. */
+    onDeleteChannelClick(): void {
+        this.deleteChannel.emit();
     }
 }

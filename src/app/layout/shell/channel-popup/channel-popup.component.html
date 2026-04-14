@@ -85,10 +85,16 @@
                     />
                 </div>
             }
+
             <div class="channel-popup__divider"></div>
+
             <h4>Erstellt von</h4>
             <p class="channel-popup__creator">{{ createdBy }}</p>
         </section>
+
+        @if (errorMessage) {
+            <p class="error">{{ errorMessage }}</p>
+        }
 
         <div class="channel-popup__actions">
             <button
@@ -98,6 +104,16 @@
             >
                 Channel verlassen
             </button>
+
+            @if (canDeleteChannel) {
+                <button
+                    type="button"
+                    class="channel-popup__delete-btn"
+                    (click)="onDeleteChannelClick()"
+                >
+                    Channel löschen
+                </button>
+            }
         </div>
     </article>
 </section>
