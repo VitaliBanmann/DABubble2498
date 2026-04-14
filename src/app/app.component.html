@@ -66,100 +66,106 @@
                 novalidate
             >
                 @if (isRegisterMode) {
-                    <label class="field" for="displayName">
+                    <div class="field-group">
+                        <label class="field" for="displayName">
+                            <span class="icon" aria-hidden="true">
+                                <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+                                    <path
+                                        d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z"
+                                    />
+                                </svg>
+                            </span>
+                            <input
+                                id="displayName"
+                                type="text"
+                                formControlName="displayName"
+                                placeholder="Anzeigename"
+                                autocomplete="nickname"
+                            />
+                        </label>
+
+                        @if (
+                            isRegisterMode &&
+                            displayNameControl.touched &&
+                            !!displayNameControl.value &&
+                            !displayNameControl.value.trim()
+                            ) {
+                            <p class="field-error">
+                                Bitte gib einen Anzeigenamen ein.
+                            </p>
+                        }
+                    </div>
+                }
+
+                <div class="field-group">
+                    <label class="field" for="email">
                         <span class="icon" aria-hidden="true">
                             <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
                                 <path
-                                    d="M12 12a5 5 0 1 0-5-5 5 5 0 0 0 5 5zm0 2c-4.4 0-8 2.2-8 5v1h16v-1c0-2.8-3.6-5-8-5z"
+                                    d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm0 2v.2l8 4.8 8-4.8V7H4zm0 10h16V9.4l-7.5 4.5a1 1 0 0 1-1 0L4 9.4V17z"
                                 />
                             </svg>
                         </span>
                         <input
-                            id="displayName"
-                            type="text"
-                            formControlName="displayName"
-                            placeholder="Anzeigename"
-                            autocomplete="nickname"
+                            id="email"
+                            type="email"
+                            formControlName="email"
+                            placeholder="beispielname@email.com"
+                            autocomplete="email"
                         />
                     </label>
-                }
 
-                @if (
-                    isRegisterMode &&
-                    displayNameControl.touched &&
-                    !!displayNameControl.value &&
-                    !displayNameControl.value.trim()
-                    ) {
-                    <p class="field-error">
-                        Bitte gib einen Anzeigenamen ein.
-                    </p>
-                }
+                    @if (
+                        emailControl.touched &&
+                        !!emailControl.value?.trim() &&
+                        (emailControl.hasError('email') || emailControl.hasError('pattern'))
+                        ) {
+                        <p class="field-error">
+                            Bitte gib eine gültige E-Mail-Adresse ein.
+                        </p>
+                    }
+                </div>
 
-                <label class="field" for="email">
-                    <span class="icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-                            <path
-                                d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm0 2v.2l8 4.8 8-4.8V7H4zm0 10h16V9.4l-7.5 4.5a1 1 0 0 1-1 0L4 9.4V17z"
-                            />
-                        </svg>
-                    </span>
-                    <input
-                        id="email"
-                        type="email"
-                        formControlName="email"
-                        placeholder="beispielname@email.com"
-                        autocomplete="email"
-                    />
-                </label>
-
-                @if (
-                    emailControl.touched &&
-                    !!emailControl.value?.trim() &&
-                    (emailControl.hasError('email') || emailControl.hasError('pattern'))
-                    ) {
-                    <p class="field-error">
-                        Bitte gib eine gültige E-Mail-Adresse ein.
-                    </p>
-                }
-
-                <label class="field" for="password">
-                    <span class="icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-                            <path
-                                d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 1 1 4 0v2h-4V7zm7 12H7v-8h10v8z"
-                            />
-                        </svg>
-                    </span>
-                    <input
-                        id="password"
-                        [type]="showPassword ? 'text' : 'password'"
-                        formControlName="password"
-                        placeholder="Passwort"
-                        [attr.autocomplete]="isRegisterMode ? 'new-password' : 'current-password'"
-                        (keydown.enter)="onPasswordEnter($event)"
-                    />
-                    <button
-                        type="button"
-                        class="password-toggle"
-                        [attr.aria-label]="
-                            showPassword
-                                ? 'Passwort verbergen'
-                                : 'Passwort anzeigen'
-                        "
-                        [disabled]="isSubmitting"
-                        (click)="togglePasswordVisibility()"
-                    >
-                        <span class="material-symbols-outlined" aria-hidden="true">
-                            {{ showPassword ? 'visibility_off' : 'visibility' }}
+                <div class="field-group">
+                    <label class="field" for="password">
+                        <span class="icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+                                <path
+                                    d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 1 1 4 0v2h-4V7zm7 12H7v-8h10v8z"
+                                />
+                            </svg>
                         </span>
-                    </button>
-                </label>
+                        <input
+                            id="password"
+                            [type]="showPassword ? 'text' : 'password'"
+                            formControlName="password"
+                            placeholder="Passwort"
+                            [attr.autocomplete]="isRegisterMode ? 'new-password' : 'current-password'"
+                            (keydown.enter)="onPasswordEnter($event)"
+                        />
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            [attr.aria-label]="
+                                showPassword
+                                    ? 'Passwort verbergen'
+                                    : 'Passwort anzeigen'
+                            "
+                            [disabled]="isSubmitting"
+                            (click)="togglePasswordVisibility()"
+                        >
+                            <span class="material-symbols-outlined" aria-hidden="true">
+                                {{ showPassword ? 'visibility_off' : 'visibility' }}
+                            </span>
+                        </button>
+                    </label>
 
-                @if (showPasswordError) {
-                    <p class="field-error">
-                        {{ passwordErrorMessage }}
-                    </p>
-                }
+                    @if (showPasswordError) {
+                        <p class="field-error">
+                            {{ passwordErrorMessage }}
+                        </p>
+                    }
+                </div>
 
                 @if (isRegisterMode) {
                     <div class="password-hints" aria-live="polite">
@@ -312,35 +318,37 @@
                 (ngSubmit)="sendPasswordResetEmail()"
                 novalidate
             >
-                <label class="field" for="reset-email">
-                    <span class="icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-                            <path
-                                d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm0 2v.2l8 4.8 8-4.8V7H4zm0 10h16V9.4l-7.5 4.5a1 1 0 0 1-1 0L4 9.4V17z"
-                            />
-                        </svg>
-                    </span>
-                    <input
-                        id="reset-email"
-                        type="email"
-                        formControlName="email"
-                        placeholder="beispielname@email.com"
-                        autocomplete="email"
-                    />
-                </label>
+                <div class="field-group">
+                    <label class="field" for="reset-email">
+                        <span class="icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+                                <path
+                                    d="M4 5h16a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zm0 2v.2l8 4.8 8-4.8V7H4zm0 10h16V9.4l-7.5 4.5a1 1 0 0 1-1 0L4 9.4V17z"
+                                />
+                            </svg>
+                        </span>
+                        <input
+                            id="reset-email"
+                            type="email"
+                            formControlName="email"
+                            placeholder="beispielname@email.com"
+                            autocomplete="email"
+                        />
+                    </label>
 
-                @if (
-                    forgotPasswordEmailControl.touched &&
-                    !!forgotPasswordEmailControl.value?.trim() &&
-                    (
-                        forgotPasswordEmailControl.hasError('email') ||
-                        forgotPasswordEmailControl.hasError('pattern')
-                    )
-                    ) {
-                    <p class="field-error">
-                        Bitte gib eine gültige E-Mail-Adresse ein.
-                    </p>
-                }
+                    @if (
+                        forgotPasswordEmailControl.touched &&
+                        !!forgotPasswordEmailControl.value?.trim() &&
+                        (
+                            forgotPasswordEmailControl.hasError('email') ||
+                            forgotPasswordEmailControl.hasError('pattern')
+                        )
+                        ) {
+                        <p class="field-error">
+                            Bitte gib eine gültige E-Mail-Adresse ein.
+                        </p>
+                    }
+                </div>
 
                 @if (forgotPasswordError) {
                     <p class="message error">{{ forgotPasswordError }}</p>
@@ -384,65 +392,69 @@
                 (ngSubmit)="confirmPasswordResetFromLink()"
                 novalidate
             >
-                <label class="field" for="new-password">
-                    <span class="icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-                            <path
-                                d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 1 1 4 0v2h-4V7zm7 12H7v-8h10v8z"
-                            />
-                        </svg>
-                    </span>
-                    <input
-                        id="new-password"
-                        [type]="showNewPassword ? 'text' : 'password'"
-                        formControlName="newPassword"
-                        placeholder="Neues Passwort"
-                        autocomplete="new-password"
-                    />
-                    <button
-                        type="button"
-                        class="password-toggle"
-                        [attr.aria-label]="showNewPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
-                        [disabled]="resetFlow.isSubmitting"
-                        (click)="toggleNewPasswordVisibility()"
-                    >
-                        <span class="material-symbols-outlined" aria-hidden="true">
-                            {{ showNewPassword ? 'visibility_off' : 'visibility' }}
+                <div class="field-group">
+                    <label class="field" for="new-password">
+                        <span class="icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+                                <path
+                                    d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 1 1 4 0v2h-4V7zm7 12H7v-8h10v8z"
+                                />
+                            </svg>
                         </span>
-                    </button>
-                </label>
+                        <input
+                            id="new-password"
+                            [type]="showNewPassword ? 'text' : 'password'"
+                            formControlName="newPassword"
+                            placeholder="Neues Passwort"
+                            autocomplete="new-password"
+                        />
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            [attr.aria-label]="showNewPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                            [disabled]="resetFlow.isSubmitting"
+                            (click)="toggleNewPasswordVisibility()"
+                        >
+                            <span class="material-symbols-outlined" aria-hidden="true">
+                                {{ showNewPassword ? 'visibility_off' : 'visibility' }}
+                            </span>
+                        </button>
+                    </label>
+                </div>
 
-                <label class="field" for="confirm-new-password">
-                    <span class="icon" aria-hidden="true">
-                        <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
-                            <path
-                                d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 1 1 4 0v2h-4V7zm7 12H7v-8h10v8z"
-                            />
-                        </svg>
-                    </span>
-                    <input
-                        id="confirm-new-password"
-                        [type]="showConfirmPassword ? 'text' : 'password'"
-                        formControlName="confirmPassword"
-                        placeholder="Passwort wiederholen"
-                        autocomplete="new-password"
-                    />
-                    <button
-                        type="button"
-                        class="password-toggle"
-                        [attr.aria-label]="showConfirmPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
-                        [disabled]="resetFlow.isSubmitting"
-                        (click)="toggleConfirmPasswordVisibility()"
-                    >
-                        <span class="material-symbols-outlined" aria-hidden="true">
-                            {{ showConfirmPassword ? 'visibility_off' : 'visibility' }}
+                <div class="field-group">
+                    <label class="field" for="confirm-new-password">
+                        <span class="icon" aria-hidden="true">
+                            <svg viewBox="0 0 24 24" role="img" aria-hidden="true">
+                                <path
+                                    d="M17 9h-1V7a4 4 0 0 0-8 0v2H7a2 2 0 0 0-2 2v8a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2v-8a2 2 0 0 0-2-2zm-7-2a2 2 0 1 1 4 0v2h-4V7zm7 12H7v-8h10v8z"
+                                />
+                            </svg>
                         </span>
-                    </button>
-                </label>
+                        <input
+                            id="confirm-new-password"
+                            [type]="showConfirmPassword ? 'text' : 'password'"
+                            formControlName="confirmPassword"
+                            placeholder="Passwort wiederholen"
+                            autocomplete="new-password"
+                        />
+                        <button
+                            type="button"
+                            class="password-toggle"
+                            [attr.aria-label]="showConfirmPassword ? 'Passwort verbergen' : 'Passwort anzeigen'"
+                            [disabled]="resetFlow.isSubmitting"
+                            (click)="toggleConfirmPasswordVisibility()"
+                        >
+                            <span class="material-symbols-outlined" aria-hidden="true">
+                                {{ showConfirmPassword ? 'visibility_off' : 'visibility' }}
+                            </span>
+                        </button>
+                    </label>
 
-                @if (showResetPasswordError) {
-                    <p class="field-error">{{ resetPasswordErrorMessage }}</p>
-                }
+                    @if (showResetPasswordError) {
+                        <p class="field-error">{{ resetPasswordErrorMessage }}</p>
+                    }
+                </div>
 
                 @if (resetPasswordError) {
                     <p class="message error">{{ resetPasswordError }}</p>

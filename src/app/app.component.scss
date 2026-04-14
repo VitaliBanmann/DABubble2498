@@ -173,7 +173,7 @@
 }
 
 .auth-card {
-    width: min(100%, 520px);
+    width: min(100%, 606px);
     background: #ffffff;
     border-radius: 32px;
     padding: 40px 48px 32px;
@@ -206,6 +206,13 @@ form {
     gap: 12px;
 }
 
+.field-group {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    padding-bottom: 22px; // reserviert dauerhaft Platz für Fehlermeldung
+}
+
 .field {
     display: flex;
     align-items: center;
@@ -231,6 +238,17 @@ form {
         outline: none;
         color: #3a3d57;
     }
+}
+
+.field-error {
+    position: absolute;
+    left: 18px;
+    top: calc(100% - 18px);
+    margin: 0;
+    font-size: 13px;
+    line-height: 1.2;
+    color: #e74c3c;
+    pointer-events: none;
 }
 
 .icon {
@@ -267,7 +285,7 @@ form {
 }
 
 .field-error {
-    margin: -6px 0 0;
+    margin: 0;
     font-size: 13px;
     color: #e74c3c;
 }
