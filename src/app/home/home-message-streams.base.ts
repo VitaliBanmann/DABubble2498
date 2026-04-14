@@ -150,6 +150,12 @@ export abstract class HomeMessageStreamsBase extends HomeRouteContextBase {
 
     /** Handles apply live messages. */
     protected applyLiveMessages(messages: Message[]): void {
+        console.log('[LIVE MESSAGES ARRIVED]', messages.length, {
+            isDirectMessage: this.isDirectMessage,
+            currentChannelId: this.currentChannelId,
+            currentDirectUserId: this.currentDirectUserId,
+        });
+
         this.connectionHint = '';
         this.liveMessages = this.sortMessagesByTimestamp(messages);
         this.rebuildMessageList();
@@ -210,23 +216,44 @@ export abstract class HomeMessageStreamsBase extends HomeRouteContextBase {
     }
 
     /** Handles scroll to bottom. */
+    /** Handles scroll to bottom. */
     protected scrollToBottom(): void {
-        setTimeout(() => {
+        this.runAfterNextRender(() => {
             const container = this.getMessageListElement();
             if (!container) return;
+
             container.scrollTop = container.scrollHeight;
             this.showScrollToLatestButton = false;
-        }, 0);
+
+            setTimeout(() => {
+                const retryContainer = this.getMessageListElement();
+                if (!retryContainer) return;
+                retryContainer.scrollTop = retryContainer.scrollHeight;
+                this.showScrollToLatestButton = false;
+            }, 60);
+        });
+    }
+
+    /** Runs work after Angular and browser rendering have settled. */
+    protected runAfterNextRender(callback: () => void): void {
+        this.requestUiRefresh();
+
+        requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+                callback();
+            });
+        });
     }
 
     /** Handles restore older messages scroll position. */
+    /** Handles restore older messages scroll position. */
     protected restoreOlderMessagesScrollPosition(): void {
-        setTimeout(() => {
+        this.runAfterNextRender(() => {
             const snapshot = this.pendingOlderScrollRestore;
             const container = this.getMessageListElement();
             if (!container || !snapshot) return;
             this.restoreScrollPosition(container, snapshot);
-        }, 0);
+        });
     }
 
     /** Handles restore scroll position. */
@@ -289,4 +316,6 @@ export abstract class HomeMessageStreamsBase extends HomeRouteContextBase {
     protected abstract mergeUniqueMessages(a: Message[], b: Message[]): Message[];
     /** Handles resolve track timestamp. */
     protected abstract resolveTrackTimestamp(ts: Message['timestamp'], fallback: number): number;
+    /** Requests a UI refresh before deferred DOM work. */
+    protected abstract requestUiRefresh(): void;
 }

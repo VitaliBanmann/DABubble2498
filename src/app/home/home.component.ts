@@ -107,6 +107,11 @@ export class HomeComponent extends HomeDisplayBase implements OnInit, OnDestroy 
         this.cdr.detectChanges();
     }
 
+    /** Requests a UI refresh before deferred DOM work. */
+    protected override requestUiRefresh(): void {
+        this.cdr.detectChanges();
+    }
+
     /** Handles ng on init. */
     ngOnInit(): void {
         this.ui.closeThread();
