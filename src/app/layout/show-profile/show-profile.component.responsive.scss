@@ -1,11 +1,14 @@
 @mixin show-profile-responsive {
     @media (max-width: 767px) {
         .show-profile {
-            min-height: auto;
+            min-height: 0;
+            max-height: calc(100dvh - 92px);
             border-radius: 20px;
             padding: 28px 24px;
             gap: 20px;
             position: unset;
+            overflow-y: auto;
+            -webkit-overflow-scrolling: touch;
         }
 
         .show-profile__avatar img,

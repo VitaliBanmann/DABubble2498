@@ -5,17 +5,20 @@
     right: 26px;
     display: flex;
     flex-direction: column;
-    justify-content: space-between;
+    justify-content: flex-start;
     gap: 24px;
     width: min(500px, calc(100vw - 32px));
     max-width: 500px;
-    min-height: 600px;
+    min-height: 0;
+    max-height: calc(100dvh - 96px);
     background: #fff;
     border-radius: 24px 0 24px 24px;
     padding: 36px;
     box-shadow: 0 14px 40px rgba(0, 0, 0, 0.18);
     box-sizing: border-box;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
 }
 
 .show-profile__header {
