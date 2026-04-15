@@ -51,7 +51,7 @@ export abstract class HomeMessageActionsBase extends HomeReactionsBase {
 
     /** Handles open thread for message. */
     openThreadForMessage(message: Message): void {
-        if (this.isDirectMessage || !message.id) return;
+        if (!message.id) return;
         this.activeThreadParent = message;
         (this as any).ui?.setActiveThreadParent?.(message);
         this.threadMessageControl.setValue('');
@@ -69,7 +69,7 @@ export abstract class HomeMessageActionsBase extends HomeReactionsBase {
         this.threadMessages = [];
         (this as any).ui?.setThreadMessages?.([]);
         this.threadSubscription = this.messageService
-            .getChannelThreadMessages(parentMessageId)
+            .getThreadMessages(parentMessageId)
             .subscribe({
                 next: (msgs: ThreadMessage[]) => {
                     this.threadMessages = msgs;
@@ -99,12 +99,12 @@ export abstract class HomeMessageActionsBase extends HomeReactionsBase {
 
     /** Handles can send thread message. */
     protected canSendThreadMessage(): boolean {
-        return this.canWrite && !this.isDirectMessage && !!this.activeThreadParent?.id;
+        return this.canWrite && !!this.activeThreadParent?.id;
     }
 
     /** Handles create thread message request. */
     protected createThreadMessageRequest(text: string): Observable<string> {
-        return this.messageService.sendChannelThreadMessage(
+        return this.messageService.sendThreadMessage(
             this.activeThreadParent!.id!, text, this.currentUserId ?? '',
         );
     }

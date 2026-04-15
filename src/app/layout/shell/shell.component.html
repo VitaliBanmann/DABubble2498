@@ -84,9 +84,10 @@
                 <div class="thread-composer">
                     <input
                         type="text"
+                        autocomplete="off"
                         placeholder="Antwort im Thread schreiben..."
                         [formControl]="threadReplyControl"
-                        (keydown.enter)="sendThreadReply()"
+                        (keydown.enter)="onThreadComposerEnter($event)"
                     />
                     <button
                         type="button"
@@ -96,6 +97,10 @@
                         {{ isThreadSending ? 'Sende...' : 'Antworten' }}
                     </button>
                 </div>
+
+                <p class="thread-error" *ngIf="threadErrorMessage">
+                    {{ threadErrorMessage }}
+                </p>
             </div>
         </aside>
 

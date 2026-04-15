@@ -5,7 +5,6 @@ import {
     orderBy,
     limit,
     startAfter,
-    increment,
 } from 'firebase/firestore';
 import { Observable, catchError, map, of, switchMap, throwError } from 'rxjs';
 import { AuthService } from './auth.service';
@@ -292,8 +291,8 @@ export class MessageService {
         );
     }
 
-    /** Handles get channel thread messages. */
-    getChannelThreadMessages(
+    /** Handles get thread messages. */
+    getThreadMessages(
         parentMessageId: string,
     ): Observable<ThreadMessage[]> {
         if (!parentMessageId.trim()) {
@@ -308,8 +307,13 @@ export class MessageService {
             .pipe(catchError((error) => this.logReadError('THREAD', error)));
     }
 
-    /** Handles send channel thread message. */
-    sendChannelThreadMessage(
+    /** Handles get channel thread messages. */
+    getChannelThreadMessages(parentMessageId: string): Observable<ThreadMessage[]> {
+        return this.getThreadMessages(parentMessageId);
+    }
+
+    /** Handles send thread message. */
+    sendThreadMessage(
         parentMessageId: string,
         text: string,
         senderId: string,
@@ -317,29 +321,23 @@ export class MessageService {
         const cleanParentMessageId = this.requireNonEmpty(parentMessageId, 'Missing parentMessageId');
         const cleanText = this.requireNonEmpty(text, 'Thread message text is empty');
         const cleanSenderId = this.requireNonEmpty(senderId, 'Missing senderId');
-        return this.firestoreService
-            .addDocument(`messages/${cleanParentMessageId}/threads`, {
+        return this.firestoreService.addDocument(
+            `messages/${cleanParentMessageId}/threads`,
+            {
                 text: cleanText,
                 senderId: cleanSenderId,
                 timestamp: new Date(),
-            })
-            .pipe(
-                switchMap((threadMessageId) =>
-                    this.firestoreService
-                        .updateDocument<Message>(
-                            this.messagesCollection,
-                            cleanParentMessageId,
-                            { threadReplyCount: increment(1) as unknown as number },
-                        )
-                        .pipe(
-                            map(() => threadMessageId),
-                            catchError((error) => {
-                                console.error('[THREAD COUNT UPDATE ERROR]', error);
-                                return of(threadMessageId);
-                            }),
-                        ),
-                ),
-            );
+            },
+        );
+    }
+
+    /** Handles send channel thread message. */
+    sendChannelThreadMessage(
+        parentMessageId: string,
+        text: string,
+        senderId: string,
+    ): Observable<string> {
+        return this.sendThreadMessage(parentMessageId, text, senderId);
     }
 
     /** Handles toggle reaction. */

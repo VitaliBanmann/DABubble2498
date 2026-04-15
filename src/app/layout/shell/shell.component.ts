@@ -40,6 +40,7 @@ export class ShellComponent implements OnInit, OnDestroy {
     private currentUserId: string | null = null;
     readonly threadReplyControl = new FormControl('', { nonNullable: true });
     isThreadSending = false;
+    threadErrorMessage = '';
 
     constructor(
         public readonly ui: UiStateService,
@@ -67,6 +68,11 @@ export class ShellComponent implements OnInit, OnDestroy {
     /** Handles ng on init. */
     ngOnInit(): void {
         this.currentUserId = this.authService.getCurrentUser()?.uid ?? null;
+        this.subscriptions.add(
+            this.threadReplyControl.valueChanges.subscribe(() => {
+                if (this.threadErrorMessage) this.threadErrorMessage = '';
+            }),
+        );
         this.subscriptions.add(
             this.authService.currentUser$.subscribe((user) => {
                 this.currentUserId = user?.uid ?? null;
@@ -150,6 +156,15 @@ export class ShellComponent implements OnInit, OnDestroy {
         return `${message.senderId}-${ts}-${message.text}`;
     }
 
+    /** Handles thread composer enter. */
+    onThreadComposerEnter(event: Event): void {
+        event.preventDefault();
+        if ('stopPropagation' in event && typeof event.stopPropagation === 'function') {
+            event.stopPropagation();
+        }
+        this.sendThreadReply();
+    }
+
     /** Handles send thread reply. */
     sendThreadReply(): void {
         if (this.isThreadSending) return;
@@ -161,7 +176,8 @@ export class ShellComponent implements OnInit, OnDestroy {
         if (!parentId || !senderId || !text) return;
 
         this.isThreadSending = true;
-        this.messageService.sendChannelThreadMessage(parentId, text, senderId).subscribe({
+        this.threadErrorMessage = '';
+        this.messageService.sendThreadMessage(parentId, text, senderId).subscribe({
             next: () => {
                 this.threadReplyControl.setValue('');
                 this.isThreadSending = false;
@@ -169,8 +185,26 @@ export class ShellComponent implements OnInit, OnDestroy {
             error: (error: unknown) => {
                 console.error('[THREAD SEND ERROR]', error);
                 this.isThreadSending = false;
+                this.threadErrorMessage = this.resolveThreadSendError(error);
             },
         });
+    }
+
+    /** Handles resolve thread send error. */
+    private resolveThreadSendError(error: unknown): string {
+        const code =
+            typeof error === 'object' && error && 'code' in error
+                ? String((error as { code?: unknown }).code ?? '')
+                : '';
+
+        if (code.includes('permission-denied')) {
+            return 'Thread-Antwort konnte nicht gespeichert werden (fehlende Berechtigung).';
+        }
+        if (code.includes('unauthenticated')) {
+            return 'Thread-Antwort konnte nicht gespeichert werden (nicht angemeldet).';
+        }
+
+        return 'Thread-Antwort konnte nicht gespeichert werden.';
     }
 
     /** Handles resolve track timestamp. */

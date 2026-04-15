@@ -127,7 +127,7 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
         return names.length ? `${reaction.emoji} reagiert von ${names.join(', ')}` : `${reaction.emoji} Reaktion`;
     }
 
-    canOpenThreadFromToolbar(message: Message): boolean { return !this.isDirectMessage && !!message.id; }
+    canOpenThreadFromToolbar(message: Message): boolean { return !!message.id; }
 
     getThreadReplyCount(message: Message): number {
         const messageId = message.id ?? '';
@@ -223,7 +223,7 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
         if (!this.canStartThreadReplySync(messageId)) return;
         this.loadingThreadReplyCounts.add(messageId);
         this.threadReplyCountSubscriptions[messageId] = this.messageService
-            .getChannelThreadMessages(messageId)
+            .getThreadMessages(messageId)
             .subscribe(this.threadReplySyncObserver(messageId));
     }
 

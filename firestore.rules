@@ -153,12 +153,27 @@ service cloud.firestore {
 
     function canReadThreadParent(messageId) {
       return messageExists(messageId)
-        && canReadMessage(messageDoc(messageId).data);
+        && canAccessThreadParent(messageDoc(messageId).data);
+    }
+
+    function canAccessThreadParent(parentData) {
+      return (
+        isChannelMessage(parentData)
+        && canReadChannelMessage(parentData)
+      ) || (
+        isDirectMessage(parentData)
+        && parentData.senderId is string
+        && parentData.receiverId is string
+        && (
+          request.auth.uid == parentData.senderId
+          || request.auth.uid == parentData.receiverId
+        )
+      );
     }
 
     function canCreateThreadMessage(messageId, data) {
       return messageExists(messageId)
-        && isChannelMessage(messageDoc(messageId).data)
+        && canAccessThreadParent(messageDoc(messageId).data)
         && data.senderId == request.auth.uid
         && data.text is string
         && data.text.size() > 0
