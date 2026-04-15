@@ -7,6 +7,7 @@ import { AppAuthStateBase } from './app-auth-state.base';
 
 export abstract class AppAuthBase extends AppAuthStateBase {
     async onSubmit(mode: 'login' | 'register'): Promise<void> {
+        this.clearEmailAlreadyInUseError();
         this.isRegisterMode = mode === 'register';
         if (!this.ensureValidLoginForm()) return;
 
@@ -124,26 +125,81 @@ export abstract class AppAuthBase extends AppAuthStateBase {
     }
 
     private showLoginLoadingFeedback(mode: 'login' | 'register'): void {
-        if (mode === 'login') this.showLoginFeedback('Anmeldung', 'loading');
+        setTimeout(() => {
+            if (mode === 'login') {
+                this.showLoginFeedback('Anmeldung läuft', 'loading');
+                return;
+            }
+
+            this.showLoginFeedback('Konto wird erstellt', 'loading');
+        });
     }
 
     private showLoginSuccessFeedback(mode: 'login' | 'register'): void {
-        if (mode !== 'login') return;
-        this.showLoginFeedback('Erfolgreich angemeldet', 'success');
-        this.hideLoginFeedback(1600);
+        setTimeout(() => {
+            if (mode === 'login') {
+                this.showLoginFeedback('Erfolgreich angemeldet', 'success');
+                this.hideLoginFeedback(1600);
+                return;
+            }
+
+            this.showLoginFeedback('Konto erfolgreich erstellt', 'success');
+            this.hideLoginFeedback(1800);
+        });
     }
 
     private showLoginFailureFeedback(mode: 'login' | 'register'): void {
-        if (mode !== 'login') return;
-        this.showLoginFeedback('Anmeldung fehlgeschlagen', 'error');
-        this.hideLoginFeedback(2200);
+        setTimeout(() => {
+            if (mode === 'login') {
+                this.showLoginFeedback('Anmeldung fehlgeschlagen', 'error');
+                this.hideLoginFeedback(2200);
+                return;
+            }
+
+            this.showLoginFeedback('Konto konnte nicht erstellt werden', 'error');
+            this.hideLoginFeedback(2200);
+        });
     }
 
     private applySubmitError(mode: 'login' | 'register', error: unknown): void {
+        const { code } = parseFirebaseError(error);
+
+        if (mode === 'register' && code === 'auth/email-already-in-use') {
+            this.applyEmailAlreadyInUseError();
+        }
+
         const fallback = mode === 'login'
             ? 'Anmeldung fehlgeschlagen. Bitte überprüfe E-Mail und Passwort.'
             : 'Registrierung fehlgeschlagen. Bitte versuche es erneut.';
-        this.errorMessage = this.getAuthErrorMessage(error, fallback);
+        this.errorMessage =
+            mode === 'register' && code === 'auth/email-already-in-use'
+                ? ''
+                : this.getAuthErrorMessage(error, fallback);
+    }
+
+    private applyEmailAlreadyInUseError(): void {
+        const currentErrors = this.emailControl.errors ?? {};
+
+        this.emailControl.setErrors({
+            ...currentErrors,
+            emailAlreadyInUse: true,
+        });
+
+        this.emailControl.markAsTouched();
+    }
+
+    private clearEmailAlreadyInUseError(): void {
+        const currentErrors = { ...(this.emailControl.errors ?? {}) };
+
+        if (!currentErrors['emailAlreadyInUse']) {
+            return;
+        }
+
+        delete currentErrors['emailAlreadyInUse'];
+
+        this.emailControl.setErrors(
+            Object.keys(currentErrors).length ? currentErrors : null,
+        );
     }
 
     private async runGoogleLogin(): Promise<void> {

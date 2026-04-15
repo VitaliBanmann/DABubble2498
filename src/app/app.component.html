@@ -115,7 +115,11 @@
                         />
                     </label>
 
-                    @if (
+                    @if (emailControl.touched && emailControl.hasError('emailAlreadyInUse')) {
+                        <p class="field-error">
+                            Diese E-Mail ist bereits registriert.
+                        </p>
+                    } @else if (
                         emailControl.touched &&
                         !!emailControl.value?.trim() &&
                         (emailControl.hasError('email') || emailControl.hasError('pattern'))
