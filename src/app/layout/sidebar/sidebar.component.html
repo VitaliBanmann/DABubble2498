@@ -362,15 +362,15 @@
                     <span>Channel-Name</span>
 
                     <input
+                        #createChannelNameInput
                         type="text"
                         [formControl]="channelNameControl"
                         placeholder="#   z.B. Kooperationsprojekte"
-                        [disabled]="isCreateOverlayReadonly"
                         [class.input-error]="!!channelNameError"
                         [attr.aria-invalid]="!!channelNameError"
                         [attr.aria-describedby]="
-                        channelNameError ? 'channel-name-error' : null
-                    "
+                            channelNameError ? 'channel-name-error' : null
+                        "
                     />
 
                     @if (channelNameError) {
@@ -397,7 +397,6 @@
                     <input
                         [formControl]="channelDescriptionControl"
                         placeholder="Dein Text hier"
-                        [disabled]="isCreateOverlayReadonly"
                     />
                 </label>
 

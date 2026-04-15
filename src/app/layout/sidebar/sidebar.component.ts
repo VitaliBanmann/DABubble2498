@@ -1,5 +1,12 @@
 ﻿import { CommonModule } from '@angular/common';
-import { Component, HostListener, OnDestroy, OnInit } from '@angular/core';
+import {
+    Component,
+    ElementRef,
+    HostListener,
+    OnDestroy,
+    OnInit,
+    ViewChild,
+} from '@angular/core';
 import { ReactiveFormsModule } from '@angular/forms';
 import { Router } from '@angular/router';
 import { AuthService } from '../../services/auth.service';
@@ -20,6 +27,9 @@ export class SidebarComponent
     extends SidebarComponentBase
     implements OnInit, OnDestroy
 {
+    @ViewChild('createChannelNameInput')
+    private createChannelNameInputRef?: ElementRef<HTMLInputElement>;
+
     constructor(
         authService: AuthService,
         channelService: ChannelService,
@@ -49,5 +59,29 @@ export class SidebarComponent
     @HostListener('window:resize')
     onResize(): void {
         this.onWindowResize();
+    }
+
+    override openCreateChannelDialog(): void {
+        super.openCreateChannelDialog();
+        this.focusCreateChannelNameInput();
+    }
+
+    private focusCreateChannelNameInput(): void {
+        const tryFocus = (attemptsLeft: number) => {
+            requestAnimationFrame(() => {
+                const input = this.createChannelNameInputRef?.nativeElement;
+                if (input) {
+                    input.focus();
+                    input.select();
+                    return;
+                }
+
+                if (attemptsLeft > 1) {
+                    setTimeout(() => tryFocus(attemptsLeft - 1), 50);
+                }
+            });
+        };
+
+        tryFocus(8);
     }
 }
