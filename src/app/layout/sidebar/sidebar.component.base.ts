@@ -9,6 +9,7 @@ import {
     of,
     startWith,
     switchMap,
+    take,
     withLatestFrom,
     Subject,
 } from 'rxjs';
@@ -48,6 +49,7 @@ export abstract class SidebarComponentBase extends SidebarChannelSyncBase {
     showCreateChannelDialog = false;
     isSaving = false;
     saveError = '';
+    channelNameError = '';
     canCreateChannel = false;
     selectedMemberIds = new Set<string>();
     selectedMemberProfile: User | null = null;
@@ -135,26 +137,35 @@ export abstract class SidebarComponentBase extends SidebarChannelSyncBase {
     }
 
     openCreateChannelDialog(): void {
-        if (!this.canCreateChannel) return;
+        if (!this.canCreateChannel || this.isSaving) return;
 
         this.showCreateChannelDialog = true;
-        this.saveError = '';
-        this.channelNameControl.setValue('');
-        this.channelDescriptionControl.setValue('');
-        this.selectedMemberIds.clear();
-        this.selectedMemberProfile = null;
+        this.resetCreateChannelFormState();
     }
 
     closeCreateChannelDialog(): void {
+        if (this.isSaving) return;
+        this.forceCloseCreateChannelDialog();
+    }
+
+    private forceCloseCreateChannelDialog(): void {
         this.showCreateChannelDialog = false;
         this.isSaving = false;
+        this.channelNameError = '';
+        this.saveError = '';
     }
 
     get isCreateDisabled(): boolean {
         return this.isSaving || !this.canCreateChannel || this.channelNameControl.invalid;
     }
 
+    get isCreateOverlayReadonly(): boolean {
+        return this.isSaving;
+    }
+
     toggleMemberSelection(memberId: string): void {
+        if (this.isSaving) return;
+
         if (this.selectedMemberIds.has(memberId)) {
             this.selectedMemberIds.delete(memberId);
             return;
@@ -164,10 +175,12 @@ export abstract class SidebarComponentBase extends SidebarChannelSyncBase {
     }
 
     openMemberProfile(member: User): void {
+        if (this.isSaving) return;
         this.selectedMemberProfile = member;
     }
 
     closeMemberProfile(): void {
+        if (this.isSaving) return;
         this.selectedMemberProfile = null;
     }
 
@@ -201,8 +214,11 @@ export abstract class SidebarComponentBase extends SidebarChannelSyncBase {
     }
 
     createChannel(): void {
+        if (this.isSaving) return;
+
         const draft = this.buildChannelDraft();
         if (!draft) return;
+
         this.saveChannelDraft(draft.id, draft.payload);
     }
 
@@ -249,7 +265,10 @@ export abstract class SidebarComponentBase extends SidebarChannelSyncBase {
     }
 
     private getValidatedChannelName(): string {
-        if (this.isCreateDisabled) {
+        this.channelNameError = '';
+        this.saveError = '';
+
+        if (this.isCreateDisabled && !this.isSaving) {
             this.channelNameControl.markAsTouched();
             return '';
         }
@@ -257,7 +276,7 @@ export abstract class SidebarComponentBase extends SidebarChannelSyncBase {
         const channelName = this.channelNameControl.value.trim();
         if (channelName) return channelName;
 
-        this.saveError = 'Bitte gib einen gueltigen Channel-Namen ein.';
+        this.channelNameError = 'Bitte gib einen gueltigen Channel-Namen ein.';
         this.channelNameControl.markAsTouched();
         return '';
     }
@@ -284,32 +303,74 @@ export abstract class SidebarComponentBase extends SidebarChannelSyncBase {
     private saveChannelDraft(channelId: string, payload: Channel): void {
         this.isSaving = true;
         this.saveError = '';
+        this.channelNameError = '';
+
+        this.disableCreateChannelControls();
 
         this.subscription.add(
             this.channelService
-                .createChannelWithId(channelId, payload)
-                .pipe(finalize(() => (this.isSaving = false)))
+                .channelNameExists(payload.name)
+                .pipe(
+                    take(1),
+                    switchMap((exists) => {
+                        if (exists) {
+                            this.channelNameError =
+                                `Der Channel „${payload.name}“ existiert bereits.`;
+                            return of(null);
+                        }
+
+                        return this.channelService.createChannelWithId(channelId, payload);
+                    }),
+                    finalize(() => {
+                        this.isSaving = false;
+                        this.enableCreateChannelControls();
+                    }),
+                )
                 .subscribe({
-                    next: () => this.handleChannelCreated(channelId, payload),
+                    next: (createdChannelId) => {
+                        if (!createdChannelId) return;
+                        this.handleChannelCreated(createdChannelId, payload);
+                    },
                     error: (error) => this.handleCreateChannelError(error),
                 }),
         );
     }
 
     private handleChannelCreated(channelId: string, payload: Channel): void {
-        this.channels.push({
+        this.upsertSidebarChannel({
+            ...payload,
             id: channelId,
-            label: payload.name,
-            description: payload.description,
         });
 
-        this.sortChannels();
-        this.closeCreateChannelDialog();
-        this.openChannel(channelId);
+        if (this.hasSidebarChannel(channelId)) {
+            this.forceCloseCreateChannelDialog();
+            this.openChannel(channelId);
+        }
     }
 
     private handleCreateChannelError(error: unknown): void {
         console.error('Channel creation failed:', error);
         this.saveError = 'Channel konnte nicht erstellt werden. Bitte erneut versuchen.';
+    }
+
+    private resetCreateChannelFormState(): void {
+        this.saveError = '';
+        this.channelNameError = '';
+        this.channelNameControl.setValue('');
+        this.channelDescriptionControl.setValue('');
+        this.channelNameControl.enable({ emitEvent: false });
+        this.channelDescriptionControl.enable({ emitEvent: false });
+        this.selectedMemberIds.clear();
+        this.selectedMemberProfile = null;
+    }
+
+    private disableCreateChannelControls(): void {
+        this.channelNameControl.disable({ emitEvent: false });
+        this.channelDescriptionControl.disable({ emitEvent: false });
+    }
+
+    private enableCreateChannelControls(): void {
+        this.channelNameControl.enable({ emitEvent: false });
+        this.channelDescriptionControl.enable({ emitEvent: false });
     }
 }

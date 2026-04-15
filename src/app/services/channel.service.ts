@@ -66,6 +66,38 @@ export class ChannelService {
             .pipe(map(() => channelId));
     }
 
+    /** Handles channel name exists. */
+    channelNameExists(channelName: string, excludeChannelId = ''): Observable<boolean> {
+        const normalizedTarget = this.normalizeChannelName(channelName);
+        if (!normalizedTarget) {
+            return of(false);
+        }
+
+        return this.getAllChannels().pipe(
+            take(1),
+            map((channels) =>
+                channels.some((channel) => {
+                    const currentId = (channel.id ?? '').toString().trim();
+                    if (excludeChannelId && currentId === excludeChannelId) {
+                        return false;
+                    }
+
+                    return this.normalizeChannelName(channel.name) === normalizedTarget;
+                }),
+            ),
+        );
+    }
+
+    /** Handles normalize channel name. */
+    private normalizeChannelName(value: string): string {
+        return (value ?? '')
+            .toLowerCase()
+            .normalize('NFD')
+            .replace(/\p{Diacritic}/gu, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+    }
+
     /**
      * Rufe einen Kanal nach ID ab
      */
@@ -74,6 +106,45 @@ export class ChannelService {
             this.channelsCollection,
             channelId,
         );
+    }
+
+    /** Handles get all channels once. */
+    getAllChannelsOnce(): Observable<Channel[]> {
+        return combineLatest([
+            this.authService.authReady$,
+            this.authService.currentUser$.pipe(
+                startWith(this.authService.getCurrentUser()),
+            ),
+        ]).pipe(
+            filter(([isAuthReady]) => isAuthReady),
+            map(([, user]) => this.getMemberUid(user)),
+            distinctUntilChanged(),
+            switchMap((uid) => this.getChannelsForUidOnce(uid)),
+        );
+    }
+
+    /** Handles get channels for uid once. */
+    private getChannelsForUidOnce(uid: string): Observable<Channel[]> {
+        if (!uid) {
+            return of([]);
+        }
+
+        return this.firestoreService
+            .queryDocuments<Channel>(
+                this.channelsCollection,
+                [where('members', 'array-contains', uid)],
+            )
+            .pipe(
+                catchError((error) => {
+                    console.error('[CHANNEL ONE-TIME QUERY ERROR]', error);
+                    return of([] as Channel[]);
+                }),
+                map((channels) =>
+                    channels.filter((channel) =>
+                        !!(channel.id ?? '').toString().trim(),
+                    ),
+                ),
+            );
     }
 
     /** Handles get channel realtime. */
@@ -165,16 +236,21 @@ export class ChannelService {
         return user && !user.isAnonymous ? user.uid : '';
     }
 
-    /** Handles get channels for uid. */
     private getChannelsForUid(uid: string): Observable<Channel[]> {
         if (!uid) {
             return of([]);
         }
 
         return this.firestoreService
-            .queryDocumentsRealtime<Channel>(this.channelsCollection, [])
+            .queryDocumentsRealtime<Channel>(
+                this.channelsCollection,
+                [where('members', 'array-contains', uid)],
+            )
             .pipe(
-                catchError(() => of([] as Channel[])),
+                catchError((error) => {
+                    console.error('[CHANNEL REALTIME QUERY ERROR]', error);
+                    return of([] as Channel[]);
+                }),
                 map((channels) =>
                     channels.filter((channel) =>
                         !!(channel.id ?? '').toString().trim(),

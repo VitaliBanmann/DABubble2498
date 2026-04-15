@@ -212,7 +212,8 @@ $purple__hover: #535af1;
 }
 
 .only__channels .channel__selection {
-    max-height: 210px;
+    min-height: 100px;
+    height: auto;
     overflow-y: auto;
     padding-right: 4px;
 }
@@ -618,6 +619,37 @@ textarea {
 
 .profile-content p {
     margin: 0 0 4px;
+}
+
+.overlay--readonly {
+    cursor: not-allowed;
+}
+
+.create-card--readonly {
+    opacity: 0.92;
+}
+
+.create-card__input .field-error {
+    margin-top: 8px;
+    font-size: 14px;
+    line-height: 1.4;
+    color: #e53935;
+}
+
+.create-card__input .input-error {
+    border: 1px solid #e53935 !important;
+    outline: none;
+}
+
+.create-card textarea {
+    resize: vertical;
+}
+
+.create-card button[disabled],
+.create-card input[disabled],
+.create-card textarea[disabled] {
+    cursor: not-allowed;
+    opacity: 0.7;
 }
 
 /* =====================================================

@@ -41,8 +41,6 @@ export function compareDirectMessages(
     left: SidebarDirectMessage,
     right: SidebarDirectMessage,
 ): number {
-    if (left.isSelf) return -1;
-    if (right.isSelf) return 1;
     return left.label.localeCompare(right.label, 'de');
 }
 
@@ -54,9 +52,15 @@ export function normalizeDirectMessageLabel(label: string): string {
 /** Handles resolve sidebar route state. */
 export function resolveSidebarRouteState(url: string): SidebarRouteState {
     const channelId = extractRouteSegment(url, /\/app\/channel\/([^/?#]+)/);
-    if (channelId) return { activeChannelId: channelId, activeDirectMessageId: null };
+    if (channelId) {
+        return { activeChannelId: channelId, activeDirectMessageId: null };
+    }
+
     const directId = extractRouteSegment(url, /\/app\/dm\/([^/?#]+)/);
-    if (directId) return { activeChannelId: null, activeDirectMessageId: directId };
+    if (directId) {
+        return { activeChannelId: null, activeDirectMessageId: directId };
+    }
+
     return { activeChannelId: null, activeDirectMessageId: null };
 }
 
@@ -75,9 +79,19 @@ export function mapSidebarDirectMessages(
     mentionByDirectId: Record<string, boolean>,
 ): SidebarDirectMessage[] {
     return getUniqueMembers(members, currentUserId)
-        .sort((left, right) => left.displayName.localeCompare(right.displayName, 'de'))
-        .filter((member) => !!member.id)
-        .map((member) => toSidebarDirectMessage(member, currentUserId, routeState, unreadByDirectId, mentionByDirectId))
+        .filter((member) => !!member.id && member.id !== currentUserId)
+        .sort((left, right) =>
+            left.displayName.localeCompare(right.displayName, 'de'),
+        )
+        .map((member) =>
+            toSidebarDirectMessage(
+                member,
+                currentUserId,
+                routeState,
+                unreadByDirectId,
+                mentionByDirectId,
+            ),
+        )
         .sort(compareDirectMessages);
 }
 
@@ -89,7 +103,9 @@ function toSidebarDirectMessage(
     unreadByDirectId: Record<string, boolean>,
     mentionByDirectId: Record<string, boolean>,
 ): SidebarDirectMessage {
-    const id = member.id ?? '', isSelf = id === currentUserId;
+    const id = member.id ?? '';
+    const isSelf = id === currentUserId;
+
     return {
         id,
         label: formatDirectLabel(member.displayName, isSelf),
@@ -155,6 +171,7 @@ function mergeUniqueMember(
 ): void {
     const key = getMemberKey(member);
     if (!key) return;
+
     const existing = map.get(key);
     if (!existing || hasBetterMemberScore(member, existing, currentUserId)) {
         map.set(key, member);
@@ -162,8 +179,15 @@ function mergeUniqueMember(
 }
 
 /** Handles has better member score. */
-function hasBetterMemberScore(candidate: User, current: User, currentUserId: string): boolean {
-    return scoreMemberRecord(candidate, currentUserId) > scoreMemberRecord(current, currentUserId);
+function hasBetterMemberScore(
+    candidate: User,
+    current: User,
+    currentUserId: string,
+): boolean {
+    return (
+        scoreMemberRecord(candidate, currentUserId) >
+        scoreMemberRecord(current, currentUserId)
+    );
 }
 
 /** Handles score member record. */

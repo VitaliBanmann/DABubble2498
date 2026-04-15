@@ -15,8 +15,8 @@
                     class="material-symbols-outlined sidebar-search__icon"
                     aria-hidden="true"
                 >
-                search
-            </span>
+                    search
+                </span>
 
                 @if (showSearchResults) {
                     <div
@@ -25,10 +25,10 @@
                     >
                         @if (isSearching) {
                             <p class="sidebar-search-results__loading">
-                            <span
-                                class="sidebar-search-results__spinner"
-                                aria-hidden="true"
-                            ></span>
+                                <span
+                                    class="sidebar-search-results__spinner"
+                                    aria-hidden="true"
+                                ></span>
                                 Suche läuft…
                             </p>
                         }
@@ -63,9 +63,9 @@
                                     <button
                                         type="button"
                                         [class.active]="
-                                        activeResultIndex ===
-                                        channelResults.length + i
-                                    "
+                                            activeResultIndex ===
+                                            channelResults.length + i
+                                        "
                                         (click)="navigateToUser(user)"
                                     >
                                         {{ user.name }} · {{ user.email }}
@@ -85,11 +85,11 @@
                                     <button
                                         type="button"
                                         [class.active]="
-                                        activeResultIndex ===
-                                        channelResults.length +
-                                            userResults.length +
-                                            i
-                                    "
+                                            activeResultIndex ===
+                                            channelResults.length +
+                                                userResults.length +
+                                                i
+                                        "
                                         (click)="navigateToMessage(message)"
                                     >
                                         {{ message.text }}
@@ -135,15 +135,9 @@
                 />
             </button>
         </div>
-        <!-- später: Workspace Selector / Edit icon -->
     </div>
 
     <div class="sidebar__section">
-        <!--
-        /* ===========================
-        Channel section only for channels
-        =========================== */
-        -->
         <div class="only__channels">
             <div class="sidebar__channelsection">
                 <div
@@ -243,12 +237,6 @@
             </div>
         </div>
 
-        <!--
-        /* ===========================
-        Chat section for direct messages
-        =========================== */
-        -->
-
         <div class="only__chats">
             <div class="sidebar__chatsection">
                 <div
@@ -317,8 +305,8 @@
                         </span>
 
                         <span class="direct-link__label">{{
-                            member.label
-                        }}</span>
+                                member.label
+                            }}</span>
 
                         @if (member.hasMention) {
                             <span class="mention-badge" aria-label="Erwähnung">
@@ -341,8 +329,17 @@
     </div>
 
     @if (showCreateChannelDialog) {
-        <div class="overlay" (click)="closeCreateChannelDialog()">
-            <section class="create-card" (click)="$event.stopPropagation()">
+        <div
+            class="overlay"
+            [class.overlay--readonly]="isCreateOverlayReadonly"
+            (click)="closeCreateChannelDialog()"
+        >
+            <section
+                class="create-card"
+                [class.create-card--readonly]="isCreateOverlayReadonly"
+                (click)="$event.stopPropagation()"
+                [attr.aria-busy]="isSaving"
+            >
                 <header class="create-card__header">
                     <h3>Channel erstellen</h3>
                     <button
@@ -350,6 +347,7 @@
                         class="close-btn"
                         (click)="closeCreateChannelDialog()"
                         aria-label="Dialog schließen"
+                        [disabled]="isCreateOverlayReadonly"
                     >
                         ✕
                     </button>
@@ -357,7 +355,8 @@
 
                 <article class="create-card__input">
                     <p>
-                        Channels dienen deinem Team zur Kommunikation. Am besten sollten sie themenbezogen sein  #marketing zum Beispiel.
+                        Channels dienen deinem Team zur Kommunikation. Am besten
+                        sollten sie themenbezogen sein #marketing zum Beispiel.
                     </p>
 
                     <span>Channel-Name</span>
@@ -366,16 +365,39 @@
                         type="text"
                         [formControl]="channelNameControl"
                         placeholder="#   z.B. Kooperationsprojekte"
+                        [disabled]="isCreateOverlayReadonly"
+                        [class.input-error]="!!channelNameError"
+                        [attr.aria-invalid]="!!channelNameError"
+                        [attr.aria-describedby]="
+                        channelNameError ? 'channel-name-error' : null
+                    "
                     />
+
+                    @if (channelNameError) {
+                        <p id="channel-name-error" class="field-error">
+                            {{ channelNameError }}
+                        </p>
+                    }
                 </article>
 
                 <label class="create-card__description">
-                    <span>Beschreibung <span style="color: #686868; margin: 0; font-weight: normal">(optional)</span></span>
+                <span>
+                    Beschreibung
+                    <span
+                        style="
+                            color: #686868;
+                            margin: 0;
+                            font-weight: normal;
+                        "
+                    >
+                        (optional)
+                    </span>
+                </span>
 
                     <input
                         [formControl]="channelDescriptionControl"
-                        rows="3"
                         placeholder="Dein Text hier"
+                        [disabled]="isCreateOverlayReadonly"
                     />
                 </label>
 
@@ -385,24 +407,25 @@
                         @for (
                             member of availableMembers$ | async;
                             track member.id
-                            ) {
-                                <li
-                                    (click)="member.id && toggleMemberSelection(member.id)"
-                                    [class.member-item&#45;&#45;disabled]="!member.id"
-                                >
+                        ) {
+                            <li
+                                (click)="member.id && toggleMemberSelection(member.id)"
+                                [class.member-item--disabled]="!member.id || isCreateOverlayReadonly"
+                            >
                                 <button
                                     type="button"
                                     class="member-view"
                                     (click)="openMemberProfile(member); $event.stopPropagation()"
+                                    [disabled]="isCreateOverlayReadonly"
                                 >
-                                <span>
-                                    {{ member.displayName }}
-                                    {{ member.id === currentUserId ? " (Du)" : "" }}
-                                </span>
-                                <span
-                                    class="member-status"
-                                    [class.online]="member.presenceStatus === 'online'"
-                                ></span>
+                                    <span>
+                                        {{ member.displayName }}
+                                        {{ member.id === currentUserId ? " (Du)" : "" }}
+                                    </span>
+                                    <span
+                                        class="member-status"
+                                        [class.online]="member.presenceStatus === 'online'"
+                                    ></span>
                                 </button>
 
                                 <label
@@ -413,7 +436,7 @@
                                         type="checkbox"
                                         [checked]="selectedMemberIds.has(member.id ?? '')"
                                         (change)="toggleMemberSelection(member.id ?? '')"
-                                        [disabled]="!member.id"
+                                        [disabled]="!member.id || isCreateOverlayReadonly"
                                     />
                                 </label>
                             </li>
@@ -432,7 +455,7 @@
                         [disabled]="isCreateDisabled"
                         (click)="createChannel()"
                     >
-                        {{ isSaving ? "Erstelle..." : "Erstellen" }}
+                        {{ isSaving ? "Prüfe und erstelle..." : "Erstellen" }}
                     </button>
                 </div>
             </section>

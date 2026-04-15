@@ -1,276 +1,321 @@
 rules_version = '2';
 
 service cloud.firestore {
-    match /databases/{database}/documents {
+  match /databases/{database}/documents {
 
-        function isSignedIn() {
-          return request.auth != null;
-        }
+    function isSignedIn() {
+      return request.auth != null;
+    }
 
-        function isAnonymous() {
-          return isSignedIn()
-            && request.auth.token.firebase.sign_in_provider == "anonymous";
-        }
+    function isAnonymous() {
+      return isSignedIn()
+        && request.auth.token.firebase.sign_in_provider == "anonymous";
+    }
 
-        function isRegularUser() {
-          return isSignedIn() && !isAnonymous();
-        }
+    function isRegularUser() {
+      return isSignedIn() && !isAnonymous();
+    }
 
-        function hasField(data, field) {
-          return data.keys().hasAny([field]);
-        }
+    function hasField(data, field) {
+      return data.keys().hasAny([field]);
+    }
 
-        function isPublicChannelId(channelId) {
-          return channelId in ['allgemein', 'entwicklerteam'];
-        }
+    function isPublicChannelId(channelId) {
+      return channelId in ['allgemein', 'entwicklerteam'];
+    }
 
-        function channelDoc(channelId) {
-          return get(/databases/$(database)/documents/channels/$(channelId));
-        }
+    function hasMembersList(data) {
+      return hasField(data, 'members') && data.members is list;
+    }
 
-        function channelExists(channelId) {
-          return exists(/databases/$(database)/documents/channels/$(channelId));
-        }
+    function hasMemberIdsList(data) {
+      return hasField(data, 'memberIds') && data.memberIds is list;
+    }
 
-        function isChannelMember(channelId) {
-          return channelExists(channelId)
-            && request.auth.uid in channelDoc(channelId).data.members;
-        }
+    function hasAdminsList(data) {
+      return !hasField(data, 'admins') || data.admins is list;
+    }
 
-        function canReadChannel(channelId) {
-          return isPublicChannelId(channelId) || isChannelMember(channelId);
-        }
+    function isChannelMemberByData(data) {
+      return (
+        hasMembersList(data)
+        && request.auth.uid in data.members
+      ) || (
+        hasMemberIdsList(data)
+        && request.auth.uid in data.memberIds
+      );
+    }
 
-        function isChannelOwner(data) {
-          return hasField(data, 'createdBy')
-            && data.createdBy == request.auth.uid;
-        }
+    function canReadChannelDoc(channelId, data) {
+      return isPublicChannelId(channelId) || isChannelMemberByData(data);
+    }
 
-        function isChannelAdmin(data) {
-          return hasField(data, 'admins')
-            && data.admins is list
-            && request.auth.uid in data.admins;
-        }
+    function isChannelOwner(data) {
+      return hasField(data, 'createdBy')
+        && data.createdBy is string
+        && data.createdBy == request.auth.uid;
+    }
 
-        function canManageChannel(data) {
-          return isChannelOwner(data) || isChannelAdmin(data);
-        }
+    function isChannelAdmin(data) {
+      return hasField(data, 'admins')
+        && data.admins is list
+        && request.auth.uid in data.admins;
+    }
 
-        function isMemberOnlyChannelUpdate() {
-          return request.resource.data
-            .diff(resource.data)
-            .changedKeys()
-            .hasOnly(['members', 'updatedAt']);
-        }
+    function canManageChannel(data) {
+      return isChannelOwner(data) || isChannelAdmin(data);
+    }
 
-        function validChannelRoleLists(data) {
-          return data.members is list
-            && data.createdBy is string
-            && (
-              !hasField(data, 'admins')
-              || data.admins is list
-            );
-        }
+    function validChannelRoleLists(data) {
+      return hasMembersList(data)
+        && hasAdminsList(data)
+        && data.createdBy is string
+        && (
+          !hasField(data, 'memberIds')
+          || data.memberIds is list
+        );
+    }
 
-        function conversationIdFor(firstUid, secondUid) {
-          return firstUid < secondUid
-            ? firstUid + '__' + secondUid
-            : secondUid + '__' + firstUid;
-        }
+    function isMemberOnlyChannelUpdate() {
+      return request.resource.data
+        .diff(resource.data)
+        .changedKeys()
+        .hasOnly(['members', 'memberIds', 'updatedAt']);
+    }
 
-        function isConversationParticipant(conversationId) {
-          return conversationId is string
-            && conversationId.matches('^' + request.auth.uid + '__[^_].*$|^[^_].*__' + request.auth.uid + '$');
-        }
+    function conversationIdFor(firstUid, secondUid) {
+      return firstUid < secondUid
+        ? firstUid + '__' + secondUid
+        : secondUid + '__' + firstUid;
+    }
 
-        function isDirectMessage(data) {
-          return hasField(data, 'receiverId')
-            && hasField(data, 'conversationId')
-            && !hasField(data, 'channelId');
-        }
+    function isConversationParticipant(conversationId) {
+      return conversationId is string
+        && conversationId.matches(
+          '^' + request.auth.uid + '__[^_].*$|^[^_].*__' + request.auth.uid + '$'
+        );
+    }
 
-        function isChannelMessage(data) {
-          return hasField(data, 'channelId')
-            && !hasField(data, 'receiverId')
-            && !hasField(data, 'conversationId');
-        }
+    function isDirectMessage(data) {
+      return hasField(data, 'receiverId')
+        && hasField(data, 'conversationId')
+        && !hasField(data, 'channelId');
+    }
 
-        function canReadDirectMessage(data) {
-        return (
-          hasField(data, 'senderId')
-          && hasField(data, 'receiverId')
-          && (
-            request.auth.uid == data.senderId
-            || request.auth.uid == data.receiverId
+    function isChannelMessage(data) {
+      return hasField(data, 'channelId')
+        && !hasField(data, 'receiverId')
+        && !hasField(data, 'conversationId');
+    }
+
+    function channelDoc(channelId) {
+      return get(/databases/$(database)/documents/channels/$(channelId));
+    }
+
+    function channelExists(channelId) {
+      return exists(/databases/$(database)/documents/channels/$(channelId));
+    }
+
+    function canReadDirectMessage(data) {
+      return (
+        hasField(data, 'senderId')
+        && hasField(data, 'receiverId')
+        && (
+          request.auth.uid == data.senderId
+          || request.auth.uid == data.receiverId
+        )
+      ) || (
+        hasField(data, 'conversationId')
+        && isConversationParticipant(data.conversationId)
+      );
+    }
+
+    function canReadChannelMessage(data) {
+      return hasField(data, 'channelId')
+        && channelExists(data.channelId)
+        && canReadChannelDoc(
+          data.channelId,
+          channelDoc(data.channelId).data
+        );
+    }
+
+    function canReadMessage(data) {
+      return canReadDirectMessage(data) || canReadChannelMessage(data);
+    }
+
+    function messageDoc(messageId) {
+      return get(/databases/$(database)/documents/messages/$(messageId));
+    }
+
+    function messageExists(messageId) {
+      return exists(/databases/$(database)/documents/messages/$(messageId));
+    }
+
+    function canReadThreadParent(messageId) {
+      return messageExists(messageId)
+        && canReadMessage(messageDoc(messageId).data);
+    }
+
+    function canCreateThreadMessage(messageId, data) {
+      return messageExists(messageId)
+        && isChannelMessage(messageDoc(messageId).data)
+        && data.senderId == request.auth.uid
+        && data.text is string
+        && data.text.size() > 0
+        && data.timestamp is timestamp;
+    }
+
+    function isValidInboxState(data, contextId) {
+      return data.contextId == contextId
+        && data.contextType is string
+        && data.contextType in ['channel', 'dm']
+        && data.targetId is string
+        && data.targetId.size() > 0
+        && data.lastReadAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function validMentions(data) {
+      return !hasField(data, 'mentions')
+        || data.mentions is list;
+    }
+
+    function validAttachments(data) {
+      return !hasField(data, 'attachments')
+        || data.attachments is list;
+    }
+
+    function hasMessageBody(data) {
+      return data.text.size() > 0
+        || (
+          hasField(data, 'attachments')
+          && data.attachments is list
+          && data.attachments.size() > 0
+        );
+    }
+
+    function canCreateDirectMessage(data) {
+      return isDirectMessage(data)
+        && data.senderId == request.auth.uid
+        && data.receiverId is string
+        && data.receiverId != request.auth.uid
+        && data.conversationId == conversationIdFor(data.senderId, data.receiverId)
+        && data.text is string
+        && hasMessageBody(data)
+        && validMentions(data)
+        && validAttachments(data)
+        && data.timestamp is timestamp;
+    }
+
+    function canCreateChannelMessage(data) {
+      return isChannelMessage(data)
+        && data.senderId == request.auth.uid
+        && data.channelId is string
+        && channelExists(data.channelId)
+        && canReadChannelDoc(
+          data.channelId,
+          channelDoc(data.channelId).data
+        )
+        && data.text is string
+        && hasMessageBody(data)
+        && validMentions(data)
+        && validAttachments(data)
+        && data.timestamp is timestamp;
+    }
+
+    function messageCoreFieldsUnchanged() {
+      return request.resource.data.senderId == resource.data.senderId
+        && request.resource.data.timestamp == resource.data.timestamp
+        && (
+          (
+            hasField(resource.data, 'channelId')
+            && request.resource.data.channelId == resource.data.channelId
+          )
+          || (
+            hasField(resource.data, 'receiverId')
+            && hasField(resource.data, 'conversationId')
+            && request.resource.data.receiverId == resource.data.receiverId
+            && request.resource.data.conversationId == resource.data.conversationId
+          )
+        );
+    }
+
+    function canUpdateMessage() {
+      return canReadMessage(resource.data)
+        && messageCoreFieldsUnchanged()
+        && (
+          request.auth.uid == resource.data.senderId
+          || request.resource.data
+              .diff(resource.data)
+              .changedKeys()
+              .hasOnly(['reactions', 'read'])
+        );
+    }
+
+    match /users/{userId} {
+      allow read: if isSignedIn();
+      allow create: if isRegularUser() && request.auth.uid == userId;
+      allow update: if isRegularUser() && request.auth.uid == userId;
+      allow delete: if false;
+
+      match /inboxState/{contextId} {
+        allow read: if isRegularUser() && request.auth.uid == userId;
+        allow create, update: if isRegularUser()
+          && request.auth.uid == userId
+          && isValidInboxState(request.resource.data, contextId);
+        allow delete: if false;
+      }
+    }
+
+    match /channels/{channelId} {
+      allow get: if isSignedIn() && canReadChannelDoc(channelId, resource.data);
+
+      allow list: if isRegularUser()
+        && hasMembersList(resource.data)
+        && request.auth.uid in resource.data.members;
+
+      allow create: if isRegularUser()
+        && request.resource.data.createdBy == request.auth.uid
+        && validChannelRoleLists(request.resource.data)
+        && request.auth.uid in request.resource.data.members
+        && request.auth.uid in request.resource.data.admins;
+
+      allow update: if isRegularUser()
+        && (
+          canManageChannel(resource.data)
+          || (
+            isChannelMemberByData(resource.data)
+            && isMemberOnlyChannelUpdate()
           )
         )
-        || (
-          hasField(data, 'conversationId')
-          && isConversationParticipant(data.conversationId)
-        );
-        }
+        && request.resource.data.createdBy == resource.data.createdBy
+        && validChannelRoleLists(request.resource.data);
 
-        function canReadChannelMessage(data) {
-        return hasField(data, 'channelId')
-        && canReadChannel(data.channelId);
-        }
-
-        function canReadMessage(data) {
-        return canReadDirectMessage(data) || canReadChannelMessage(data);
-        }
-
-        function messageDoc(messageId) {
-          return get(/databases/$(database)/documents/messages/$(messageId));
-        }
-
-        function messageExists(messageId) {
-          return exists(/databases/$(database)/documents/messages/$(messageId));
-        }
-
-        function canReadThreadParent(messageId) {
-          return messageExists(messageId)
-            && canReadMessage(messageDoc(messageId).data);
-        }
-
-        function canCreateThreadMessage(messageId, data) {
-          return messageExists(messageId)
-            && isChannelMessage(messageDoc(messageId).data)
-            && data.senderId == request.auth.uid
-            && data.text is string
-            && data.text.size() > 0
-            && data.timestamp is timestamp;
-        }
-
-        function isValidInboxState(data, contextId) {
-          return data.contextId == contextId
-            && data.contextType is string
-            && data.contextType in ['channel', 'dm']
-            && data.targetId is string
-            && data.targetId.size() > 0
-            && data.lastReadAt is timestamp
-            && data.updatedAt is timestamp;
-        }
-
-        function canCreateDirectMessage(data) {
-          return isDirectMessage(data)
-            && data.senderId == request.auth.uid
-            && data.receiverId is string
-            && data.receiverId != request.auth.uid
-            && data.conversationId == conversationIdFor(data.senderId, data.receiverId)
-            && data.text is string
-            && hasMessageBody(data)
-            && validMentions(data)
-            && validAttachments(data)
-            && data.timestamp is timestamp;
-        }
-
-        function canCreateChannelMessage(data) {
-          return isChannelMessage(data)
-            && data.senderId == request.auth.uid
-            && data.channelId is string
-            && canReadChannel(data.channelId)
-            && data.text is string
-            && hasMessageBody(data)
-            && validMentions(data)
-            && validAttachments(data)
-            && data.timestamp is timestamp;
-        }
-
-        function validMentions(data) {
-          return !hasField(data, 'mentions')
-            || data.mentions is list;
-        }
-
-        function validAttachments(data) {
-          return !hasField(data, 'attachments')
-            || data.attachments is list;
-        }
-
-        function hasMessageBody(data) {
-          return data.text.size() > 0
-            || (hasField(data, 'attachments') && data.attachments is list && data.attachments.size() > 0);
-        }
-
-        function messageCoreFieldsUnchanged() {
-          return request.resource.data.senderId == resource.data.senderId
-            && request.resource.data.timestamp == resource.data.timestamp
-            && (
-              (
-                hasField(resource.data, 'channelId')
-                && request.resource.data.channelId == resource.data.channelId
-              )
-              ||
-              (
-                hasField(resource.data, 'receiverId')
-                && hasField(resource.data, 'conversationId')
-                && request.resource.data.receiverId == resource.data.receiverId
-                && request.resource.data.conversationId == resource.data.conversationId
-              )
-            );
-        }
-
-        function canUpdateMessage() {
-          return canReadMessage(resource.data)
-            && messageCoreFieldsUnchanged()
-            && (
-              request.auth.uid == resource.data.senderId
-              || request.resource.data.diff(resource.data).changedKeys().hasOnly(['reactions', 'read'])
-            );
-        }
-
-        match /users/{userId} {
-          allow read: if isSignedIn();
-          allow create: if isRegularUser() && request.auth.uid == userId;
-          allow update: if isRegularUser() && request.auth.uid == userId;
-          allow delete: if false;
-
-          match /inboxState/{contextId} {
-            allow read: if isRegularUser() && request.auth.uid == userId;
-            allow create, update: if isRegularUser()
-              && request.auth.uid == userId
-              && isValidInboxState(request.resource.data, contextId);
-            allow delete: if false;
-          }
-        }
-
-        match /channels/{channelId} {
-            allow read: if isSignedIn() && canReadChannel(channelId);
-            allow create: if isRegularUser()
-            && request.resource.data.createdBy == request.auth.uid
-            && validChannelRoleLists(request.resource.data)
-            && request.auth.uid in request.resource.data.members
-            && request.auth.uid in request.resource.data.admins;
-            allow update: if isRegularUser()
-            && (
-              canManageChannel(resource.data)
-              || (isChannelMember(channelId) && isMemberOnlyChannelUpdate())
-            )
-            && request.resource.data.createdBy == resource.data.createdBy
-            && validChannelRoleLists(request.resource.data);
-            allow delete: if isRegularUser()
-            && canManageChannel(resource.data);
-        }
-
-        match /messages/{messageId} {
-            allow read: if isSignedIn() && canReadMessage(resource.data);
-
-            allow create: if isRegularUser()
-            && (canCreateDirectMessage(request.resource.data)
-                || canCreateChannelMessage(request.resource.data));
-
-            allow update: if isRegularUser() && canUpdateMessage();
-            allow delete: if isRegularUser() && request.auth.uid == resource.data.senderId;
-
-            match /threads/{threadId} {
-            allow read: if isSignedIn() && canReadThreadParent(messageId);
-            allow create: if isRegularUser()
-              && canCreateThreadMessage(messageId, request.resource.data);
-            allow update, delete: if false;
-            }
-        }
-
-        match /{document=**} {
-          allow read, write: if false;
-        }
+      allow delete: if isRegularUser() && canManageChannel(resource.data);
     }
+
+    match /messages/{messageId} {
+      allow read: if isSignedIn() && canReadMessage(resource.data);
+
+      allow create: if isRegularUser()
+        && (
+          canCreateDirectMessage(request.resource.data)
+          || canCreateChannelMessage(request.resource.data)
+        );
+
+      allow update: if isRegularUser() && canUpdateMessage();
+      allow delete: if isRegularUser() && request.auth.uid == resource.data.senderId;
+
+      match /threads/{threadId} {
+        allow read: if isSignedIn() && canReadThreadParent(messageId);
+        allow create: if isRegularUser()
+          && canCreateThreadMessage(messageId, request.resource.data);
+        allow update, delete: if false;
+      }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
 }
