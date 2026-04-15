@@ -11,6 +11,7 @@ import {
     Observable,
     of,
     startWith,
+    Subject,
     switchMap,
     take,
 } from 'rxjs';
@@ -36,6 +37,24 @@ export interface Channel extends Record<string, unknown> {
 })
 export class ChannelService {
     private channelsCollection = 'channels';
+
+    private readonly channelMutationSubject = new Subject<
+        | { type: 'upsert'; channel: Channel }
+        | { type: 'remove'; channelId: string }
+    >();
+
+    readonly channelMutations$ = this.channelMutationSubject.asObservable();
+
+    /** Handles emit channel upsert. */
+    emitChannelUpsert(channel: Channel): void {
+        this.channelMutationSubject.next({ type: 'upsert', channel });
+    }
+
+    /** Handles emit channel remove. */
+    emitChannelRemove(channelId: string): void {
+        if (!channelId) return;
+        this.channelMutationSubject.next({ type: 'remove', channelId });
+    }
 
     constructor(
         private firestoreService: FirestoreService,

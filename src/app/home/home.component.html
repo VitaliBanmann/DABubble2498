@@ -5,85 +5,85 @@
         ========================================================== -->
         <header class="home-header">
             @if (isComposeMode) {
-            <h1 class="home-header__title--plain">Neue Nachricht</h1>
+                <h1 class="home-header__title--plain">Neue Nachricht</h1>
             } @else {
-            <div #channelTitleTrigger class="home-header__title" role="button" tabindex="0" (click)="openChannelPopup()"
-                (keydown.enter)="openChannelPopup()" (keydown.space)="$event.preventDefault(); openChannelPopup()">
-                <h1>
-                    {{
-                    isDirectMessage
-                    ? '@ ' + currentConversationTitle
-                    : '# ' + currentConversationTitle
-                    }}
-                </h1>
-                <img class="home-header__dropdown-icon home-header__dropdown-icon--default"
-                    src="assets/pictures/keyboard_arrow_down.svg" alt="" aria-hidden="true" />
-                <img class="home-header__dropdown-icon home-header__dropdown-icon--hover"
-                    src="assets/pictures/expand_more.svg" alt="" aria-hidden="true" />
-            </div>
+                <div #channelTitleTrigger class="home-header__title" role="button" tabindex="0" (click)="openChannelPopup()"
+                     (keydown.enter)="openChannelPopup()" (keydown.space)="$event.preventDefault(); openChannelPopup()">
+                    <h1>
+                        {{
+                            isDirectMessage
+                                ? '@ ' + currentConversationTitle
+                                : '# ' + currentConversationTitle
+                        }}
+                    </h1>
+                    <img class="home-header__dropdown-icon home-header__dropdown-icon--default"
+                         src="assets/pictures/keyboard_arrow_down.svg" alt="" aria-hidden="true" />
+                    <img class="home-header__dropdown-icon home-header__dropdown-icon--hover"
+                         src="assets/pictures/expand_more.svg" alt="" aria-hidden="true" />
+                </div>
             }
 
             @if (!isComposeMode && !isDirectMessage) {
-            <div class="home-header__members">
-                <button #membersAvatarTrigger type="button" class="members-avatar"
-                    aria-label="Channel-Mitglieder anzeigen" (click)="openChannelMembersPopup()">
-                    @for (member of visibleChannelMembers; track member.id ?? $index) {
-                    <img [src]="getUserAvatar(member)" [alt]="member.displayName + ' Avatar'"
-                        [title]="member.displayName" />
-                    }
+                <div class="home-header__members">
+                    <button #membersAvatarTrigger type="button" class="members-avatar"
+                            aria-label="Channel-Mitglieder anzeigen" (click)="openChannelMembersPopup()">
+                        @for (member of visibleChannelMembers; track member.id ?? $index) {
+                            <img [src]="getUserAvatar(member)" [alt]="member.displayName + ' Avatar'"
+                                 [title]="member.displayName" />
+                        }
 
-                    @if (remainingChannelMembersCount > 0) {
-                    <span class="members-avatar__more">
+                        @if (remainingChannelMembersCount > 0) {
+                            <span class="members-avatar__more">
                         +{{ remainingChannelMembersCount }}
                     </span>
-                    }
-                </button>
+                        }
+                    </button>
 
-                <p class="home-header__members-count">
-                    {{ channelMembersCount }}
-                </p>
+                    <p class="home-header__members-count">
+                        {{ channelMembersCount }}
+                    </p>
 
-                <button type="button" class="home-header__add-member" aria-label="Mitglied hinzufügen"
-                    (click)="onAddMemberClick()">
-                    <img src="assets/pictures/add_members.svg" alt="" aria-hidden="true"
-                        class="add-member-icon add-member-icon--default" />
-                    <img src="assets/pictures/add-member-hover.svg" alt="" aria-hidden="true"
-                        class="add-member-icon add-member-icon--hover" />
-                </button>
-            </div>
+                    <button type="button" class="home-header__add-member" aria-label="Mitglied hinzufügen"
+                            (click)="onAddMemberClick()">
+                        <img src="assets/pictures/add_members.svg" alt="" aria-hidden="true"
+                             class="add-member-icon add-member-icon--default" />
+                        <img src="assets/pictures/add-member-hover.svg" alt="" aria-hidden="true"
+                             class="add-member-icon add-member-icon--hover" />
+                    </button>
+                </div>
             }
 
             @if (isComposeMode) {
-            <form class="compose-target" novalidate (ngSubmit)="onComposeTargetSubmit()">
-                <input type="text" [formControl]="composeTargetControl"
-                    placeholder="An: #channel, @jemand oder E-Mail-Adresse" autocomplete="off"
-                    (input)="onComposeTargetInput()" (keydown)="onComposeTargetKeydown($event)"
-                    (blur)="onComposeTargetBlur()" />
+                <form class="compose-target" novalidate (ngSubmit)="onComposeTargetSubmit()">
+                    <input type="text" [formControl]="composeTargetControl"
+                           placeholder="An: #channel, @jemand oder E-Mail-Adresse" autocomplete="off"
+                           (input)="onComposeTargetInput()" (keydown)="onComposeTargetKeydown($event)"
+                           (blur)="onComposeTargetBlur()" />
 
-                @if (showComposeTargetSuggestions) {
-                <div class="compose-target-suggestions">
-                    @for (
-                    item of composeTargetSuggestions;
-                    track item.kind + '-' + item.id
-                    ) {
-                    <button type="button" class="compose-target-option"
-                        [class.active]="composeTargetActiveIndex === $index"
-                        (mouseenter)="composeTargetActiveIndex = $index"
-                        (mousedown)="onComposeTargetOptionMouseDown(item, $event)">
+                    @if (showComposeTargetSuggestions) {
+                        <div class="compose-target-suggestions">
+                            @for (
+                                item of composeTargetSuggestions;
+                                track item.kind + '-' + item.id
+                                ) {
+                                <button type="button" class="compose-target-option"
+                                        [class.active]="composeTargetActiveIndex === $index"
+                                        (mouseenter)="composeTargetActiveIndex = $index"
+                                        (mousedown)="onComposeTargetOptionMouseDown(item, $event)">
                         <span class="compose-target-option__label">
                             {{ item.label }}
                         </span>
 
-                        @if (item.subtitle) {
-                        <span class="compose-target-option__sub">
+                                    @if (item.subtitle) {
+                                        <span class="compose-target-option__sub">
                             {{ item.subtitle }}
                         </span>
-                        }
-                    </button>
+                                    }
+                                </button>
+                            }
+                        </div>
                     }
-                </div>
-                }
-            </form>
+                </form>
             }
         </header>
 
@@ -91,300 +91,286 @@
              Message List / Chat Content
         ========================================================== -->
         @if (!isComposeMode) {
-        @if (showScrollToLatestButton) {
-        <button type="button" class="scroll-to-latest-btn" (click)="scrollToLatestMessages()">
-            Neue Nachrichten ↓
-        </button>
-        }
-
-        <section class="message-list" aria-label="Nachrichtenliste" #messageList (scroll)="onMessageListScroll()">
-            <!-- =========================================================
-                     Load Older Messages
-                ========================================================== -->
-            @if (hasMoreMessages) {
-            <div class="loadMessages">
-                <button type="button" class="load-older-btn" (click)="loadOlderMessages()"
-                    [disabled]="isLoadingMoreMessages">
-                    {{
-                    isLoadingMoreMessages
-                    ? 'Lade ältere Nachrichten...'
-                    : 'Ältere Nachrichten laden'
-                    }}
+            @if (showScrollToLatestButton) {
+                <button type="button" class="scroll-to-latest-btn" (click)="scrollToLatestMessages()">
+                    Neue Nachrichten ↓
                 </button>
-            </div>
             }
 
-            <!-- =========================================================
-                     Empty State
-                ========================================================== -->
-            @if (!messages.length) {
-            <p class="empty-state">
-                Noch keine Nachrichten in diesem Channel.
-            </p>
-            }
+            <section class="message-list" aria-label="Nachrichtenliste" #messageList (scroll)="onMessageListScroll()">
+                <!-- =========================================================
+                         Load Older Messages
+                    ========================================================== -->
+                @if (hasMoreMessages) {
+                    <div class="loadMessages">
+                        <button type="button" class="load-older-btn" (click)="loadOlderMessages()"
+                                [disabled]="isLoadingMoreMessages">
+                            {{
+                                isLoadingMoreMessages
+                                    ? 'Lade ältere Nachrichten...'
+                                    : 'Ältere Nachrichten laden'
+                            }}
+                        </button>
+                    </div>
+                }
 
-            <!-- =========================================================
-                     Message Groups
-                ========================================================== -->
-            @for (group of messageGroups; track group.id) {
-            @let firstMessage = group.messages[0];
-            @let lastMessage = getLastMessageOfGroup(group);
+                <!-- =========================================================
+                         Empty State
+                    ========================================================== -->
+                @if (!messages.length) {
+                    <p class="empty-state">
+                        Noch keine Nachrichten in diesem Channel.
+                    </p>
+                }
 
-            @if (shouldShowGroupDateSeparator($index, group)) {
-                <div class="date-separator" aria-hidden="true">
+                <!-- =========================================================
+                         Message Groups
+                    ========================================================== -->
+                @for (group of messageGroups; track group.id) {
+                    @let firstMessage = group.messages[0];
+                    @let lastMessage = getLastMessageOfGroup(group);
+
+                    @if (shouldShowGroupDateSeparator($index, group)) {
+                        <div class="date-separator" aria-hidden="true">
                     <span class="date-separator__label">
                         {{ getDateSeparatorLabel(group.startedAt) }}
                     </span>
-                </div>
-            }
+                        </div>
+                    }
 
-                <div class="article__container" [class.article__container--own]="group.isOwn">
-                    <img [src]="getMessageAvatar(firstMessage)" [alt]="getSenderLabel(firstMessage) + ' Avatar'" />
+                    <div class="article__container" [class.article__container--own]="group.isOwn">
+                        <img [src]="getMessageAvatar(firstMessage)" [alt]="getSenderLabel(firstMessage) + ' Avatar'" />
 
-                    <div class="message__container" [class.message__container--own]="group.isOwn">
-                        <!-- =========================================================
-                                     Message Group Meta
-                             ========================================================== -->
-                        <div class="message__meta" [class.message__meta--own]="group.isOwn">
+                        <div class="message__container" [class.message__container--own]="group.isOwn">
+                            <!-- =========================================================
+                                         Message Group Meta
+                                 ========================================================== -->
+                            <div class="message__meta" [class.message__meta--own]="group.isOwn">
                             <span class="sender__name">
                                 {{ getSenderLabel(firstMessage) }}
                             </span>
-                            <span class="sender__timestamp">
+                                <span class="sender__timestamp">
                                 {{ formatTimestamp(firstMessage.timestamp) }}
                             </span>
-                        </div>
+                            </div>
 
-                        <!-- =========================================================
-                                     Message Group Body
-                                ========================================================== -->
-                        <article class="message message--group" [class.own]="group.isOwn">
-                            @for (
-                            groupMessage of group.messages;
-                            track trackMessage($index, groupMessage)
-                            ) {
-                            <div class="message__item" [class.message__item--own]="isOwnMessage(groupMessage)">
-                                <!-- =========================================================
-                                                 Bubble
-                                            ========================================================== -->
-                                <div [id]="groupMessage.id ? 'msg-' + groupMessage.id : null" class="message__bubble"
-                                    [class.message__bubble--own]="isOwnMessage(groupMessage)">
-                                    @if (isEditingMessage(groupMessage)) {
-                                    <div class="message-edit-box" (click)="$event.stopPropagation()">
+                            <!-- =========================================================
+                                         Message Group Body
+                                    ========================================================== -->
+                            <article class="message message--group" [class.own]="group.isOwn">
+                                @for (
+                                    groupMessage of group.messages;
+                                    track trackMessage($index, groupMessage)
+                                    ) {
+                                    <div class="message__item" [class.message__item--own]="isOwnMessage(groupMessage)">
+                                        <!-- =========================================================
+                                                         Bubble
+                                                    ========================================================== -->
+                                        <div [id]="groupMessage.id ? 'msg-' + groupMessage.id : null" class="message__bubble"
+                                             [class.message__bubble--own]="isOwnMessage(groupMessage)">
+                                            @if (isEditingMessage(groupMessage)) {
+                                                <div class="message-edit-box" (click)="$event.stopPropagation()">
                                         <textarea #editMessageTextarea class="message-edit-box__input"
-                                            [formControl]="editMessageControl" rows="3"
-                                            (keydown)="onEditTextareaKeydown($event, groupMessage)"></textarea>
+                                                  [formControl]="editMessageControl" rows="3"
+                                                  (keydown)="onEditTextareaKeydown($event, groupMessage)"></textarea>
 
-                                        <div class="message-edit-box__actions">
-                                            <p class="message-edit-box__hint">
-                                                Esc zum Abbrechen · Ctrl/Cmd + Enter zum
-                                                Speichern
-                                            </p>
+                                                    <div class="message-edit-box__actions">
+                                                        <p class="message-edit-box__hint">
+                                                            Esc zum Abbrechen · Ctrl/Cmd + Enter zum
+                                                            Speichern
+                                                        </p>
 
-                                            <button type="button"
-                                                class="message-edit-box__btn message-edit-box__btn--secondary"
-                                                (click)="cancelMessageEdit()" [disabled]="isSavingEdit">
-                                                Abbrechen
-                                            </button>
+                                                        <button type="button"
+                                                                class="message-edit-box__btn message-edit-box__btn--secondary"
+                                                                (click)="cancelMessageEdit()" [disabled]="isSavingEdit">
+                                                            Abbrechen
+                                                        </button>
 
-                                            <button type="button"
-                                                class="message-edit-box__btn message-edit-box__btn--primary"
-                                                (click)="saveMessageEdit(groupMessage)" [disabled]="isSavingEdit">
-                                                {{
-                                                isSavingEdit
-                                                ? 'Speichere...'
-                                                : 'Speichern'
-                                                }}
-                                            </button>
-                                        </div>
-                                    </div>
-                                    } @else {
-                                    <div class="message__content">
-                                        <p>{{ groupMessage.text }}</p>
+                                                        <button type="button"
+                                                                class="message-edit-box__btn message-edit-box__btn--primary"
+                                                                (click)="saveMessageEdit(groupMessage)" [disabled]="isSavingEdit">
+                                                            {{
+                                                                isSavingEdit
+                                                                    ? 'Speichere...'
+                                                                    : 'Speichern'
+                                                            }}
+                                                        </button>
+                                                    </div>
+                                                </div>
+                                            } @else {
+                                                <div class="message__content">
+                                                    <p>{{ groupMessage.text }}</p>
 
-                                        @if (groupMessage.edited) {
-                                        <span class="message__edited-label">
+                                                    @if (groupMessage.edited) {
+                                                        <span class="message__edited-label">
                                             (bearbeitet)
                                         </span>
-                                        }
+                                                    }
 
-                                        @if (groupMessage.attachments?.length) {
-                                        <div class="message-attachments">
-                                            @for (
-                                            attachment of groupMessage.attachments;
-                                            track attachment.path
-                                            ) {
-                                            <a class="attachment-item" [href]="attachment.url" target="_blank"
-                                                rel="noopener noreferrer">
-                                                @if (attachment.isImage) {
-                                                <img class="attachment-image" [src]="attachment.url" [alt]="attachment.name"
-                                                    loading="lazy" />
-                                                }
+                                                    @if (groupMessage.attachments?.length) {
+                                                        <div class="message-attachments">
+                                                            @for (
+                                                                attachment of groupMessage.attachments;
+                                                                track attachment.path
+                                                                ) {
+                                                                <a class="attachment-item" [href]="attachment.url" target="_blank"
+                                                                   rel="noopener noreferrer">
+                                                                    @if (attachment.isImage) {
+                                                                        <img class="attachment-image" [src]="attachment.url" [alt]="attachment.name"
+                                                                             loading="lazy" />
+                                                                    }
 
-                                                <span class="attachment-name">
+                                                                    <span class="attachment-name">
                                                     {{ attachment.name }}
                                                 </span>
-                                                <span class="attachment-download">
+                                                                    <span class="attachment-download">
                                                     Download
                                                 </span>
-                                            </a>
-                                            }
-                                        </div>
-                                        }
+                                                                </a>
+                                                            }
+                                                        </div>
+                                                    }
 
-                                        @if (hasMentionForCurrentUser(groupMessage)) {
-                                        <span class="mention-pill">
+                                                    @if (hasMentionForCurrentUser(groupMessage)) {
+                                                        <span class="mention-pill">
                                             Erwähnt dich
                                         </span>
-                                        }
-                                    </div>
-                                    }
-                                </div>
+                                                    }
+                                                </div>
+                                            }
+                                        </div>
 
-                                <!-- =========================================================
-                                                Reactions BELOW bubble
-                                            ========================================================== -->
-                                @if (groupMessage.reactions?.length) {
-                                @let visibleReactions = getSortedVisibleReactions(groupMessage);
-                                @let hiddenCount = getHiddenReactionCount(groupMessage);
-                                @let isExpanded = isReactionListExpanded(groupMessage);
+                                        <!-- =========================================================
+                                                        Reactions BELOW bubble
+                                                    ========================================================== -->
+                                        @if (groupMessage.reactions?.length) {
+                                            @let visibleReactions = getSortedVisibleReactions(groupMessage);
+                                            @let hiddenCount = getHiddenReactionCount(groupMessage);
+                                            @let isExpanded = isReactionListExpanded(groupMessage);
 
-                                <div class="message__reactions"
-                                    [class.message__reactions--own]="isOwnMessage(groupMessage)">
-                                        @for (reaction of visibleReactions; track reaction.emoji) {
-                                            <button
-                                                type="button"
-                                                class="reaction"
-                                                [class.active]="hasCurrentUserReacted(reaction)"
-                                                [attr.aria-label]="getReactionTooltipLabel(reaction)"
-                                                [attr.title]="getReactionTooltipLabel(reaction)"
-                                                (click)="toggleReaction(groupMessage, reaction.emoji)"
-                                            >
-                                                <span>{{ reaction.emoji }}</span>
-                                                <span>{{ reaction.userIds.length }}</span>
+                                            <div class="message__reactions"
+                                                 [class.message__reactions--own]="isOwnMessage(groupMessage)">
+                                                @for (reaction of visibleReactions; track reaction.emoji) {
+                                                    <button
+                                                        type="button"
+                                                        class="reaction"
+                                                        [class.active]="hasCurrentUserReacted(reaction)"
+                                                        [attr.aria-label]="getReactionTooltipLabel(reaction)"
+                                                        [attr.title]="getReactionTooltipLabel(reaction)"
+                                                        (click)="toggleReaction(groupMessage, reaction.emoji)"
+                                                    >
+                                                        <span>{{ reaction.emoji }}</span>
+                                                        <span>{{ reaction.userIds.length }}</span>
 
-                                                <span class="reaction-tooltip" role="tooltip" aria-hidden="true">
+                                                        <span class="reaction-tooltip" role="tooltip" aria-hidden="true">
                                                     <span class="reaction-tooltip__headline">
                                                         {{ reaction.emoji }} Reagiert von
                                                     </span>
 
-                                                    @for (name of getReactionUserDisplayNames(reaction); track name) {
-                                                        <span class="reaction-tooltip__user">{{ name }}</span>
-                                                    }
+                                                            @for (name of getReactionUserDisplayNames(reaction); track name) {
+                                                                <span class="reaction-tooltip__user">{{ name }}</span>
+                                                            }
                                                 </span>
-                                            </button>
-                                        }
+                                                    </button>
+                                                }
 
-                                    @if (hiddenCount > 0) {
-                                    <button type="button" class="reaction more" (click)="toggleReactionList(groupMessage)">
-                                        +{{ hiddenCount }} weitere
-                                    </button>
-                                    } @else if (isExpanded && (groupMessage.reactions?.length ?? 0) > 7) {
-                                        <button type="button" class="reaction more" (click)="toggleReactionList(groupMessage)">
-                                            weniger anzeigen
-                                        </button>
-                                    }
+                                                @if (hiddenCount > 0) {
+                                                    <button type="button" class="reaction more" (click)="toggleReactionList(groupMessage)">
+                                                        +{{ hiddenCount }} weitere
+                                                    </button>
+                                                } @else if (isExpanded && (groupMessage.reactions?.length ?? 0) > 7) {
+                                                    <button type="button" class="reaction more" (click)="toggleReactionList(groupMessage)">
+                                                        weniger anzeigen
+                                                    </button>
+                                                }
 
-                                    @if (canWrite) {
-                                    <div class="message__reaction-picker-wrap">
-                                        <button type="button" class="message-toolbar__btn message-toolbar__btn--picker"
-                                            aria-label="Emoji auswählen"
-                                            (click)="toggleMessageEmojiPicker(groupMessage, $event)">
-                                            <img src="assets/pictures/add_reaction.svg" alt="" aria-hidden="true" />
-                                        </button>
+                                                @if (canWrite) {
+                                                    <div class="message__reaction-picker-wrap">
+                                                        <button type="button" class="message-toolbar__btn message-toolbar__btn--picker"
+                                                                aria-label="Emoji auswählen"
+                                                                (click)="toggleMessageEmojiPicker(groupMessage, $event)">
+                                                            <img src="assets/pictures/add_reaction.svg" alt="" aria-hidden="true" />
+                                                        </button>
 
-                                        @if (isMessageEmojiPickerOpen(groupMessage)) {
-                                        <div class="emoji-picker-popover" (click)="$event.stopPropagation()">
-                                            <emoji-mart (emojiSelect)="onMessageEmojiSelect($event, groupMessage)"
-                                                [showPreview]="false" [perLine]="8"></emoji-mart>
-                                        </div>
+                                                        @if (isMessageEmojiPickerOpen(groupMessage)) {
+                                                            <div class="emoji-picker-popover" (click)="$event.stopPropagation()">
+                                                                <emoji-mart (emojiSelect)="onMessageEmojiSelect($event, groupMessage)"
+                                                                            [showPreview]="false" [perLine]="8"></emoji-mart>
+                                                            </div>
+                                                        }
+                                                    </div>
+                                                }
+                                            </div>
                                         }
                                     </div>
+                                }
+                            </article>
+
+                            @if (lastMessage && canOpenThreadFromToolbar(lastMessage) && shouldShowThreadRepliesLink(lastMessage)) {
+                                <div class="thread_messages">
+                                    <a href="#" (click)="onThreadRepliesClick($event, lastMessage)">
+                                        {{ getThreadReplyCount(lastMessage) }} Antworten
+                                    </a>
+                                </div>
+                            }
+                        </div>
+
+                        <!-- =========================================================
+                                     Message Toolbar
+                                ========================================================== -->
+                        @if (lastMessage) {
+                            <div class="message-toolbar" [class.message-toolbar--own]="group.isOwn">
+                                @for (emoji of defaultToolbarReactionEmojis; track emoji) {
+                                    <button
+                                        type="button"
+                                        class="message-toolbar__btn"
+                                        [attr.aria-label]="'Mit Emoji reagieren: ' + emoji"
+                                        [attr.title]="'Vorgegebenes Emoji'"
+                                        (click)="toggleReaction(lastMessage, emoji)"
+                                    >
+                                        <span class="toolbar-emoji">{{ emoji }}</span>
+                                    </button>
+                                }
+
+                                <div class="message-toolbar__picker-wrap">
+                                    <button
+                                        type="button"
+                                        class="message-toolbar__btn message-toolbar__btn--picker"
+                                        aria-label="Emoji auswählen"
+                                        (click)="toggleMessageEmojiPicker(lastMessage, $event)"
+                                    >
+                                        <img src="assets/pictures/add_reaction.svg" alt="" aria-hidden="true" />
+                                    </button>
+
+                                    @if (isMessageEmojiPickerOpen(lastMessage)) {
+                                        <div class="emoji-picker-popover" (click)="$event.stopPropagation()">
+                                            <emoji-mart
+                                                (emojiSelect)="onMessageEmojiSelect($event, lastMessage)"
+                                                [showPreview]="false"
+                                                [perLine]="8"
+                                            ></emoji-mart>
+                                        </div>
                                     }
                                 </div>
+
+                                @if (canOpenThreadFromToolbar(lastMessage)) {
+                                    <button type="button" class="message-toolbar__btn" aria-label="Thread öffnen"
+                                            (click)="openThreadForMessage(lastMessage)">
+                                        <img src="assets/pictures/answer.svg" alt="" aria-hidden="true" />
+                                    </button>
+                                }
+
+                                @if (canEditMessage(lastMessage)) {
+                                    <button type="button" class="message-toolbar__btn" aria-label="Nachricht bearbeiten"
+                                            (click)="onEditMessageClick(lastMessage)">
+                                        <img src="assets/pictures/edit_message.svg" alt="" aria-hidden="true" />
+                                    </button>
                                 }
                             </div>
-                            }
-                        </article>
-
-                        @if (lastMessage && canOpenThreadFromToolbar(lastMessage) && shouldShowThreadRepliesLink(lastMessage)) {
-                        <div class="thread_messages">
-                            <a href="#" (click)="onThreadRepliesClick($event, lastMessage)">
-                                {{ getThreadReplyCount(lastMessage) }} Antworten
-                            </a>
-                        </div>
                         }
                     </div>
-
-                    <!-- =========================================================
-                                 Message Toolbar
-                            ========================================================== -->
-                    @if (lastMessage) {
-                        <div class="message-toolbar" [class.message-toolbar--own]="group.isOwn">
-                            <button type="button" class="message-toolbar__btn" aria-label="Mit Daumen hoch reagieren"
-                                (click)="toggleReaction(lastMessage, '👍')">
-                                <span class="toolbar-emoji">👍</span>
-                            </button>
-
-                            @for (emoji of getToolbarReactionEmojis(); track emoji) {
-                                <button
-                                    type="button"
-                                    class="message-toolbar__btn"
-                                    [class.message-toolbar__btn--recent]="isRecentToolbarReactionEmoji(emoji)"
-                                    [attr.aria-label]="
-                                        isRecentToolbarReactionEmoji(emoji)
-                                            ? 'Mit zuletzt genutztem Emoji reagieren: ' + emoji
-                                            : 'Mit Emoji reagieren: ' + emoji
-                                    "
-                                                            [attr.title]="
-                                        isRecentToolbarReactionEmoji(emoji)
-                                            ? 'Zuletzt genutzt'
-                                            : 'Vorgegebenes Emoji'
-                                    "
-                                    (click)="toggleReaction(lastMessage, emoji)"
-                                >
-                                    <span class="toolbar-emoji">{{ emoji }}</span>
-                                </button>
-                            }
-
-                            <div class="message-toolbar__picker-wrap">
-                                <button
-                                    type="button"
-                                    class="message-toolbar__btn message-toolbar__btn--picker"
-                                    aria-label="Emoji auswählen"
-                                    (click)="toggleMessageEmojiPicker(lastMessage, $event)"
-                                >
-                                    <img src="assets/pictures/add_reaction.svg" alt="" aria-hidden="true" />
-                                </button>
-
-                                @if (isMessageEmojiPickerOpen(lastMessage)) {
-                                    <div class="emoji-picker-popover" (click)="$event.stopPropagation()">
-                                        <emoji-mart
-                                            (emojiSelect)="onMessageEmojiSelect($event, lastMessage)"
-                                            [showPreview]="false"
-                                            [perLine]="8"
-                                        ></emoji-mart>
-                                    </div>
-                                }
-                            </div>
-
-                            @if (canOpenThreadFromToolbar(lastMessage)) {
-                            <button type="button" class="message-toolbar__btn" aria-label="Thread öffnen"
-                                (click)="openThreadForMessage(lastMessage)">
-                                <img src="assets/pictures/answer.svg" alt="" aria-hidden="true" />
-                            </button>
-                            }
-
-                            @if (canEditMessage(lastMessage)) {
-                            <button type="button" class="message-toolbar__btn" aria-label="Nachricht bearbeiten"
-                                (click)="onEditMessageClick(lastMessage)">
-                                <img src="assets/pictures/edit_message.svg" alt="" aria-hidden="true" />
-                            </button>
-                            }
-                        </div>
-                    }
-                </div>
-            }
-        </section>
+                }
+            </section>
         }
 
         <!-- =========================================================
@@ -393,31 +379,31 @@
         <div class="composer-area">
             <form class="composer" novalidate (ngSubmit)="sendMessage()">
                 @if (selectedMentionsList().length) {
-                <div class="mention-chip-list">
-                    @for (candidate of selectedMentionsList(); track candidate.id) {
-                    <button type="button" class="mention-chip" (click)="removeMention(candidate.id)">
-                        @{{ candidate.label }} x
-                    </button>
-                    }
-                </div>
+                    <div class="mention-chip-list">
+                        @for (candidate of selectedMentionsList(); track candidate.id) {
+                            <button type="button" class="mention-chip" (click)="removeMention(candidate.id)">
+                                @{{ candidate.label }} x
+                            </button>
+                        }
+                    </div>
                 }
 
                 @if (selectedAttachments.length) {
-                <div class="attachment-chip-list">
-                    @for (
-                    attachment of selectedAttachments;
-                    track attachment.name + '-' + $index
-                    ) {
-                    <button type="button" class="attachment-chip" (click)="removeAttachment($index)">
-                        {{ attachment.name }} x
-                    </button>
-                    }
-                </div>
+                    <div class="attachment-chip-list">
+                        @for (
+                            attachment of selectedAttachments;
+                            track attachment.name + '-' + $index
+                            ) {
+                            <button type="button" class="attachment-chip" (click)="removeAttachment($index)">
+                                {{ attachment.name }} x
+                            </button>
+                        }
+                    </div>
                 }
 
                 <div class="composer-shell">
                     <textarea #composerTextarea class="composer-input" [formControl]="messageControl"
-                        (input)="onComposerInput()" (keydown)="onComposerKeydown($event)" rows="4" [placeholder]="
+                              (input)="onComposerInput()" (keydown)="onComposerKeydown($event)" rows="4" [placeholder]="
                         isDirectMessage
                             ? 'Nachricht an ' + currentConversationTitle
                             : 'Nachricht an #' + currentConversationTitle
@@ -425,44 +411,44 @@
 
                     <div class="composer-bottom composer-bottom--left">
                         <button type="button" class="composer-icon-btn" aria-label="Emoji auswählen"
-                            (click)="toggleComposerEmojiPicker($event)">
+                                (click)="toggleComposerEmojiPicker($event)">
                             <img src="assets/pictures/add_reaction.svg" alt="" aria-hidden="true" />
                         </button>
 
                         <button type="button" class="composer-icon-btn composer-icon-btn--mention"
-                            aria-label="Person erwähnen" (click)="insertMentionTrigger()">
+                                aria-label="Person erwähnen" (click)="insertMentionTrigger()">
                             @
                         </button>
                     </div>
 
                     <div class="composer-bottom composer-bottom--right">
                         <button type="button" class="composer-action-btn composer-action-btn--send"
-                            (click)="sendMessage()" [disabled]="!canSendMessage()" aria-label="Nachricht senden">
+                                (click)="sendMessage()" [disabled]="!canSendMessage()" aria-label="Nachricht senden">
                             <span>➤</span>
                         </button>
                     </div>
 
                     <input id="message-attachment-input" type="file" multiple (change)="onAttachmentSelected($event)"
-                        accept="image/*,.pdf,.docx,.txt" />
+                           accept="image/*,.pdf,.docx,.txt" />
 
                     @if (showMentionSuggestions) {
                         <div class="mention-suggestions">
                             @for (candidate of mentionSuggestions; track candidate.id) {
                                 <button type="button" class="mention-option" (click)="selectMention(candidate)">
                                     @if (candidate.kind === 'user') {
-                                    <div class="user-avatar">
-                                        <img
-                                            [src]="getMentionAvatar(candidate.id)"
-                                            [alt]="candidate.label + ' Avatar'"
-                                        />
+                                        <div class="user-avatar">
+                                            <img
+                                                [src]="getMentionAvatar(candidate.id)"
+                                                [alt]="candidate.label + ' Avatar'"
+                                            />
 
-                                        <span
-                                            class="user-avatar__status"
-                                            [class.user-avatar__status--online]="isMentionUserOnline(candidate.id)"
-                                        ></span>
-                                    </div>
+                                            <span
+                                                class="user-avatar__status"
+                                                [class.user-avatar__status--online]="isMentionUserOnline(candidate.id)"
+                                            ></span>
+                                        </div>
                                     } @else {
-                                    <div class="channel-tag-avatar" aria-hidden="true">#</div>
+                                        <div class="channel-tag-avatar" aria-hidden="true">#</div>
                                     }
 
                                     <div class="candidate">
@@ -474,10 +460,10 @@
                     }
 
                     @if (isComposerEmojiPickerOpen()) {
-                    <div class="composer-emoji-picker" (click)="$event.stopPropagation()">
-                        <emoji-mart (emojiSelect)="onComposerEmojiSelect($event)" [showPreview]="false"
-                            [perLine]="8"></emoji-mart>
-                    </div>
+                        <div class="composer-emoji-picker" (click)="$event.stopPropagation()">
+                            <emoji-mart (emojiSelect)="onComposerEmojiSelect($event)" [showPreview]="false"
+                                        [perLine]="8"></emoji-mart>
+                        </div>
                     }
                 </div>
             </form>
@@ -486,21 +472,21 @@
              Status / Hint / Error Messages
             ========================================================== -->
             @if (attachmentError) {
-            <p class="error">{{ attachmentError }}</p>
+                <p class="error">{{ attachmentError }}</p>
             }
 
             @if (connectionHint) {
-            <p class="hint">{{ connectionHint }}</p>
+                <p class="hint">{{ connectionHint }}</p>
             }
 
             @if (authResolved && !canWrite) {
-            <p class="hint">
-                Als Gast kannst du Nachrichten lesen, aber nicht senden.
-            </p>
+                <p class="hint">
+                    Als Gast kannst du Nachrichten lesen, aber nicht senden.
+                </p>
             }
 
             @if (errorMessage) {
-            <p class="error">{{ errorMessage }}</p>
+                <p class="error">{{ errorMessage }}</p>
             }
         </div>
     </section>

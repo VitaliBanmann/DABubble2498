@@ -6,11 +6,8 @@ import { HomeSendMessageBase } from './home-send-message.base';
 @Injectable()
 export abstract class HomeReactionsBase extends HomeSendMessageBase {
     activeEmojiPicker: { type: 'composer' } | { type: 'message'; messageId: string } | null = null;
-    readonly defaultToolbarReactionEmojis = ['👍', '✅', '🎉', '❤️'];
+    readonly defaultToolbarReactionEmojis = ['✅', '🎉'];
 
-    private readonly recentReactionStorageKey = 'dabubble_recent_reaction_emojis';
-    private readonly recentReactionLimit = 2;
-    private recentReactionEmojis: string[] = this.readRecentReactionEmojis();
     private readonly collapsedReactionLimit = 7;
     private expandedReactionMessages = new Set<string>();
     private threadReplyCountByMessageId: Record<string, number> = {};
@@ -65,7 +62,6 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
         const previousReactions = this.cloneReactionState(message.reactions ?? []);
         const nextReactions = computeUpdatedReactions(message, emoji, this.currentUserId);
         this.applyOptimisticReactionUpdate(message, nextReactions);
-        this.rememberRecentReactionEmoji(emoji);
 
         this.messageService.toggleReaction({ messageId: message.id, emoji, isDirectMessage: this.isDirectMessage }).subscribe({
             error: () => {
@@ -107,24 +103,6 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
 
     hasCurrentUserReacted(reaction: MessageReaction): boolean {
         return !!this.currentUserId && reaction.userIds.includes(this.currentUserId);
-    }
-
-    getRecentToolbarReactionEmojis(): string[] { return this.recentReactionEmojis.slice(0, this.recentReactionLimit); }
-
-    getToolbarReactionEmojis(): string[] {
-        return Array.from(new Set([...this.getRecentToolbarReactionEmojis(), ...this.defaultToolbarReactionEmojis]));
-    }
-
-    isRecentToolbarReactionEmoji(emoji: string): boolean {
-        return this.getRecentToolbarReactionEmojis().includes(emoji);
-    }
-
-    protected rememberRecentReactionEmoji(emoji: string): void {
-        const normalized = emoji.trim();
-        if (!normalized) return;
-        this.recentReactionEmojis = [normalized, ...this.recentReactionEmojis.filter((item) => item !== normalized)]
-            .slice(0, this.recentReactionLimit);
-        this.writeRecentReactionEmojis(this.recentReactionEmojis);
     }
 
     protected getReactionUserDisplayName(userId: string): string {
@@ -254,17 +232,6 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
         this.threadReplyCountSubscriptions = {};
     }
 
-    private readRecentReactionEmojis(): string[] {
-        if (typeof localStorage === 'undefined') return [];
-        try {
-            const raw = localStorage.getItem(this.recentReactionStorageKey);
-            if (!raw) return [];
-            return this.parseStoredRecentReactions(raw);
-        } catch {
-            return [];
-        }
-    }
-
     private applyReactionStateToMessageCollections(
         message: Message,
         messageId: string,
@@ -317,23 +284,5 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
         const sub = this.threadReplyCountSubscriptions[messageId];
         sub?.unsubscribe();
         delete this.threadReplyCountSubscriptions[messageId];
-    }
-
-    private parseStoredRecentReactions(raw: string): string[] {
-        const parsed = JSON.parse(raw);
-        if (!Array.isArray(parsed)) return [];
-        return parsed
-            .map((item) => (typeof item === 'string' ? item.trim() : ''))
-            .filter((item) => !!item)
-            .slice(0, this.recentReactionLimit);
-    }
-
-    private writeRecentReactionEmojis(emojis: string[]): void {
-        if (typeof localStorage === 'undefined') return;
-        try {
-            localStorage.setItem(this.recentReactionStorageKey, JSON.stringify(emojis));
-        } catch {
-            // ignore storage errors
-        }
     }
 }

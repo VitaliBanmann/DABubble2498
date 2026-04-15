@@ -314,13 +314,21 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
         removedChannelId: string,
         channels: Channel[],
     ): void {
+        this.channelService.emitChannelRemove(removedChannelId);
+
         (this as any).closeChannelPopup?.();
         (this as any).closeAddMemberPopup?.();
         (this as any).closeChannelMembersPopup?.();
+
         const nextChannel = channels.find(
             (c) => !!c.id && c.id !== removedChannelId,
         );
-        if (nextChannel?.id) { this.router.navigate(['/app/channel', nextChannel.id]); return; }
+
+        if (nextChannel?.id) {
+            this.router.navigate(['/app/channel', nextChannel.id]);
+            return;
+        }
+
         this.router.navigate(['/app']);
     }
 

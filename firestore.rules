@@ -270,8 +270,8 @@ service cloud.firestore {
     match /channels/{channelId} {
       allow get: if isSignedIn() && canReadChannelDoc(channelId, resource.data);
 
+      // Keep list rule query-compatible with: where('members', 'array-contains', request.auth.uid)
       allow list: if isRegularUser()
-        && hasMembersList(resource.data)
         && request.auth.uid in resource.data.members;
 
       allow create: if isRegularUser()

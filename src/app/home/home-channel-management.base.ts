@@ -243,6 +243,9 @@ export abstract class HomeChannelManagementBase extends HomeMessageActionsBase {
     private handleChannelDeleted(channels: Channel[], deletedChannelId: string): void {
         delete this.channelNames[deletedChannelId];
         delete this.channelDescriptions[deletedChannelId];
+
+        this.channelService.emitChannelRemove(deletedChannelId);
+
         this.closeChannelOverlays();
         this.navigateAfterChannelDelete(channels, deletedChannelId);
     }

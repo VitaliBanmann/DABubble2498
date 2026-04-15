@@ -65,6 +65,7 @@ export abstract class SidebarChannelSyncBase extends SidebarSearchBase {
     }
 
     protected loadChannels(): void {
+        this.subscribeToChannelMutations();
         this.seedDefaultChannelsIntoCache();
         this.renderChannelsFromCache();
 
@@ -95,6 +96,19 @@ export abstract class SidebarChannelSyncBase extends SidebarSearchBase {
         );
     }
 
+    protected subscribeToChannelMutations(): void {
+        this.subscription.add(
+            this.channelService.channelMutations$.subscribe((event) => {
+                if (event.type === 'upsert') {
+                    this.upsertSidebarChannel(event.channel);
+                    return;
+                }
+
+                this.markSidebarChannelDeleted(event.channelId);
+            }),
+        );
+    }
+
     protected setDefaultChannels(): void {
         this.seedDefaultChannelsIntoCache();
         this.renderChannelsFromCache();
@@ -120,6 +134,18 @@ export abstract class SidebarChannelSyncBase extends SidebarSearchBase {
         const mapped = this.mapChannelForSidebar(channel);
         this.sidebarChannelCache.set(mapped.id, mapped);
         this.renderChannelsFromCache();
+    }
+
+    protected removeSidebarChannel(channelId: string): void {
+        if (!channelId || this.isDefaultChannelId(channelId)) return;
+        this.sidebarChannelCache.delete(channelId);
+        this.renderChannelsFromCache();
+    }
+
+    protected markSidebarChannelDeleted(channelId: string): void {
+        if (!channelId || this.isDefaultChannelId(channelId)) return;
+        this.lastDeletedChannelId = channelId;
+        this.removeSidebarChannel(channelId);
     }
 
     protected hasSidebarChannel(channelId: string): boolean {

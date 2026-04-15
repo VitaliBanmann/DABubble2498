@@ -87,7 +87,7 @@ export class FirestoreService {
                     return { ...data, id: d.id };
                 }),
             ),
-        );
+        ).pipe(this.retryOnAuthNotReady());
     }
 
     /** Handles get document. */
@@ -101,7 +101,7 @@ export class FirestoreService {
                 const data = snap.data() as unknown as T;
                 return { ...data, id: snap.id };
             }),
-        );
+        ).pipe(this.retryOnAuthNotReady());
     }
 
     /** Handles get document realtime. */
@@ -177,7 +177,7 @@ export class FirestoreService {
                     return { ...data, id: d.id };
                 }),
             ),
-        );
+        ).pipe(this.retryOnAuthNotReady());
     }
 
     /** Handles query documents realtime. */
