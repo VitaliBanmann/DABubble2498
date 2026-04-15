@@ -190,6 +190,7 @@ $purple__hover: #535af1;
     display: flex;
     align-items: center;
     gap: 12px;
+    min-width: 0;
     cursor: pointer;
     user-select: none;
     color: inherit; // oder deine Default-Textfarbe
@@ -205,6 +206,15 @@ $purple__hover: #535af1;
         border-radius: 10px;
         color: $purple__hover;
     }
+}
+
+.sidebar__channelsection__header h2,
+.sidebar__chatsection__header h2 {
+    margin: 0;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .only__channels {
@@ -656,6 +666,23 @@ textarea {
    Tablet
 ===================================================== */
 @media (max-width: 1023px) {
+    .sidebar__channelsection,
+    .sidebar__chatsection {
+        min-width: 0;
+    }
+
+    .sidebar__channelsection__header,
+    .sidebar__chatsection__header {
+        gap: 8px;
+        flex: 1 1 auto;
+    }
+
+    .sidebar__channelsection__header h2,
+    .sidebar__chatsection__header h2 {
+        font-size: 20px;
+        line-height: 1.15;
+    }
+
     .channel-link,
     .direct-link {
         padding: 8px 24px;
@@ -739,4 +766,3 @@ textarea {
         font-size: 15px;
     }
 }
-
