@@ -909,11 +909,11 @@
     opacity: 0;
     visibility: hidden;
     transform: translateY(6px);
-    transition:
-        opacity 140ms ease,
-        transform 140ms ease,
-        visibility 140ms ease;
     pointer-events: none;
+    transition:
+        opacity 180ms ease,
+        visibility 180ms ease,
+        transform 180ms ease;
 }
 
 .message-toolbar--own {
@@ -1476,6 +1476,17 @@
     }
 }
 
+/* Desktop: Hover-Verhalten bleibt */
+@media (min-width: 771px) {
+    .article__container:hover .message-toolbar,
+    .article__container:focus-within .message-toolbar {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateY(0);
+    }
+}
+
 /* Mobile */
 @media (max-width: 767px) {
     .home-page {
@@ -1589,21 +1600,42 @@
         left: 8px;
     }
 
-    /* Toolbar auf Mobile immer sichtbar bei Touch */
+    /* Toolbar auf Mobile NICHT automatisch sichtbar */
     .message-toolbar {
-        opacity: 1;
-        visibility: visible;
-        transform: none;
-        pointer-events: auto;
-        top: -12px;
-        padding: 4px 8px;
-        gap: 2px;
+        opacity: 0 !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+        transform: translateY(6px) !important;
     }
 
     .message-toolbar__btn {
         width: 28px;
         height: 28px;
         flex: 0 0 28px;
+    }
+
+    /* Hover/Fokus auf Mobile deaktivieren */
+    .article__container:hover .message-toolbar,
+    .article__container:focus-within .message-toolbar {
+        opacity: 0;
+        visibility: hidden;
+        pointer-events: none;
+        transform: translateY(6px);
+    }
+
+    /* Nur per Klick/Tap geöffnete Toolbar anzeigen */
+    .message-toolbar.message-toolbar--mobile-visible {
+        opacity: 1 !important;
+        visibility: visible !important;
+        pointer-events: auto !important;
+        transform: translateY(0) !important;
+    }
+
+    .message-toolbar--mobile-visible {
+        opacity: 1;
+        visibility: visible;
+        pointer-events: auto;
+        transform: translateY(0);
     }
 
     /* Emoji Picker and Reactions */
@@ -1637,7 +1669,7 @@
 @media (max-width: 479px) {
     .message__reaction-picker-wrap .emoji-picker-popover,
     .message-toolbar__picker-wrap .emoji-picker-popover {
-        width: calc(100vw - 20px);
+        width: auto;
         max-width: calc(100vw - 20px);
         padding: 8px;
     }

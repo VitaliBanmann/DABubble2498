@@ -5,7 +5,11 @@ import { HomeSendMessageBase } from './home-send-message.base';
 
 @Injectable()
 export abstract class HomeReactionsBase extends HomeSendMessageBase {
-    activeEmojiPicker: { type: 'composer' } | { type: 'message'; messageId: string } | null = null;
+    activeEmojiPicker:
+        | { type: 'composer' }
+        | { type: 'message'; messageId: string; source: 'toolbar' | 'reactions' }
+        | null = null;
+
     readonly defaultToolbarReactionEmojis = ['✅', '🎉'];
 
     private readonly collapsedReactionLimit = 7;
@@ -13,6 +17,9 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
     private threadReplyCountByMessageId: Record<string, number> = {};
     private loadingThreadReplyCounts = new Set<string>();
     private threadReplyCountSubscriptions: Record<string, any> = {};
+
+    protected readonly mobileToolbarBreakpointPx = 770;
+    mobileActiveMessageToolbarId: string | null = null;
 
     protected abstract triggerViewUpdate(): void;
     protected abstract activeThreadParent: Message | null;
@@ -147,23 +154,64 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
         this.openThreadForMessage(message);
     }
 
+    isMobileToolbarMode(): boolean {
+        return typeof window !== 'undefined' && window.innerWidth <= this.mobileToolbarBreakpointPx;
+    }
+
+    toggleMobileMessageToolbar(message: Message, event?: MouseEvent): void {
+        if (!this.isMobileToolbarMode() || !message.id) return;
+        event?.stopPropagation();
+
+        this.mobileActiveMessageToolbarId =
+            this.mobileActiveMessageToolbarId === message.id ? null : message.id;
+    }
+
+    isMessageToolbarVisible(message: Message): boolean {
+        if (!message.id) return false;
+        if (!this.isMobileToolbarMode()) return true;
+        return this.mobileActiveMessageToolbarId === message.id;
+    }
+
+    closeMobileMessageToolbar(): void {
+        this.mobileActiveMessageToolbarId = null;
+    }
+
     toggleComposerEmojiPicker(event: MouseEvent): void {
         event.stopPropagation();
         if (this.activeEmojiPicker?.type === 'composer') this.closeAllEmojiPickers();
         else this.activeEmojiPicker = { type: 'composer' };
     }
 
-    toggleMessageEmojiPicker(message: Message, event: MouseEvent): void {
+    toggleMessageEmojiPicker(
+        message: Message,
+        source: 'toolbar' | 'reactions',
+        event: MouseEvent,
+    ): void {
         event.stopPropagation();
         if (!message.id || !this.canWrite) return;
-        if (this.isMessageEmojiPickerOpen(message)) this.closeAllEmojiPickers();
-        else this.activeEmojiPicker = { type: 'message', messageId: message.id };
+
+        if (this.isMessageEmojiPickerOpen(message, source)) {
+            this.closeAllEmojiPickers();
+            return;
+        }
+
+        this.activeEmojiPicker = {
+            type: 'message',
+            messageId: message.id,
+            source,
+        };
     }
 
     isComposerEmojiPickerOpen(): boolean { return this.activeEmojiPicker?.type === 'composer'; }
 
-    isMessageEmojiPickerOpen(message: Message): boolean {
-        return !!message.id && this.activeEmojiPicker?.type === 'message' && this.activeEmojiPicker.messageId === message.id;
+    isMessageEmojiPickerOpen(
+        message: Message,
+        source?: 'toolbar' | 'reactions',
+    ): boolean {
+        if (!message.id || this.activeEmojiPicker?.type !== 'message') return false;
+        if (this.activeEmojiPicker.messageId !== message.id) return false;
+        if (!source) return true;
+        return this.activeEmojiPicker.source === source;
     }
 
     closeAllEmojiPickers(): void { this.activeEmojiPicker = null; }

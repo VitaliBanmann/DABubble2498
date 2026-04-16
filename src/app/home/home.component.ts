@@ -202,7 +202,17 @@ export class HomeComponent extends HomeDisplayBase implements OnInit, OnDestroy 
 
     /** Handles on document click. */
     @HostListener('document:click')
-    onDocumentClick(): void { this.closeAllEmojiPickers(); }
+    onDocumentClick(): void {
+        this.closeAllEmojiPickers();
+        this.closeMobileMessageToolbar();
+    }
+
+    @HostListener('window:resize')
+    onWindowResize(): void {
+        if (!this.isMobileToolbarMode()) {
+            this.closeMobileMessageToolbar();
+        }
+    }
 
     /** Handles on escape key. */
     @HostListener('document:keydown.escape', ['$event'])
