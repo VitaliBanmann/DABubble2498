@@ -1,5 +1,15 @@
-<section class="add-member-overlay" (click)="onClose()">
-    <article class="add-member-popup" (click)="$event.stopPropagation()">
+<section
+    class="add-member-overlay"
+    role="presentation"
+    (click)="onClose()"
+>
+    <article
+        class="add-member-popup"
+        role="dialog"
+        aria-modal="true"
+        [attr.aria-label]="'Leute zu ' + channelName + ' hinzufügen'"
+        (click)="$event.stopPropagation()"
+    >
         <header class="add-member-popup__header">
             <div class="add-member-popup__title-group">
                 <h2>Leute hinzufügen</h2>
@@ -21,10 +31,12 @@
 
         <div class="add-member-popup__body">
             <input
+                #searchInput
                 type="text"
                 class="add-member-popup__input"
                 placeholder="Name eingeben"
                 aria-label="Name eingeben"
+                autocomplete="off"
                 [(ngModel)]="searchValue"
                 (input)="onSearchInput()"
                 (focus)="onSearchFocus()"
