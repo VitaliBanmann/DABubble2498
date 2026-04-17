@@ -12,15 +12,21 @@
     inset: 0;
     background: rgba(0, 0, 0, 0.35);
     z-index: 40;
+    overflow-y: auto;
+    overflow-x: hidden;
 }
 
 .channel-popup {
     position: absolute;
     width: min(760px, calc(100vw - 48px));
+    max-height: calc(100dvh - 48px);
     border-radius: 22px;
     background: #ffffff;
     box-shadow: 0 8px 24px rgba(26, 36, 87, 0.28);
     padding: 26px 30px 28px;
+    box-sizing: border-box;
+    overflow-y: auto;
+    overflow-x: hidden;
     font-family: 'Nunito', sans-serif;
 
     .error {
@@ -43,8 +49,11 @@
     display: flex;
     align-items: center;
     gap: 10px;
+    min-width: 0;
+    flex: 1;
 
     img {
+        flex: 0 0 auto;
         width: 22px;
         height: 22px;
     }
@@ -54,6 +63,10 @@
         color: #000000;
         font-size: 20px;
         font-weight: 700;
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 }
 
@@ -123,10 +136,19 @@
     gap: 10px;
     color: #2b2d42;
     font-size: 18px;
+    min-width: 0;
 
     img {
+        flex: 0 0 auto;
         width: 18px;
         height: 18px;
+    }
+
+    span {
+        min-width: 0;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
     }
 }
 
@@ -164,6 +186,8 @@
     margin: 14px 0 0;
     color: #2b2d42;
     font-size: 18px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .channel-popup__description-input-wrap {
@@ -205,6 +229,8 @@
     margin: 10px 0 0;
     color: #535af3;
     font-size: 24px;
+    overflow-wrap: anywhere;
+    word-break: break-word;
 }
 
 .channel-popup__actions {
@@ -212,6 +238,29 @@
     display: flex;
     justify-content: space-between;
     flex-direction: row-reverse;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+@media (max-width: 700px) {
+    .channel-popup {
+        left: 12px !important;
+        right: 12px;
+        top: 12px !important;
+        width: auto;
+        max-height: calc(100dvh - 24px);
+        padding: 22px 18px 20px;
+    }
+}
+
+@media (max-width: 480px) {
+    .channel-popup__actions {
+        justify-content: center;
+    }
+
+    .channel-popup__leave-btn {
+        margin-inline: auto;
+    }
 }
 
 .channel-popup__leave-btn {

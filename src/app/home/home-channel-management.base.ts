@@ -103,13 +103,20 @@ export abstract class HomeChannelManagementBase extends HomeMessageActionsBase {
 
         const rect = el.getBoundingClientRect();
         const vw = window.innerWidth;
+        const vh = window.innerHeight;
+        const isSmallViewport = vw <= 700;
+        const minEdge = isSmallViewport ? 12 : 24;
         const pw = Math.min(760, vw - 48);
+        const popupMaxHeight = Math.min(720, Math.max(320, vh - minEdge * 2));
 
         this.channelPopupLeft = Math.min(
-            Math.max(Math.round(rect.left), 24),
-            Math.max(24, vw - pw - 24),
+            Math.max(Math.round(rect.left), minEdge),
+            Math.max(minEdge, vw - pw - minEdge),
         );
-        this.channelPopupTop = Math.round(rect.bottom + 12);
+
+        const preferredTop = isSmallViewport ? minEdge : Math.round(rect.bottom + 12);
+        const maxTop = Math.max(minEdge, vh - popupMaxHeight - minEdge);
+        this.channelPopupTop = Math.min(Math.max(preferredTop, minEdge), maxTop);
     }
 
     protected isProtectedDefaultChannel(channelId: string): boolean {
