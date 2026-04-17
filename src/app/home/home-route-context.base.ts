@@ -54,7 +54,7 @@ export abstract class HomeRouteContextBase extends HomeAuthBase {
     /** Handles subscribe to users. */
     protected subscribeToUsers(): void {
         this.subscription.add(
-            this.userService.getAllUsers().subscribe({
+            this.userService.getAllUsersRealtime().subscribe({
                 next: (users: User[]) => this.buildUserMap(users),
             }),
         );
