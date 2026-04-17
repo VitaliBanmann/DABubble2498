@@ -58,14 +58,12 @@ export abstract class AppAuthStateBase {
 
     enterRegisterMode(): void {
         this.isRegisterMode = true;
-        this.errorMessage = '';
-        this.successMessage = '';
+        this.resetAuthFormState();
     }
 
     enterLoginMode(): void {
         this.isRegisterMode = false;
-        this.errorMessage = '';
-        this.successMessage = '';
+        this.resetAuthFormState();
     }
 
     onPasswordEnter(event: Event): void {
@@ -232,6 +230,26 @@ export abstract class AppAuthStateBase {
         if (!this.loginFeedbackTimeout) return;
         clearTimeout(this.loginFeedbackTimeout);
         this.loginFeedbackTimeout = null;
+    }
+
+    private resetAuthFormState(): void {
+        this.loginForm.reset({
+            displayName: '',
+            email: '',
+            password: '',
+            rememberMe: false,
+        });
+
+        this.errorMessage = '';
+        this.successMessage = '';
+        this.isSubmitting = false;
+
+        this.showPassword = false;
+
+        this.loginFeedbackVisible = false;
+        this.loginFeedbackMessage = '';
+        this.loginFeedbackType = 'loading';
+        this.clearLoginFeedbackTimeout();
     }
 
     private hideFeedbackImmediately(): void {
