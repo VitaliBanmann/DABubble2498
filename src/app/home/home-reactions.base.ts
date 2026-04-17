@@ -21,6 +21,23 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
     protected readonly mobileToolbarBreakpointPx = 770;
     mobileActiveMessageToolbarId: string | null = null;
 
+    /**
+     * Speichert pro Message + Quelle, ob der Picker oberhalb oder unterhalb geöffnet werden soll.
+     * Key-Format: `${messageId}::${source}`
+     */
+    private messageEmojiPickerPlacement: Record<string, 'above' | 'below'> = {};
+
+    /**
+     * Grobe Picker-Höhe zur Platzberechnung.
+     * Lieber etwas konservativer rechnen.
+     */
+    private readonly estimatedEmojiPickerHeightPx = 360;
+
+    /**
+     * Zusätzlicher Abstand unterhalb des Headers.
+     */
+    private readonly emojiPickerSafetyOffsetPx = 12;
+
     protected abstract triggerViewUpdate(): void;
     protected abstract activeThreadParent: Message | null;
     abstract openThreadForMessage(message: Message): void;
@@ -46,6 +63,7 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
             const aR = this.hasCurrentUserReacted(a) ? 1 : 0;
             const bR = this.hasCurrentUserReacted(b) ? 1 : 0;
             if (aR !== bR) return bR - aR;
+
             const aC = typeof a.count === 'number' ? a.count : Number(a.count ?? 0);
             const bC = typeof b.count === 'number' ? b.count : Number(b.count ?? 0);
             return bC - aC;
@@ -60,52 +78,110 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
 
     toggleReactionList(message: Message): void {
         if (!message.id) return;
-        if (this.expandedReactionMessages.has(message.id)) this.expandedReactionMessages.delete(message.id);
-        else this.expandedReactionMessages.add(message.id);
+
+        if (this.expandedReactionMessages.has(message.id)) {
+            this.expandedReactionMessages.delete(message.id);
+        } else {
+            this.expandedReactionMessages.add(message.id);
+        }
     }
 
     toggleReaction(message: Message, emoji: string): void {
         if (!this.canWrite || !message.id || !this.currentUserId) return;
+
         const previousReactions = this.cloneReactionState(message.reactions ?? []);
         const nextReactions = computeUpdatedReactions(message, emoji, this.currentUserId);
+
         this.applyOptimisticReactionUpdate(message, nextReactions);
 
-        this.messageService.toggleReaction({ messageId: message.id, emoji, isDirectMessage: this.isDirectMessage }).subscribe({
-            error: () => {
-                this.applyOptimisticReactionUpdate(message, previousReactions);
-                this.errorMessage = 'Reaktion konnte nicht aktualisiert werden.';
-            },
-        });
+        this.messageService
+            .toggleReaction({
+                messageId: message.id,
+                emoji,
+                isDirectMessage: this.isDirectMessage,
+            })
+            .subscribe({
+                error: () => {
+                    this.applyOptimisticReactionUpdate(message, previousReactions);
+                    this.errorMessage = 'Reaktion konnte nicht aktualisiert werden.';
+                },
+            });
     }
 
-    protected applyOptimisticReactionUpdate(message: Message, reactions: MessageReaction[]): void {
+    protected applyOptimisticReactionUpdate(
+        message: Message,
+        reactions: MessageReaction[],
+    ): void {
         const messageId = message.id;
         if (!messageId) return;
+
         const clonedReactions = this.cloneReactionState(reactions);
         this.applyReactionStateToMessageCollections(message, messageId, clonedReactions);
         this.triggerViewUpdate();
     }
 
-    protected replaceMessageReactions(messages: Message[], messageId: string, reactions: MessageReaction[]): Message[] {
-        return messages.map((entry) => entry.id === messageId ? { ...entry, reactions: this.cloneReactionState(reactions) } : entry);
+    protected replaceMessageReactions(
+        messages: Message[],
+        messageId: string,
+        reactions: MessageReaction[],
+    ): Message[] {
+        return messages.map((entry) =>
+            entry.id === messageId
+                ? { ...entry, reactions: this.cloneReactionState(reactions) }
+                : entry,
+        );
     }
 
     protected cloneReactionState(reactions: MessageReaction[]): MessageReaction[] {
-        return reactions.map((reaction) => ({ ...reaction, userIds: [...reaction.userIds] }));
+        return reactions.map((reaction) => ({
+            ...reaction,
+            userIds: [...reaction.userIds],
+        }));
     }
 
-    protected applyLocalReactionUpdate(messageId: string, reactions: MessageReaction[]): void {
-        this.liveMessages = this.updateReactionStateInMessages(this.liveMessages, messageId, reactions);
-        this.olderMessages = this.updateReactionStateInMessages(this.olderMessages, messageId, reactions);
-        this.messages = this.updateReactionStateInMessages(this.messages, messageId, reactions);
-        if (this.activeThreadParent?.id === messageId) this.activeThreadParent = { ...this.activeThreadParent, reactions };
+    protected applyLocalReactionUpdate(
+        messageId: string,
+        reactions: MessageReaction[],
+    ): void {
+        this.liveMessages = this.updateReactionStateInMessages(
+            this.liveMessages,
+            messageId,
+            reactions,
+        );
+        this.olderMessages = this.updateReactionStateInMessages(
+            this.olderMessages,
+            messageId,
+            reactions,
+        );
+        this.messages = this.updateReactionStateInMessages(
+            this.messages,
+            messageId,
+            reactions,
+        );
+
+        if (this.activeThreadParent?.id === messageId) {
+            this.activeThreadParent = { ...this.activeThreadParent, reactions };
+        }
+
         this.rebuildMessageList();
     }
 
-    protected updateReactionStateInMessages(messages: Message[], messageId: string, reactions: MessageReaction[]): Message[] {
-        return messages.map((item) => item.id === messageId
-            ? { ...item, reactions: reactions.map((reaction) => ({ ...reaction, userIds: [...reaction.userIds] })) }
-            : item);
+    protected updateReactionStateInMessages(
+        messages: Message[],
+        messageId: string,
+        reactions: MessageReaction[],
+    ): Message[] {
+        return messages.map((item) =>
+            item.id === messageId
+                ? {
+                    ...item,
+                    reactions: reactions.map((reaction) => ({
+                        ...reaction,
+                        userIds: [...reaction.userIds],
+                    })),
+                }
+                : item,
+        );
     }
 
     hasCurrentUserReacted(reaction: MessageReaction): boolean {
@@ -115,13 +191,18 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
     protected getReactionUserDisplayName(userId: string): string {
         if (!userId) return 'Unbekannt';
         if (userId === this.currentUserId) return 'Du';
+
         const displayName = (this.usersById[userId]?.displayName ?? '').trim();
         return displayName || userId;
     }
 
     getReactionUserDisplayNames(reaction: MessageReaction): string[] {
-        const names = (reaction.userIds ?? []).map((userId) => this.getReactionUserDisplayName(userId)).filter((name) => !!name);
+        const names = (reaction.userIds ?? [])
+            .map((userId) => this.getReactionUserDisplayName(userId))
+            .filter((name) => !!name);
+
         const uniqueNames = Array.from(new Set(names));
+
         return uniqueNames.sort((a, b) => {
             if (a === 'Du') return -1;
             if (b === 'Du') return 1;
@@ -131,23 +212,36 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
 
     getReactionTooltipLabel(reaction: MessageReaction): string {
         const names = this.getReactionUserDisplayNames(reaction);
-        return names.length ? `${reaction.emoji} reagiert von ${names.join(', ')}` : `${reaction.emoji} Reaktion`;
+        return names.length
+            ? `${reaction.emoji} reagiert von ${names.join(', ')}`
+            : `${reaction.emoji} Reaktion`;
     }
 
-    canOpenThreadFromToolbar(message: Message): boolean { return !!message.id; }
+    canOpenThreadFromToolbar(message: Message): boolean {
+        return !!message.id;
+    }
 
     getThreadReplyCount(message: Message): number {
         const messageId = message.id ?? '';
-        if (messageId && messageId in this.threadReplyCountByMessageId) return this.threadReplyCountByMessageId[messageId];
 
-        const countValue = (message.threadReplyCount ?? (message as any).threadCount ?? 0);
-        const count = typeof countValue === 'number' ? countValue : Number(countValue);
-        const normalized = Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+        if (messageId && messageId in this.threadReplyCountByMessageId) {
+            return this.threadReplyCountByMessageId[messageId];
+        }
+
+        const countValue = message.threadReplyCount ?? (message as any).threadCount ?? 0;
+        const count =
+            typeof countValue === 'number' ? countValue : Number(countValue);
+        const normalized =
+            Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
+
         if (messageId) this.ensureThreadReplyCountSynced(messageId);
+
         return normalized;
     }
 
-    shouldShowThreadRepliesLink(message: Message): boolean { return this.getThreadReplyCount(message) > 0; }
+    shouldShowThreadRepliesLink(message: Message): boolean {
+        return this.getThreadReplyCount(message) > 0;
+    }
 
     onThreadRepliesClick(event: MouseEvent, message: Message): void {
         event.preventDefault();
@@ -155,11 +249,15 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
     }
 
     isMobileToolbarMode(): boolean {
-        return typeof window !== 'undefined' && window.innerWidth <= this.mobileToolbarBreakpointPx;
+        return (
+            typeof window !== 'undefined' &&
+            window.innerWidth <= this.mobileToolbarBreakpointPx
+        );
     }
 
     toggleMobileMessageToolbar(message: Message, event?: MouseEvent): void {
         if (!this.isMobileToolbarMode() || !message.id) return;
+
         event?.stopPropagation();
 
         this.mobileActiveMessageToolbarId =
@@ -178,8 +276,12 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
 
     toggleComposerEmojiPicker(event: MouseEvent): void {
         event.stopPropagation();
-        if (this.activeEmojiPicker?.type === 'composer') this.closeAllEmojiPickers();
-        else this.activeEmojiPicker = { type: 'composer' };
+
+        if (this.activeEmojiPicker?.type === 'composer') {
+            this.closeAllEmojiPickers();
+        } else {
+            this.activeEmojiPicker = { type: 'composer' };
+        }
     }
 
     toggleMessageEmojiPicker(
@@ -188,12 +290,17 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
         event: MouseEvent,
     ): void {
         event.stopPropagation();
+
         if (!message.id || !this.canWrite) return;
 
         if (this.isMessageEmojiPickerOpen(message, source)) {
             this.closeAllEmojiPickers();
             return;
         }
+
+        const placement = this.resolveMessageEmojiPickerPlacement(event.currentTarget as HTMLElement | null);
+
+        this.setMessageEmojiPickerPlacement(message.id, source, placement);
 
         this.activeEmojiPicker = {
             type: 'message',
@@ -202,7 +309,9 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
         };
     }
 
-    isComposerEmojiPickerOpen(): boolean { return this.activeEmojiPicker?.type === 'composer'; }
+    isComposerEmojiPickerOpen(): boolean {
+        return this.activeEmojiPicker?.type === 'composer';
+    }
 
     isMessageEmojiPickerOpen(
         message: Message,
@@ -214,8 +323,24 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
         return this.activeEmojiPicker.source === source;
     }
 
-    closeAllEmojiPickers(): void { this.activeEmojiPicker = null; }
-    closeComposerEmojiPicker(): void { this.closeAllEmojiPickers(); }
+    /**
+     * Liefert true, wenn der Picker für diese Message/Quelle unterhalb geöffnet werden soll.
+     */
+    shouldOpenMessageEmojiPickerBelow(
+        message: Message,
+        source: 'toolbar' | 'reactions',
+    ): boolean {
+        if (!message.id) return false;
+        return this.getMessageEmojiPickerPlacement(message.id, source) === 'below';
+    }
+
+    closeAllEmojiPickers(): void {
+        this.activeEmojiPicker = null;
+    }
+
+    closeComposerEmojiPicker(): void {
+        this.closeAllEmojiPickers();
+    }
 
     onComposerEmojiSelect(event: any): void {
         const emoji = event?.emoji?.native ?? event?.native ?? '';
@@ -223,60 +348,82 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
         if (!emoji || !textarea) return;
 
         const next = this.insertComposerEmoji(textarea, emoji);
+
         setTimeout(() => {
             textarea.focus();
             textarea.selectionStart = textarea.selectionEnd = next;
             this.resizeComposerTextarea();
         }, 0);
+
         this.closeAllEmojiPickers();
     }
 
-    protected insertComposerEmoji(textarea: HTMLTextAreaElement, emoji: string): number {
+    protected insertComposerEmoji(
+        textarea: HTMLTextAreaElement,
+        emoji: string,
+    ): number {
         const start = textarea.selectionStart;
         const end = textarea.selectionEnd;
         const value = this.messageControlValue ?? '';
-        this.setMessageControlValue(value.substring(0, start) + emoji + value.substring(end));
+
+        this.setMessageControlValue(
+            value.substring(0, start) + emoji + value.substring(end),
+        );
+
         return start + emoji.length;
     }
 
     onMessageEmojiSelect(event: any, message: Message): void {
         const emoji = event?.emoji?.native ?? event?.native ?? '';
         if (!emoji || !message.id) return;
+
         this.toggleReaction(message, emoji);
         this.closeAllEmojiPickers();
     }
 
     hasMentionForCurrentUser(message: Message): boolean {
-        return !!this.currentUserId && (message.mentions ?? []).includes(this.currentUserId);
+        return (
+            !!this.currentUserId &&
+            (message.mentions ?? []).includes(this.currentUserId)
+        );
     }
 
-    isThreadParent(message: Message): boolean { return !!message.id && message.id === this.activeThreadParent?.id; }
+    isThreadParent(message: Message): boolean {
+        return !!message.id && message.id === this.activeThreadParent?.id;
+    }
 
     protected override tryScrollToMessage(): void {
         const msgId = this.pendingScrollToMessageId;
         if (!msgId) return;
+
         setTimeout(() => this.highlightScrolledMessage(msgId), 400);
     }
 
     protected highlightScrolledMessage(msgId: string): void {
         const el = document.getElementById('msg-' + msgId);
         if (!el) return;
+
         el.scrollIntoView({ behavior: 'smooth', block: 'center' });
         el.classList.add('message__line--highlight');
         this.pendingScrollToMessageId = null;
+
         setTimeout(() => el.classList.remove('message__line--highlight'), 2500);
     }
 
     private ensureThreadReplyCountSynced(messageId: string): void {
         if (!this.canStartThreadReplySync(messageId)) return;
+
         this.loadingThreadReplyCounts.add(messageId);
+
         this.threadReplyCountSubscriptions[messageId] = this.messageService
             .getThreadMessages(messageId)
             .subscribe(this.threadReplySyncObserver(messageId));
     }
 
     private clearThreadReplyCountSubscriptions(): void {
-        Object.values(this.threadReplyCountSubscriptions).forEach((sub: any) => sub.unsubscribe());
+        Object.values(this.threadReplyCountSubscriptions).forEach((sub: any) =>
+            sub.unsubscribe(),
+        );
         this.threadReplyCountSubscriptions = {};
     }
 
@@ -291,38 +438,75 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
         this.updateReactionStateThreadParent(messageId, clonedReactions);
     }
 
-    private updateReactionStateLists(messageId: string, clonedReactions: MessageReaction[]): void {
-        this.liveMessages = this.replaceMessageReactions(this.liveMessages, messageId, clonedReactions);
-        this.olderMessages = this.replaceMessageReactions(this.olderMessages, messageId, clonedReactions);
-        this.messages = this.replaceMessageReactions(this.messages, messageId, clonedReactions);
+    private updateReactionStateLists(
+        messageId: string,
+        clonedReactions: MessageReaction[],
+    ): void {
+        this.liveMessages = this.replaceMessageReactions(
+            this.liveMessages,
+            messageId,
+            clonedReactions,
+        );
+        this.olderMessages = this.replaceMessageReactions(
+            this.olderMessages,
+            messageId,
+            clonedReactions,
+        );
+        this.messages = this.replaceMessageReactions(
+            this.messages,
+            messageId,
+            clonedReactions,
+        );
     }
 
-    private updateReactionStateGroups(messageId: string, clonedReactions: MessageReaction[]): void {
+    private updateReactionStateGroups(
+        messageId: string,
+        clonedReactions: MessageReaction[],
+    ): void {
         this.messageGroups = this.messageGroups.map((group) => ({
             ...group,
-            messages: group.messages.map((groupMessage) => groupMessage.id === messageId
-                ? { ...groupMessage, reactions: this.cloneReactionState(clonedReactions) }
-                : groupMessage),
+            messages: group.messages.map((groupMessage) =>
+                groupMessage.id === messageId
+                    ? {
+                        ...groupMessage,
+                        reactions: this.cloneReactionState(clonedReactions),
+                    }
+                    : groupMessage,
+            ),
         }));
     }
 
-    private updateReactionStateThreadParent(messageId: string, clonedReactions: MessageReaction[]): void {
+    private updateReactionStateThreadParent(
+        messageId: string,
+        clonedReactions: MessageReaction[],
+    ): void {
         if (this.activeThreadParent?.id !== messageId) return;
-        this.activeThreadParent = { ...this.activeThreadParent, reactions: this.cloneReactionState(clonedReactions) };
+
+        this.activeThreadParent = {
+            ...this.activeThreadParent,
+            reactions: this.cloneReactionState(clonedReactions),
+        };
     }
 
     private canStartThreadReplySync(messageId: string): boolean {
-        return !this.threadReplyCountSubscriptions[messageId] && !this.loadingThreadReplyCounts.has(messageId);
+        return (
+            !this.threadReplyCountSubscriptions[messageId] &&
+            !this.loadingThreadReplyCounts.has(messageId)
+        );
     }
 
     private threadReplySyncObserver(messageId: string) {
         return {
-            next: (threadMessages: ThreadMessage[]) => this.onThreadReplySyncSuccess(messageId, threadMessages),
+            next: (threadMessages: ThreadMessage[]) =>
+                this.onThreadReplySyncSuccess(messageId, threadMessages),
             error: () => this.onThreadReplySyncError(messageId),
         };
     }
 
-    private onThreadReplySyncSuccess(messageId: string, threadMessages: ThreadMessage[]): void {
+    private onThreadReplySyncSuccess(
+        messageId: string,
+        threadMessages: ThreadMessage[],
+    ): void {
         this.threadReplyCountByMessageId[messageId] = threadMessages.length;
         this.loadingThreadReplyCounts.delete(messageId);
     }
@@ -332,5 +516,53 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
         const sub = this.threadReplyCountSubscriptions[messageId];
         sub?.unsubscribe();
         delete this.threadReplyCountSubscriptions[messageId];
+    }
+
+    private getMessageEmojiPickerPlacementKey(
+        messageId: string,
+        source: 'toolbar' | 'reactions',
+    ): string {
+        return `${messageId}::${source}`;
+    }
+
+    private setMessageEmojiPickerPlacement(
+        messageId: string,
+        source: 'toolbar' | 'reactions',
+        placement: 'above' | 'below',
+    ): void {
+        const key = this.getMessageEmojiPickerPlacementKey(messageId, source);
+        this.messageEmojiPickerPlacement[key] = placement;
+    }
+
+    private getMessageEmojiPickerPlacement(
+        messageId: string,
+        source: 'toolbar' | 'reactions',
+    ): 'above' | 'below' {
+        const key = this.getMessageEmojiPickerPlacementKey(messageId, source);
+        return this.messageEmojiPickerPlacement[key] ?? 'above';
+    }
+
+    /**
+     * Entscheidet, ob der Picker oberhalb oder unterhalb geöffnet werden soll.
+     * Wenn zwischen Trigger und Header-Unterkante nicht genug Platz ist, öffnen wir darunter.
+     */
+    private resolveMessageEmojiPickerPlacement(
+        triggerElement: HTMLElement | null,
+    ): 'above' | 'below' {
+        if (typeof window === 'undefined' || typeof document === 'undefined') {
+            return 'above';
+        }
+
+        if (!triggerElement) return 'above';
+
+        const triggerRect = triggerElement.getBoundingClientRect();
+        const headerElement = document.querySelector('.home-header') as HTMLElement | null;
+        const headerBottom = headerElement?.getBoundingClientRect().bottom ?? 0;
+
+        const availableSpaceAbove = triggerRect.top - headerBottom;
+        const minimumRequiredSpace =
+            this.estimatedEmojiPickerHeightPx + this.emojiPickerSafetyOffsetPx;
+
+        return availableSpaceAbove < minimumRequiredSpace ? 'below' : 'above';
     }
 }

@@ -409,6 +409,7 @@
                                                         @if (isMessageEmojiPickerOpen(groupMessage, 'reactions')) {
                                                             <div
                                                                 class="emoji-picker-popover"
+                                                                [class.emoji-picker-popover--below]="shouldOpenMessageEmojiPickerBelow(groupMessage, 'reactions')"
                                                                 (click)="$event.stopPropagation()"
                                                             >
                                                                 <emoji-mart
@@ -478,6 +479,7 @@
                                     @if (isMessageEmojiPickerOpen(lastMessage, 'toolbar')) {
                                         <div
                                             class="emoji-picker-popover"
+                                            [class.emoji-picker-popover--below]="shouldOpenMessageEmojiPickerBelow(lastMessage, 'toolbar')"
                                             (click)="$event.stopPropagation()"
                                         >
                                             <emoji-mart

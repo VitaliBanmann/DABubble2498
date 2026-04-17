@@ -797,6 +797,18 @@
     display: block;
 }
 
+.message__reaction-picker-wrap .emoji-picker-popover.emoji-picker-popover--below {
+    bottom: auto;
+    top: calc(100% + 8px);
+}
+
+.message__reactions--own,
+.message__reaction-picker-wrap,
+.emoji-picker-popover.emoji-picker-popover--below {
+    top: calc(100% + 8px);
+    bottom: auto;
+}
+
 .message__reactions--own .message__reaction-picker-wrap .emoji-picker-popover {
     left: auto;
     right: 0;
@@ -1009,6 +1021,11 @@
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: 8px;
+}
+
+.emoji-picker-popover.emoji-picker-popover--below {
+    bottom: auto;
+    top: calc(100% + 8px);
 }
 
 .message-toolbar--own .emoji-picker-popover {
