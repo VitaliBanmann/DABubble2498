@@ -331,7 +331,8 @@ export abstract class SidebarComponentBase extends SidebarChannelSyncBase {
                         if (!createdChannelId) return;
                         this.handleChannelCreated(createdChannelId, payload);
                     },
-                    error: (error) => this.handleCreateChannelError(error),
+                    error: (error) =>
+                        this.handleCreateChannelError(error, payload.name),
                 }),
         );
     }
@@ -348,9 +349,34 @@ export abstract class SidebarComponentBase extends SidebarChannelSyncBase {
         }
     }
 
-    private handleCreateChannelError(error: unknown): void {
+    private handleCreateChannelError(error: unknown, channelName: string): void {
         console.error('Channel creation failed:', error);
+        if (this.isChannelNameConflictError(error)) {
+            this.channelNameError =
+                `Der Channel „${channelName}“ existiert bereits.`;
+            this.saveError = '';
+            return;
+        }
+
         this.saveError = 'Channel konnte nicht erstellt werden. Bitte erneut versuchen.';
+    }
+
+    private isChannelNameConflictError(error: unknown): boolean {
+        const code = this.extractFirebaseErrorCode(error);
+        return (
+            code === 'already-exists'
+            || code === 'channel/already-exists'
+            || code === 'permission-denied'
+            || code === 'failed-precondition'
+        );
+    }
+
+    private extractFirebaseErrorCode(error: unknown): string {
+        if (!error || typeof error !== 'object') return '';
+        const raw = String((error as { code?: unknown }).code ?? '').trim();
+        if (!raw) return '';
+        const normalized = raw.toLowerCase();
+        return normalized.includes('/') ? normalized.split('/').pop() ?? '' : normalized;
     }
 
     private resetCreateChannelFormState(): void {

@@ -129,17 +129,8 @@ export function createUniqueChannelId(
     name: string,
     channels: SidebarChannel[],
 ): string {
-    const base = slugify(name);
-    if (!channels.some((channel) => channel.id === base)) {
-        return base;
-    }
-
-    let index = 2;
-    while (channels.some((channel) => channel.id === `${base}-${index}`)) {
-        index += 1;
-    }
-
-    return `${base}-${index}`;
+    void channels;
+    return slugify(name);
 }
 
 /** Handles map sidebar channel. */
