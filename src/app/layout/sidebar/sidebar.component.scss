@@ -2,6 +2,9 @@ $purple__hover: #535af1;
 
 .sidebar {
     height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
     padding: 16px;
 }
 
@@ -156,6 +159,25 @@ $purple__hover: #535af1;
 .sidebar__section,
 .sidebar__topsection {
     margin-top: 18px;
+}
+
+.sidebar__topsection {
+    flex: 0 0 auto;
+}
+
+.sidebar__section {
+    flex: 1 1 auto;
+    min-height: 0;
+    overflow-y: auto;
+    overflow-x: hidden;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+
+    &::-webkit-scrollbar {
+        display: none;
+        width: 0;
+        height: 0;
+    }
 }
 
 .sidebar__headsection {
