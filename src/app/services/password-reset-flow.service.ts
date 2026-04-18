@@ -80,7 +80,7 @@ export class PasswordResetFlowService {
         const confirmPassword = this.confirmPasswordControl.value ?? '';
         if (!newPassword || !confirmPassword) return 'Bitte fülle beide Passwortfelder aus.';
         if (!isRegisterPasswordValid(newPassword)) {
-            return 'Das Passwort muss mindestens 8 Zeichen, 1 Großbuchstaben und 1 Sonderzeichen enthalten.';
+            return 'Das Passwort muss mindestens 8 Zeichen, 1 Großbuchstaben, 1 Kleinbuchstaben und 1 Sonderzeichen enthalten.';
         }
         if (newPassword !== confirmPassword) return 'Die Passwörter stimmen nicht überein.';
         return '';

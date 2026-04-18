@@ -17,10 +17,10 @@
         <button
             type="button"
             class="show-profile__avatar"
-            [class.show-profile__avatar--editable]="isEditing && !isSaving"
-            [attr.aria-label]="isEditing ? 'Profilbild ändern' : null"
-            [attr.aria-expanded]="isEditing ? showAvatarPicker : null"
-            [disabled]="!isEditing || isSaving"
+            [class.show-profile__avatar--editable]="isEditing && !isSaving && !isGuestUser"
+            [attr.aria-label]="isEditing && !isGuestUser ? 'Profilbild ändern' : null"
+            [attr.aria-expanded]="isEditing && !isGuestUser ? showAvatarPicker : null"
+            [disabled]="!isEditing || isSaving || isGuestUser"
             (click)="toggleAvatarPicker()"
         >
             @if (activeAvatarUrl) {
@@ -32,7 +32,13 @@
             }
         </button>
 
-        @if (isEditing) {
+        @if (isGuestUser) {
+            <span class="show-profile__guest-avatar-note">
+                Als Gast-User kannst du dein Profilbild nicht ändern.
+            </span>
+        }
+
+        @if (isEditing && !isGuestUser) {
             <span class="show-profile__avatar-hint">Profilbild anklicken zum Ändern</span>
             @if (showAvatarPicker) {
                 <div class="show-profile__avatar-picker">
@@ -81,14 +87,16 @@
         <div class="show-profile__changes_container">
 	            <div class="show-profile__name-row">
 	                <h3 class="show-profile__name">{{ displayName }}</h3>
-	                <button
-	                    type="button"
-	                    class="show-profile__edit"
-	                    (click)="enterEditMode()"
-	                >
-	                    Bearbeiten
-	                </button>
-	            </div>
+                @if (!isGuestUser) {
+                    <button
+                        type="button"
+                        class="show-profile__edit"
+                        (click)="enterEditMode()"
+                    >
+                        Bearbeiten
+                    </button>
+                }
+            </div>
 
             <div class="show-profile__status">
                 <img

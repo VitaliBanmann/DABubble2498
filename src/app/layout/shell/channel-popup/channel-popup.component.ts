@@ -18,8 +18,6 @@ import { FormsModule } from '@angular/forms';
 })
 export class ChannelPopupComponent implements OnChanges {
     @Input() channelName = 'Entwicklerteam';
-    @Input() left = 24;
-    @Input() top = 100;
     @Input() description =
         'Dieser Channel ist für alles rund um das Entwickeln vorgesehen. Hier kannst du zusammen mit deinem Team Meetings abhalten, Dokumente teilen und Entscheidungen treffen.';
     @Input() createdBy = 'Unbekannt';

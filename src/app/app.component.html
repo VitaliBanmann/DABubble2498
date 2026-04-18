@@ -86,9 +86,9 @@
 
                         @if (
                             isRegisterMode &&
+                            registerSubmitAttempted &&
                             displayNameControl.touched &&
-                            !!displayNameControl.value &&
-                            !displayNameControl.value.trim()
+                            !(displayNameControl.value ?? '').trim()
                             ) {
                             <p class="field-error">
                                 Bitte gib einen Anzeigenamen ein.
@@ -120,9 +120,13 @@
                             Diese E-Mail ist bereits registriert.
                         </p>
                     } @else if (
+                        (!isRegisterMode || registerSubmitAttempted) &&
                         emailControl.touched &&
-                        !!emailControl.value?.trim() &&
-                        (emailControl.hasError('email') || emailControl.hasError('pattern'))
+                        (
+                        emailControl.hasError('required') ||
+                        emailControl.hasError('email') ||
+                        emailControl.hasError('pattern')
+                        )
                         ) {
                         <p class="field-error">
                             Bitte gib eine gültige E-Mail-Adresse ein.
@@ -177,6 +181,9 @@
                                         </li>
                                         <li [class.met]="passwordChecks.uppercase">
                                             Mindestens 1 Großbuchstabe
+                                        </li>
+                                        <li [class.met]="passwordChecks.lowercase">
+                                            Mindestens 1 Kleinbuchstabe
                                         </li>
                                         <li [class.met]="passwordChecks.specialChar">
                                             Mindestens 1 Sonderzeichen

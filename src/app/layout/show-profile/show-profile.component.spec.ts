@@ -8,11 +8,19 @@ import { UserService } from '../../services/user.service';
 class AuthServiceMock {
     authReady$ = of(true);
     currentUser$ = of(null);
+
+    getCurrentUser() {
+        return null;
+    }
 }
 
 class UserServiceMock {
     getUserRealtime() {
         return of(null);
+    }
+
+    updateCurrentUserProfile() {
+        return Promise.resolve();
     }
 }
 
@@ -36,5 +44,24 @@ describe('ShowProfileComponent', () => {
 
     it('should create', () => {
         expect(component).toBeTruthy();
+    });
+
+    it('should not enter edit mode for guest users', () => {
+        component.isGuestUser = true;
+
+        component.enterEditMode();
+
+        expect(component.isEditing).toBeFalse();
+    });
+
+    it('should not persist profile changes for guest users', async () => {
+        component.isGuestUser = true;
+        component.editDisplayName = 'Gast';
+        const userService = TestBed.inject(UserService);
+        const updateSpy = spyOn(userService, 'updateCurrentUserProfile').and.callThrough();
+
+        await component.saveProfileEdit();
+
+        expect(updateSpy).not.toHaveBeenCalled();
     });
 });

@@ -9,6 +9,7 @@ export abstract class AppAuthBase extends AppAuthStateBase {
     async onSubmit(mode: 'login' | 'register'): Promise<void> {
         this.clearEmailAlreadyInUseError();
         this.isRegisterMode = mode === 'register';
+        this.registerSubmitAttempted = this.isRegisterMode;
         if (!this.ensureValidLoginForm()) return;
 
         const { displayName, email, password } = this.readLoginCredentials();

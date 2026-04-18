@@ -20,6 +20,7 @@ export abstract class AppAuthStateBase {
     successMessage = '';
     forgotPasswordMessage = '';
     forgotPasswordError = '';
+    registerSubmitAttempted = false;
 
     loginFeedbackVisible = false;
     loginFeedbackMessage = '';
@@ -147,6 +148,7 @@ export abstract class AppAuthStateBase {
         return {
             minLength: value.length >= 8,
             uppercase: /[A-ZÄÖÜ]/.test(value),
+            lowercase: /[a-zäöü]/.test(value),
             specialChar: /[^A-Za-z0-9]/.test(value),
         };
     }
@@ -155,7 +157,7 @@ export abstract class AppAuthStateBase {
         const password = this.passwordControl.value ?? '';
         if (!password) return this.isRegisterMode ? 'Bitte gib ein Passwort ein.' : 'Bitte gib dein Passwort ein.';
         if (this.isRegisterMode && !this.isRegisterPasswordValid(password)) {
-            return 'Das Passwort muss mindestens 8 Zeichen, 1 Großbuchstaben und 1 Sonderzeichen enthalten.';
+            return 'Das Passwort muss mindestens 8 Zeichen, 1 Großbuchstaben, 1 Kleinbuchstaben und 1 Sonderzeichen enthalten.';
         }
         if (password.length < 6) return 'Das Passwort muss mindestens 6 Zeichen lang sein.';
         return '';
@@ -164,17 +166,20 @@ export abstract class AppAuthStateBase {
     get isPrimarySubmitDisabled(): boolean {
         if (this.isSubmitting) return true;
         if (!this.isRegisterMode) return this.emailControl.invalid || this.passwordControl.invalid;
-        const displayName = (this.displayNameControl.value ?? '').trim();
-        const password = this.passwordControl.value ?? '';
-        return !displayName || this.emailControl.invalid || !this.isRegisterPasswordValid(password);
+        return false;
     }
 
     get showPasswordError(): boolean {
         const password = this.passwordControl.value ?? '';
-        return this.passwordControl.touched && !!password.trim() && (
-            this.passwordControl.invalid ||
-            (this.isRegisterMode && !this.isRegisterPasswordValid(password))
-        );
+        if (this.isRegisterMode) {
+            return this.registerSubmitAttempted
+                && !!password.trim()
+                && !this.isRegisterPasswordValid(password);
+        }
+
+        return this.passwordControl.touched
+            && !!password.trim()
+            && this.passwordControl.invalid;
     }
 
     protected updateAuthScreenVisibility(url: string): void {
@@ -216,7 +221,10 @@ export abstract class AppAuthStateBase {
     }
 
     protected isRegisterPasswordValid(password: string): boolean {
-        return password.length >= 8 && /[A-ZÄÖÜ]/.test(password) && /[^A-Za-z0-9]/.test(password);
+        return password.length >= 8
+            && /[A-ZÄÖÜ]/.test(password)
+            && /[a-zäöü]/.test(password)
+            && /[^A-Za-z0-9]/.test(password);
     }
 
     protected prepareResetEmailSubmit(): string {
@@ -243,6 +251,7 @@ export abstract class AppAuthStateBase {
         this.errorMessage = '';
         this.successMessage = '';
         this.isSubmitting = false;
+        this.registerSubmitAttempted = false;
 
         this.showPassword = false;
 

@@ -12,12 +12,17 @@
     inset: 0;
     background: rgba(0, 0, 0, 0.35);
     z-index: 40;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    box-sizing: border-box;
     overflow-y: auto;
     overflow-x: hidden;
 }
 
 .channel-popup {
-    position: absolute;
+    position: relative;
     width: min(760px, calc(100vw - 48px));
     max-height: calc(100dvh - 48px);
     border-radius: 22px;
@@ -243,11 +248,12 @@
 }
 
 @media (max-width: 700px) {
+    .channel-popup-overlay {
+        padding: 12px;
+    }
+
     .channel-popup {
-        left: 12px !important;
-        right: 12px;
-        top: 12px !important;
-        width: auto;
+        width: min(760px, calc(100vw - 24px));
         max-height: calc(100dvh - 24px);
         padding: 22px 18px 20px;
     }

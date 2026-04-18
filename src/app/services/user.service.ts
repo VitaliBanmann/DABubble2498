@@ -161,6 +161,9 @@ export class UserService {
      */
     async updateCurrentUserProfile(updates: Partial<User>): Promise<void> {
         const currentUser = this.requireCurrentUser();
+        if (currentUser.isAnonymous) {
+            throw new Error('Guest users cannot update profile data.');
+        }
         const identity = this.resolveProfileIdentity(currentUser, updates);
         const existingProfile = await this.getExistingProfile(currentUser.uid);
         await this.persistCurrentUserProfile(currentUser, existingProfile, updates, identity);

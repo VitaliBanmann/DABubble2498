@@ -539,30 +539,35 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
         source: 'toolbar' | 'reactions',
     ): 'above' | 'below' {
         const key = this.getMessageEmojiPickerPlacementKey(messageId, source);
-        return this.messageEmojiPickerPlacement[key] ?? 'above';
+        return this.messageEmojiPickerPlacement[key] ?? 'below';
     }
 
     /**
      * Entscheidet, ob der Picker oberhalb oder unterhalb geöffnet werden soll.
-     * Wenn zwischen Trigger und Header-Unterkante nicht genug Platz ist, öffnen wir darunter.
+     * Standard ist "unterhalb". Falls unten nicht genug Platz ist, wird oberhalb geöffnet.
      */
     private resolveMessageEmojiPickerPlacement(
         triggerElement: HTMLElement | null,
     ): 'above' | 'below' {
         if (typeof window === 'undefined' || typeof document === 'undefined') {
-            return 'above';
+            return 'below';
         }
 
-        if (!triggerElement) return 'above';
+        if (!triggerElement) return 'below';
 
         const triggerRect = triggerElement.getBoundingClientRect();
         const headerElement = document.querySelector('.home-header') as HTMLElement | null;
         const headerBottom = headerElement?.getBoundingClientRect().bottom ?? 0;
+        const viewportTopLimit = headerBottom + this.emojiPickerSafetyOffsetPx;
+        const viewportBottomLimit = window.innerHeight - this.emojiPickerSafetyOffsetPx;
 
-        const availableSpaceAbove = triggerRect.top - headerBottom;
+        const availableSpaceAbove = triggerRect.top - viewportTopLimit;
+        const availableSpaceBelow = viewportBottomLimit - triggerRect.bottom;
         const minimumRequiredSpace =
             this.estimatedEmojiPickerHeightPx + this.emojiPickerSafetyOffsetPx;
 
-        return availableSpaceAbove < minimumRequiredSpace ? 'below' : 'above';
+        if (availableSpaceBelow >= minimumRequiredSpace) return 'below';
+        if (availableSpaceAbove >= minimumRequiredSpace) return 'above';
+        return availableSpaceBelow >= availableSpaceAbove ? 'below' : 'above';
     }
 }

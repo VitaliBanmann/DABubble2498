@@ -29,6 +29,7 @@ export abstract class TopbarProfileBase {
     email = '';
     presenceStatus: PresenceStatus = 'offline';
     avatarUrl: string | null = null;
+    isGuestUser = true;
     showAvatarImage = false;
     showUserMenu = false;
     showProfile = false;
@@ -198,6 +199,11 @@ export abstract class TopbarProfileBase {
 
     /** Handles apply profile state. */
     private applyProfileState(data: { user: any; profile: any } | null): void {
+        if (!data?.user || data.user.isAnonymous) {
+            this.deferUiUpdate(() => this.applyGuestProfile());
+            return;
+        }
+
         if (!data?.profile) return;
         const { profile, user } = data;
         this.deferUiUpdate(() =>
@@ -234,10 +240,22 @@ export abstract class TopbarProfileBase {
     ): void {
         this.profileResolved = true;
         this.clearProfileFallback();
+        this.isGuestUser = false;
         this.displayName = name;
         this.email = email;
         this.applyAvatar(avatar);
         this.presenceStatus = presence;
+    }
+
+    /** Handles apply guest profile. */
+    private applyGuestProfile(): void {
+        this.profileResolved = true;
+        this.clearProfileFallback();
+        this.isGuestUser = true;
+        this.displayName = 'Gast';
+        this.email = '';
+        this.clearAvatar();
+        this.presenceStatus = 'online';
     }
 
     /** Handles begin profile fallback. */

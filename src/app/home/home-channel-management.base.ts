@@ -9,8 +9,6 @@ export abstract class HomeChannelManagementBase extends HomeMessageActionsBase {
     isChannelPopupOpen = false;
     isAddMemberPopupOpen = false;
     isChannelMembersPopupOpen = false;
-    channelPopupLeft = 24;
-    channelPopupTop = 100;
     channelMembersPopupLeft = 24;
     channelMembersPopupTop = 120;
     hasSentWelcomeMessage = false;
@@ -26,11 +24,9 @@ export abstract class HomeChannelManagementBase extends HomeMessageActionsBase {
     openChannelPopup(): void {
         if ((this as any).isComposeMode || this.isDirectMessage) return;
 
-        this.positionChannelPopup();
         this.isAddMemberPopupOpen = false;
         this.isChannelMembersPopupOpen = false;
         this.isChannelPopupOpen = true;
-        this.debugDeleteState();
     }
 
     closeChannelPopup(): void {
@@ -95,28 +91,6 @@ export abstract class HomeChannelManagementBase extends HomeMessageActionsBase {
             Math.max(24, vw - pw - 24),
         );
         this.channelMembersPopupTop = Math.round(rect.bottom + 12);
-    }
-
-    protected positionChannelPopup(): void {
-        const el = this.channelTitleTriggerRef?.nativeElement;
-        if (!el) return;
-
-        const rect = el.getBoundingClientRect();
-        const vw = window.innerWidth;
-        const vh = window.innerHeight;
-        const isSmallViewport = vw <= 700;
-        const minEdge = isSmallViewport ? 12 : 24;
-        const pw = Math.min(760, vw - 48);
-        const popupMaxHeight = Math.min(720, Math.max(320, vh - minEdge * 2));
-
-        this.channelPopupLeft = Math.min(
-            Math.max(Math.round(rect.left), minEdge),
-            Math.max(minEdge, vw - pw - minEdge),
-        );
-
-        const preferredTop = isSmallViewport ? minEdge : Math.round(rect.bottom + 12);
-        const maxTop = Math.max(minEdge, vh - popupMaxHeight - minEdge);
-        this.channelPopupTop = Math.min(Math.max(preferredTop, minEdge), maxTop);
     }
 
     protected isProtectedDefaultChannel(channelId: string): boolean {
@@ -201,18 +175,6 @@ export abstract class HomeChannelManagementBase extends HomeMessageActionsBase {
         const deletedChannelId = this.currentChannelId;
         this.errorMessage = '';
         this.deleteChannelAndNavigate(deletedChannelId);
-    }
-
-    debugDeleteState(): void {
-        const createdBy = (this.currentChannel?.createdBy ?? '').toString().trim();
-        const canDelete =
-            !this.isDirectMessage &&
-            !!this.currentChannelId &&
-            !!this.currentUserId &&
-            !this.isProtectedDefaultChannel(this.currentChannelId) &&
-            !!createdBy &&
-            createdBy === this.currentUserId;
-        this.logDeleteDebugState(createdBy, canDelete);
     }
 
     private canUpdateChannelMember(userId: string): boolean {
@@ -345,16 +307,6 @@ export abstract class HomeChannelManagementBase extends HomeMessageActionsBase {
     private onChannelDeleteError(error: unknown): void {
         console.error('[CHANNEL DELETE ERROR]', error);
         this.errorMessage = this.resolveChannelUpdateErrorMessage('delete', error);
-    }
-
-    private logDeleteDebugState(createdBy: string, canDelete: boolean): void {
-        console.log({
-            currentChannelId: this.currentChannelId,
-            currentUserId: this.currentUserId,
-            currentChannel: this.currentChannel,
-            createdBy,
-            canDeleteCurrentChannel: canDelete,
-        });
     }
 
     private closeChannelOverlays(): void {

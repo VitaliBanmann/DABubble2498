@@ -171,4 +171,22 @@ describe('AppComponent', () => {
         expect(confirmSpy).not.toHaveBeenCalled();
         expect(app.showResetPasswordError).toBeTrue();
     });
+
+    it('should show register password error only after register submit attempt', async () => {
+        const fixture = TestBed.createComponent(AppComponent);
+        const app = fixture.componentInstance;
+        app.enterRegisterMode();
+        app.loginForm.patchValue({
+            displayName: 'Tester',
+            email: 'test@example.com',
+            password: 'ABCDEF!1',
+        });
+        app.passwordControl.markAsTouched();
+
+        expect(app.showPasswordError).toBeFalse();
+
+        await app.onSubmit('register');
+
+        expect(app.showPasswordError).toBeTrue();
+    });
 });

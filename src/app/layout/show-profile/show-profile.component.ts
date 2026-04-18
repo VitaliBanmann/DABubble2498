@@ -1,4 +1,4 @@
-﻿import {
+import {
     Component,
     EventEmitter,
     Input,
@@ -7,7 +7,16 @@
     OnInit,
     Output,
 } from '@angular/core';
-import { Subscription, catchError, map, of, startWith, switchMap } from 'rxjs';
+import {
+    Subscription,
+    catchError,
+    combineLatest,
+    filter,
+    map,
+    of,
+    startWith,
+    switchMap,
+} from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { UserService } from '../../services/user.service';
 
@@ -33,6 +42,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
     @Input() initialDisplayName = '';
     @Input() initialEmail = '';
     @Input() initialAvatarUrl: string | null = null;
+    @Input() isGuestUser = false;
     @Output() close = new EventEmitter<void>();
 
     displayName = 'Gast';
@@ -63,17 +73,24 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         private readonly userService: UserService,
         private readonly zone: NgZone,
     ) {}
+
     ngOnInit(): void {
         this.seedViewFromInputs();
+        this.syncGuestStateFromCurrentUser();
         this.subscribeToProfileUpdates();
     }
+
     ngOnDestroy(): void {
         this.subscription.unsubscribe();
     }
+
     requestClose(): void {
         this.close.emit();
     }
+
     enterEditMode(): void {
+        if (this.isGuestUser) return;
+
         this.isEditing = true;
         this.editDisplayName = this.displayName;
         this.syncNameValidationState();
@@ -82,11 +99,15 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         this.showAvatarPicker = false;
         this.uploadError = '';
     }
+
     exitEditMode(): void {
         this.isEditing = false;
         this.showAvatarPicker = false;
     }
+
     async saveProfileEdit(): Promise<void> {
+        if (this.isGuestUser) return;
+
         const nextName = this.editDisplayName.trim();
         if (!this.isSaveAllowed(nextName)) return;
         const nextAvatar = this.resolveAvatarForSave();
@@ -94,16 +115,19 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         await this.persistProfileOrRestoreEdit(nextName, nextAvatar);
         this.setSavingFlag(false);
     }
+
     updateEditNameDraft(value: string): void {
         this.editDisplayName = value;
         this.syncNameValidationState();
     }
+
     toggleAvatarPicker(): void {
-        if (!this.isEditing || this.isSaving) return;
+        if (this.isGuestUser || !this.isEditing || this.isSaving) return;
         this.showAvatarPicker = !this.showAvatarPicker;
     }
+
     selectAvatar(avatarId: string): void {
-        if (!this.isEditing || this.isSaving) return;
+        if (this.isGuestUser || !this.isEditing || this.isSaving) return;
 
         this.selectedAvatarId = avatarId;
         this.uploadError = '';
@@ -116,11 +140,15 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         const selected = this.avatars.find((avatar) => avatar.id === avatarId);
         this.editAvatarUrl = selected ? `assets/pictures/${selected.path}` : null;
     }
+
     onUploadClick(fileInput: HTMLInputElement): void {
-        if (!this.isEditing || this.isSaving) return;
+        if (this.isGuestUser || !this.isEditing || this.isSaving) return;
         fileInput.click();
     }
+
     async handleFileUpload(event: Event): Promise<void> {
+        if (this.isGuestUser || !this.isEditing || this.isSaving) return;
+
         const target = event.target as HTMLInputElement;
         const file = target.files?.[0];
 
@@ -165,12 +193,21 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
 
         return parts[0][0].toUpperCase();
     }
+
     private subscribeToProfileUpdates(): void {
-        const stream$ = this.authService.currentUser$.pipe(
-            switchMap((user) => this.buildViewStreamForUser(user)),
+        const stream$ = combineLatest([
+            this.authService.authReady$,
+            this.authService.currentUser$,
+        ]).pipe(
+            filter(([ready]) => ready),
+            switchMap(([, user]) => {
+                this.syncGuestState(user);
+                return this.buildViewStreamForUser(user);
+            }),
         );
         this.subscription.add(stream$.subscribe((view) => this.applyResolvedView(view)));
     }
+
     private buildViewStreamForUser(user: any) {
         if (!user || user.isAnonymous) return of(this.createGuestView());
         return this.userService.getUserProfileRealtime(user.uid, user.email ?? '').pipe(
@@ -179,16 +216,22 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
             map((profile) => this.resolveViewFromProfile(user, profile)),
         );
     }
+
     private applyResolvedView(view: ResolvedProfileView): void {
         this.displayName = view.displayName;
         this.email = view.email;
         this.avatarUrl = view.avatarUrl;
+
+        if (this.isGuestUser && this.isEditing) {
+            this.exitEditMode();
+        }
 
         if (!this.isEditing) {
             this.editAvatarUrl = view.avatarUrl;
             this.selectAvatarFromProfile(view.avatarUrl);
         }
     }
+
     private resolveViewFromProfile(user: any, profile: any): ResolvedProfileView {
         return {
             displayName: this.resolveDisplayName(user, profile),
@@ -196,6 +239,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
             avatarUrl: this.resolveAvatar(user, profile),
         };
     }
+
     private resolveDisplayName(user: any, profile: any): string {
         return this.firstNonEmptyString(
             profile?.displayName,
@@ -205,6 +249,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
             'Gast',
         );
     }
+
     private resolveEmail(user: any, profile: any): string {
         return this.firstNonEmptyString(
             this.extractProfileEmail(profile),
@@ -213,6 +258,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
             '',
         );
     }
+
     private resolveAvatar(user: any, profile: any): string | null {
         return (
             this.normalizeAvatarUrl(profile?.avatar) ||
@@ -220,19 +266,23 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
             this.normalizeAvatarUrl(user?.photoURL)
         );
     }
+
     private seedViewFromInputs(): void {
         this.applySeededDisplayName(this.initialDisplayName);
         this.applySeededEmail(this.initialEmail);
         this.applySeededAvatar(this.initialAvatarUrl);
     }
+
     private applySeededDisplayName(value: string): void {
         const next = value.trim();
         if (next) this.displayName = next;
     }
+
     private applySeededEmail(value: string): void {
         const next = value.trim();
         if (next) this.email = next;
     }
+
     private applySeededAvatar(value: string | null): void {
         const next = this.normalizeAvatarUrl(value);
         if (next) {
@@ -241,6 +291,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
             this.selectAvatarFromProfile(next);
         }
     }
+
     private extractProfileEmail(profile: Record<string, unknown> | null): string {
         if (!profile) return '';
         for (const key of this.profileEmailKeys) {
@@ -250,6 +301,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         }
         return '';
     }
+
     private firstNonEmptyString(...values: Array<string | null | undefined>): string {
         for (const value of values) {
             const next = (value ?? '').trim();
@@ -257,12 +309,14 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         }
         return '';
     }
+
     private normalizeAvatarUrl(avatar: string | null | undefined): string | null {
         const trimmed = (avatar ?? '').trim();
         if (!trimmed) return null;
         if (this.isDirectAvatarUrl(trimmed)) return trimmed;
         return `assets/pictures/${trimmed.replace(/^\/+/, '')}`;
     }
+
     private isDirectAvatarUrl(value: string): boolean {
         return (
             value.startsWith('data:image/') ||
@@ -271,12 +325,15 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
             value.startsWith('assets/')
         );
     }
+
     private createGuestView(): ResolvedProfileView {
         return { displayName: 'Gast', email: '', avatarUrl: null };
     }
+
     private isSaveAllowed(nextName: string): boolean {
-        return !!nextName && !this.isSaving && !this.isEditNameEmpty;
+        return !!nextName && !this.isGuestUser && !this.isSaving && !this.isEditNameEmpty;
     }
+
     private applyOptimisticProfileAndStartSaving(nextName: string, nextAvatar: string | null): void {
         this.zone.run(() => {
             this.displayName = nextName;
@@ -286,7 +343,10 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
             this.isSaving = true;
         });
     }
+
     private async persistProfileOrRestoreEdit(nextName: string, avatar: string | null): Promise<void> {
+        if (this.isGuestUser) return;
+
         try {
             await this.userService.updateCurrentUserProfile({
                 displayName: nextName,
@@ -297,16 +357,19 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
             this.setEditingFlag(true);
         }
     }
+
     private setSavingFlag(value: boolean): void {
         this.zone.run(() => {
             this.isSaving = value;
         });
     }
+
     private setEditingFlag(value: boolean): void {
         this.zone.run(() => {
             this.isEditing = value;
         });
     }
+
     private selectAvatarFromProfile(profileAvatar: string | null): void {
         this.uploadedAvatarDataUrl = null;
         this.selectedAvatarId = null;
@@ -325,6 +388,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         this.selectedAvatarId = 'custom';
         this.uploadedAvatarDataUrl = normalizedAvatar;
     }
+
     private resolveAvatarForSave(): string | null {
         if (this.selectedAvatarId === 'custom') {
             return this.uploadedAvatarDataUrl;
@@ -336,6 +400,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         if (selectedAvatar) return `assets/pictures/${selectedAvatar.path}`;
         return this.editAvatarUrl;
     }
+
     private resizeImageToDataUrl(file: File, maxSize: number, quality: number): Promise<string> {
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
@@ -370,8 +435,19 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
             reader.readAsDataURL(file);
         });
     }
+
     private syncNameValidationState(): void {
         this.isEditNameEmpty = this.editDisplayName.trim().length === 0;
     }
-}
 
+    private syncGuestStateFromCurrentUser(): void {
+        const currentUser = this.authService.getCurrentUser();
+        if (currentUser) {
+            this.isGuestUser = currentUser.isAnonymous;
+        }
+    }
+
+    private syncGuestState(user: { isAnonymous?: boolean } | null): void {
+        this.isGuestUser = !user || !!user.isAnonymous;
+    }
+}

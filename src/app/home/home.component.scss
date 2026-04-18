@@ -1662,13 +1662,13 @@
 
     .message__reaction-picker-wrap .emoji-picker-popover,
     .message-toolbar__picker-wrap .emoji-picker-popover {
-        position: fixed;
-        top: 50%;
-        left: 50%;
+        position: absolute;
+        bottom: calc(100% + 8px);
+        left: 0;
         right: auto;
-        bottom: auto;
-        transform: translate(-50%, -50%);
-        width: calc(100vw - 24px);
+        top: auto;
+        transform: none;
+        width: min(340px, calc(100vw - 24px));
         max-width: 340px;
         min-width: 0;
         margin: 0;
@@ -1676,10 +1676,16 @@
         box-sizing: border-box;
     }
 
+    .message__reaction-picker-wrap .emoji-picker-popover.emoji-picker-popover--below,
+    .message-toolbar__picker-wrap .emoji-picker-popover.emoji-picker-popover--below {
+        bottom: auto;
+        top: calc(100% + 8px);
+    }
+
     .message__reactions--own .message__reaction-picker-wrap .emoji-picker-popover,
     .message-toolbar--own .emoji-picker-popover {
-        left: 50%;
-        right: auto;
+        left: auto;
+        right: 0;
     }
 }
 
@@ -1704,17 +1710,23 @@
 
     .message__reaction-picker-wrap .emoji-picker-popover,
     .message-toolbar__picker-wrap .emoji-picker-popover {
-        top: 50%;
-        left: 50%;
+        top: auto;
+        left: 0;
         right: auto;
-        bottom: auto;
-        transform: translate(-50%, -50%);
+        bottom: calc(100% + 8px);
+        transform: none;
         width: calc(100vw - 12px);
         max-width: calc(100vw - 12px);
         min-width: 0;
         padding: 6px;
         border-radius: 12px;
         box-sizing: border-box;
+    }
+
+    .message__reaction-picker-wrap .emoji-picker-popover.emoji-picker-popover--below,
+    .message-toolbar__picker-wrap .emoji-picker-popover.emoji-picker-popover--below {
+        bottom: auto;
+        top: calc(100% + 8px);
     }
 
     .message__reaction-picker-wrap .emoji-picker-popover emoji-mart,
