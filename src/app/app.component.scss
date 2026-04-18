@@ -1,4 +1,12 @@
 :host {
+    --auth-header-max-width: 1200px;
+    --auth-page-inline-padding: 40px;
+    --splash-target-x: calc(
+        (100vw - min(100vw, var(--auth-header-max-width))) / 2 +
+        var(--auth-page-inline-padding) +
+        78px
+    );
+    --splash-target-y: 58px;
     display: block;
     min-height: 100dvh;
     font-family: inherit;
@@ -97,7 +105,10 @@
         opacity: 1;
     }
     100% {
-        transform: translate(calc(-50vw + 118px), calc(-50vh + 58px)) scale(0.36);
+        transform: translate(
+            calc(-50vw + var(--splash-target-x)),
+            calc(-50vh + var(--splash-target-y))
+        ) scale(0.36);
         opacity: 1;
     }
 }
@@ -132,6 +143,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
+    width: min(100%, var(--auth-header-max-width));
+    margin: 0 auto;
 }
 
 .brand {
@@ -552,6 +565,12 @@ form {
 }
 
 @media (max-width: 520px) {
+    :host {
+        --auth-page-inline-padding: 8px;
+        --splash-target-x: calc(var(--auth-page-inline-padding) + 80px);
+        --splash-target-y: 52px;
+    }
+
     .password-tooltip {
         right: -8px;
         width: min(240px, calc(100vw - 24px));
@@ -587,7 +606,10 @@ form {
             opacity: 1;
         }
         100% {
-            transform: translate(calc(-50vw + 88px), calc(-50vh + 52px)) scale(0.34);
+            transform: translate(
+                calc(-50vw + var(--splash-target-x)),
+                calc(-50vh + var(--splash-target-y))
+            ) scale(0.34);
             opacity: 1;
         }
     }

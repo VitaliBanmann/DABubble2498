@@ -160,3 +160,25 @@
         }
     }
 }
+
+@media (max-width: 768px) {
+    .channel-members-popup {
+        width: 90vw;
+        margin: 10px auto;
+        position: relative;
+        top: 0 !important;
+        left: 0 !important;
+    }
+}
+
+@media (max-width: 430px) {
+    .channel-members-popup {
+        padding: 32px 24px 24px;
+    }
+    .channel-members-popup__remove-btn {
+        img {
+            width: 14px;
+            height: 14px;
+        }
+    }
+}
