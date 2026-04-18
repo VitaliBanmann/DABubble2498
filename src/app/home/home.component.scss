@@ -1033,6 +1033,42 @@
     left: 0;
 }
 
+.mobile-emoji-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1400;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+}
+
+.mobile-emoji-overlay__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(43, 45, 66, 0.28);
+}
+
+.mobile-emoji-overlay__panel {
+    position: relative;
+    z-index: 1;
+    width: min(340px, calc(100vw - 32px));
+    max-width: calc(100vw - 32px);
+    max-height: min(70dvh, 420px);
+    border: 1px solid #d8ddef;
+    border-radius: 16px;
+    padding: 10px;
+    background: #ffffff;
+    box-shadow: 0 20px 40px rgba(43, 45, 66, 0.18);
+    overflow: hidden;
+}
+
+.mobile-emoji-overlay__panel emoji-mart,
+.mobile-emoji-overlay__panel em-emoji-picker {
+    width: 100% !important;
+    max-width: 100% !important;
+}
+
 /* ========================================
    Composer
 ======================================== */
@@ -1296,7 +1332,7 @@
 ======================================== */
 .composer-emoji-picker {
     position: absolute;
-    bottom: 170px;
+    bottom: 105px;
     left: 20px;
     z-index: 50;
 
@@ -1687,12 +1723,27 @@
         left: auto;
         right: 0;
     }
+
+    .mobile-emoji-overlay {
+        padding: 12px;
+    }
+
+    .mobile-emoji-overlay__panel {
+        width: min(340px, calc(100vw - 24px));
+        max-width: calc(100vw - 24px);
+    }
 }
 
 @media (max-width: 479px) {
     .message__reaction-picker-wrap .emoji-picker-popover,
     .message-toolbar__picker-wrap .emoji-picker-popover {
         width: auto;
+        max-width: calc(100vw - 20px);
+        padding: 8px;
+    }
+
+    .mobile-emoji-overlay__panel {
+        width: min(320px, calc(100vw - 20px));
         max-width: calc(100vw - 20px);
         padding: 8px;
     }
@@ -1707,6 +1758,8 @@
     .message-list {
         padding: 8px;
     }
+
+    .composer-emoji-picker { left: 0; }
 
     .message__reaction-picker-wrap .emoji-picker-popover,
     .message-toolbar__picker-wrap .emoji-picker-popover {
@@ -1735,5 +1788,16 @@
     .message-toolbar__picker-wrap .emoji-picker-popover em-emoji-picker {
         width: 100% !important;
         max-width: 100% !important;
+    }
+
+    .mobile-emoji-overlay {
+        padding: 6px;
+    }
+
+    .mobile-emoji-overlay__panel {
+        width: calc(100vw - 12px);
+        max-width: calc(100vw - 12px);
+        padding: 6px;
+        border-radius: 12px;
     }
 }

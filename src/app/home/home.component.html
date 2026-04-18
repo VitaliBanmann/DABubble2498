@@ -406,7 +406,10 @@
                                                             />
                                                         </button>
 
-                                                        @if (isMessageEmojiPickerOpen(groupMessage, 'reactions')) {
+                                                        @if (
+                                                            isMessageEmojiPickerOpen(groupMessage, 'reactions') &&
+                                                            !isMobileToolbarMode()
+                                                        ) {
                                                             <div
                                                                 class="emoji-picker-popover"
                                                                 [class.emoji-picker-popover--below]="shouldOpenMessageEmojiPickerBelow(groupMessage, 'reactions')"
@@ -417,6 +420,32 @@
                                                                     [showPreview]="false"
                                                                     [perLine]="8"
                                                                 ></emoji-mart>
+                                                            </div>
+                                                        }
+
+                                                        @if (
+                                                            isMessageEmojiPickerOpen(groupMessage, 'reactions') &&
+                                                            isMobileToolbarMode()
+                                                        ) {
+                                                            <div
+                                                                class="mobile-emoji-overlay"
+                                                                (click)="closeAllEmojiPickers()"
+                                                            >
+                                                                <div
+                                                                    class="mobile-emoji-overlay__backdrop"
+                                                                    aria-hidden="true"
+                                                                ></div>
+
+                                                                <div
+                                                                    class="mobile-emoji-overlay__panel"
+                                                                    (click)="$event.stopPropagation()"
+                                                                >
+                                                                    <emoji-mart
+                                                                        (emojiSelect)="onMessageEmojiSelect($event, groupMessage)"
+                                                                        [showPreview]="false"
+                                                                        [perLine]="8"
+                                                                    ></emoji-mart>
+                                                                </div>
                                                             </div>
                                                         }
                                                     </div>
@@ -476,7 +505,10 @@
                                         />
                                     </button>
 
-                                    @if (isMessageEmojiPickerOpen(lastMessage, 'toolbar')) {
+                                    @if (
+                                        isMessageEmojiPickerOpen(lastMessage, 'toolbar') &&
+                                        !isMobileToolbarMode()
+                                    ) {
                                         <div
                                             class="emoji-picker-popover"
                                             [class.emoji-picker-popover--below]="shouldOpenMessageEmojiPickerBelow(lastMessage, 'toolbar')"
@@ -521,6 +553,32 @@
                                     </button>
                                 }
                             </div>
+
+                            @if (
+                                isMessageEmojiPickerOpen(lastMessage, 'toolbar') &&
+                                isMobileToolbarMode()
+                            ) {
+                                <div
+                                    class="mobile-emoji-overlay"
+                                    (click)="closeAllEmojiPickers()"
+                                >
+                                    <div
+                                        class="mobile-emoji-overlay__backdrop"
+                                        aria-hidden="true"
+                                    ></div>
+
+                                    <div
+                                        class="mobile-emoji-overlay__panel"
+                                        (click)="$event.stopPropagation()"
+                                    >
+                                        <emoji-mart
+                                            (emojiSelect)="onMessageEmojiSelect($event, lastMessage)"
+                                            [showPreview]="false"
+                                            [perLine]="8"
+                                        ></emoji-mart>
+                                    </div>
+                                </div>
+                            }
                         }
                     </div>
                 }
