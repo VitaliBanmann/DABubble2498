@@ -20,7 +20,10 @@ import { User, UserService } from '../../services/user.service';
 import { UiStateService } from '../../services/ui-state.service';
 import {
     createUniqueChannelId,
+    extractNormalizedErrorCode,
+    getDisplayNameInitials,
     getUniqueMembers,
+    isChannelNameConflictCode,
     mapSidebarDirectMessages,
     normalizeDirectMessageLabel,
     SidebarDirectMessage,
@@ -207,10 +210,7 @@ export abstract class SidebarComponentBase extends SidebarChannelSyncBase {
     }
 
     getInitials(displayName: string): string {
-        const parts = (displayName || '').trim().split(/\s+/).filter(Boolean);
-        if (!parts.length) return '?';
-        if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
-        return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase();
+        return getDisplayNameInitials(displayName || '');
     }
 
     createChannel(): void {
@@ -362,21 +362,7 @@ export abstract class SidebarComponentBase extends SidebarChannelSyncBase {
     }
 
     private isChannelNameConflictError(error: unknown): boolean {
-        const code = this.extractFirebaseErrorCode(error);
-        return (
-            code === 'already-exists'
-            || code === 'channel/already-exists'
-            || code === 'permission-denied'
-            || code === 'failed-precondition'
-        );
-    }
-
-    private extractFirebaseErrorCode(error: unknown): string {
-        if (!error || typeof error !== 'object') return '';
-        const raw = String((error as { code?: unknown }).code ?? '').trim();
-        if (!raw) return '';
-        const normalized = raw.toLowerCase();
-        return normalized.includes('/') ? normalized.split('/').pop() ?? '' : normalized;
+        return isChannelNameConflictCode(extractNormalizedErrorCode(error));
     }
 
     private resetCreateChannelFormState(): void {

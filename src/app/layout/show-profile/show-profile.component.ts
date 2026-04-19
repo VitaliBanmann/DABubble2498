@@ -19,6 +19,13 @@ import {
 } from 'rxjs';
 import { AuthService } from '../../services/auth.service';
 import { UserService } from '../../services/user.service';
+import {
+    extractProfileEmail,
+    firstNonEmptyString,
+    getProfileInitials,
+    normalizeAvatarUrl,
+    resizeImageToDataUrl,
+} from './show-profile.utils';
 
 interface ResolvedProfileView {
     displayName: string;
@@ -66,7 +73,6 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
     ];
 
     private readonly subscription = new Subscription();
-    private readonly profileEmailKeys = ['email', 'mail', 'emailAddress', 'eMail'] as const;
 
     constructor(
         private readonly authService: AuthService,
@@ -160,7 +166,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         this.uploadError = '';
 
         try {
-            const dataUrl = await this.resizeImageToDataUrl(file, 512, 0.82);
+            const dataUrl = await resizeImageToDataUrl(file, 512, 0.82);
             this.uploadedAvatarDataUrl = dataUrl;
             this.selectedAvatarId = 'custom';
             this.editAvatarUrl = dataUrl;
@@ -181,17 +187,8 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
 
     /** Returns initials. */
     get initials(): string {
-        const name = (this.isEditing ? this.editDisplayName : this.displayName).trim();
-        if (!name) {
-            return 'G';
-        }
-
-        const parts = name.split(/\s+/).filter(Boolean);
-        if (parts.length >= 2) {
-            return `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase();
-        }
-
-        return parts[0][0].toUpperCase();
+        const name = this.isEditing ? this.editDisplayName : this.displayName;
+        return getProfileInitials(name);
     }
 
     private subscribeToProfileUpdates(): void {
@@ -241,7 +238,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
     }
 
     private resolveDisplayName(user: any, profile: any): string {
-        return this.firstNonEmptyString(
+        return firstNonEmptyString(
             profile?.displayName,
             this.initialDisplayName,
             user?.displayName,
@@ -251,8 +248,8 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
     }
 
     private resolveEmail(user: any, profile: any): string {
-        return this.firstNonEmptyString(
-            this.extractProfileEmail(profile),
+        return firstNonEmptyString(
+            extractProfileEmail(profile),
             this.initialEmail,
             user?.email,
             '',
@@ -261,9 +258,9 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
 
     private resolveAvatar(user: any, profile: any): string | null {
         return (
-            this.normalizeAvatarUrl(profile?.avatar) ||
-            this.normalizeAvatarUrl(this.initialAvatarUrl) ||
-            this.normalizeAvatarUrl(user?.photoURL)
+            normalizeAvatarUrl(profile?.avatar)
+            || normalizeAvatarUrl(this.initialAvatarUrl)
+            || normalizeAvatarUrl(user?.photoURL)
         );
     }
 
@@ -284,46 +281,12 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
     }
 
     private applySeededAvatar(value: string | null): void {
-        const next = this.normalizeAvatarUrl(value);
+        const next = normalizeAvatarUrl(value);
         if (next) {
             this.avatarUrl = next;
             this.editAvatarUrl = next;
             this.selectAvatarFromProfile(next);
         }
-    }
-
-    private extractProfileEmail(profile: Record<string, unknown> | null): string {
-        if (!profile) return '';
-        for (const key of this.profileEmailKeys) {
-            const value = profile[key];
-            const email = typeof value === 'string' ? value.trim() : '';
-            if (email) return email;
-        }
-        return '';
-    }
-
-    private firstNonEmptyString(...values: Array<string | null | undefined>): string {
-        for (const value of values) {
-            const next = (value ?? '').trim();
-            if (next) return next;
-        }
-        return '';
-    }
-
-    private normalizeAvatarUrl(avatar: string | null | undefined): string | null {
-        const trimmed = (avatar ?? '').trim();
-        if (!trimmed) return null;
-        if (this.isDirectAvatarUrl(trimmed)) return trimmed;
-        return `assets/pictures/${trimmed.replace(/^\/+/, '')}`;
-    }
-
-    private isDirectAvatarUrl(value: string): boolean {
-        return (
-            value.startsWith('data:image/') ||
-            value.startsWith('http://') ||
-            value.startsWith('https://') ||
-            value.startsWith('assets/')
-        );
     }
 
     private createGuestView(): ResolvedProfileView {
@@ -374,7 +337,7 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         this.uploadedAvatarDataUrl = null;
         this.selectedAvatarId = null;
 
-        const normalizedAvatar = this.normalizeAvatarUrl(profileAvatar);
+        const normalizedAvatar = normalizeAvatarUrl(profileAvatar);
         if (!normalizedAvatar) return;
 
         const matchingAvatar = this.avatars.find(
@@ -399,41 +362,6 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
         );
         if (selectedAvatar) return `assets/pictures/${selectedAvatar.path}`;
         return this.editAvatarUrl;
-    }
-
-    private resizeImageToDataUrl(file: File, maxSize: number, quality: number): Promise<string> {
-        return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-
-            reader.onload = () => {
-                const img = new Image();
-
-                img.onload = () => {
-                    const canvas = document.createElement('canvas');
-                    const scale = Math.min(maxSize / img.width, maxSize / img.height, 1);
-                    const width = Math.round(img.width * scale);
-                    const height = Math.round(img.height * scale);
-
-                    canvas.width = width;
-                    canvas.height = height;
-
-                    const context = canvas.getContext('2d');
-                    if (!context) {
-                        reject(new Error('Canvas context unavailable'));
-                        return;
-                    }
-
-                    context.drawImage(img, 0, 0, width, height);
-                    resolve(canvas.toDataURL('image/jpeg', quality));
-                };
-
-                img.onerror = () => reject(new Error('Invalid image file'));
-                img.src = reader.result as string;
-            };
-
-            reader.onerror = () => reject(new Error('File could not be read'));
-            reader.readAsDataURL(file);
-        });
     }
 
     private syncNameValidationState(): void {

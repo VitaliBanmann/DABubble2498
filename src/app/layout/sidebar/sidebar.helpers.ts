@@ -49,6 +49,33 @@ export function normalizeDirectMessageLabel(label: string): string {
     return label.replace(' (Du)', '').trim();
 }
 
+/** Handles get initials from display name. */
+export function getDisplayNameInitials(displayName: string): string {
+    const parts = displayName.trim().split(/\s+/).filter(Boolean);
+    if (!parts.length) return '?';
+    if (parts.length === 1) return parts[0].charAt(0).toUpperCase();
+    return `${parts[0].charAt(0)}${parts[parts.length - 1].charAt(0)}`.toUpperCase();
+}
+
+/** Handles extract normalized firebase error code. */
+export function extractNormalizedErrorCode(error: unknown): string {
+    if (!error || typeof error !== 'object') return '';
+    const raw = String((error as { code?: unknown }).code ?? '').trim();
+    if (!raw) return '';
+    const normalized = raw.toLowerCase();
+    return normalized.includes('/') ? normalized.split('/').pop() ?? '' : normalized;
+}
+
+/** Handles channel name conflict detection. */
+export function isChannelNameConflictCode(code: string): boolean {
+    return (
+        code === 'already-exists'
+        || code === 'channel/already-exists'
+        || code === 'permission-denied'
+        || code === 'failed-precondition'
+    );
+}
+
 /** Handles resolve sidebar route state. */
 export function resolveSidebarRouteState(url: string): SidebarRouteState {
     const channelId = extractRouteSegment(url, /\/app\/channel\/([^/?#]+)/);

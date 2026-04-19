@@ -1,52 +1,16 @@
 import { Injectable } from '@angular/core';
-import { Message, MessageReaction, ThreadMessage } from '../services/message.service';
+import { Message, MessageReaction } from '../services/message.service';
 import { computeUpdatedReactions } from '../services/message.helpers';
-import { HomeSendMessageBase } from './home-send-message.base';
+import { HomeReactionsUiBase } from './home-reactions-ui.base';
 
 @Injectable()
-export abstract class HomeReactionsBase extends HomeSendMessageBase {
-    activeEmojiPicker:
-        | { type: 'composer' }
-        | { type: 'message'; messageId: string; source: 'toolbar' | 'reactions' }
-        | null = null;
-
+export abstract class HomeReactionsBase extends HomeReactionsUiBase {
     readonly defaultToolbarReactionEmojis = ['✅', '🎉'];
 
     private readonly collapsedReactionLimit = 7;
     private expandedReactionMessages = new Set<string>();
-    private threadReplyCountByMessageId: Record<string, number> = {};
-    private loadingThreadReplyCounts = new Set<string>();
-    private threadReplyCountSubscriptions: Record<string, any> = {};
-
-    protected readonly mobileToolbarBreakpointPx = 770;
-    mobileActiveMessageToolbarId: string | null = null;
-
-    /**
-     * Speichert pro Message + Quelle, ob der Picker oberhalb oder unterhalb geöffnet werden soll.
-     * Key-Format: `${messageId}::${source}`
-     */
-    private messageEmojiPickerPlacement: Record<string, 'above' | 'below'> = {};
-
-    /**
-     * Grobe Picker-Höhe zur Platzberechnung.
-     * Lieber etwas konservativer rechnen.
-     */
-    private readonly estimatedEmojiPickerHeightPx = 360;
-
-    /**
-     * Zusätzlicher Abstand unterhalb des Headers.
-     */
-    private readonly emojiPickerSafetyOffsetPx = 12;
 
     protected abstract triggerViewUpdate(): void;
-    protected abstract activeThreadParent: Message | null;
-    abstract openThreadForMessage(message: Message): void;
-
-    protected resetThreadReplyTracking(): void {
-        this.clearThreadReplyCountSubscriptions();
-        this.threadReplyCountByMessageId = {};
-        this.loadingThreadReplyCounts.clear();
-    }
 
     isReactionListExpanded(message: Message): boolean {
         return !!message.id && this.expandedReactionMessages.has(message.id);
@@ -217,169 +181,6 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
             : `${reaction.emoji} Reaktion`;
     }
 
-    canOpenThreadFromToolbar(message: Message): boolean {
-        return !!message.id;
-    }
-
-    getThreadReplyCount(message: Message): number {
-        const messageId = message.id ?? '';
-
-        if (messageId && messageId in this.threadReplyCountByMessageId) {
-            return this.threadReplyCountByMessageId[messageId];
-        }
-
-        const countValue = message.threadReplyCount ?? (message as any).threadCount ?? 0;
-        const count =
-            typeof countValue === 'number' ? countValue : Number(countValue);
-        const normalized =
-            Number.isFinite(count) && count > 0 ? Math.floor(count) : 0;
-
-        if (messageId) this.ensureThreadReplyCountSynced(messageId);
-
-        return normalized;
-    }
-
-    shouldShowThreadRepliesLink(message: Message): boolean {
-        return this.getThreadReplyCount(message) > 0;
-    }
-
-    onThreadRepliesClick(event: MouseEvent, message: Message): void {
-        event.preventDefault();
-        this.openThreadForMessage(message);
-    }
-
-    isMobileToolbarMode(): boolean {
-        return (
-            typeof window !== 'undefined' &&
-            window.innerWidth <= this.mobileToolbarBreakpointPx
-        );
-    }
-
-    toggleMobileMessageToolbar(message: Message, event?: MouseEvent): void {
-        if (!this.isMobileToolbarMode() || !message.id) return;
-
-        event?.stopPropagation();
-
-        this.mobileActiveMessageToolbarId =
-            this.mobileActiveMessageToolbarId === message.id ? null : message.id;
-    }
-
-    isMessageToolbarVisible(message: Message): boolean {
-        if (!message.id) return false;
-        if (!this.isMobileToolbarMode()) return true;
-        return this.mobileActiveMessageToolbarId === message.id;
-    }
-
-    closeMobileMessageToolbar(): void {
-        this.mobileActiveMessageToolbarId = null;
-    }
-
-    toggleComposerEmojiPicker(event: MouseEvent): void {
-        event.stopPropagation();
-
-        if (this.activeEmojiPicker?.type === 'composer') {
-            this.closeAllEmojiPickers();
-        } else {
-            this.activeEmojiPicker = { type: 'composer' };
-        }
-    }
-
-    toggleMessageEmojiPicker(
-        message: Message,
-        source: 'toolbar' | 'reactions',
-        event: MouseEvent,
-    ): void {
-        event.stopPropagation();
-
-        if (!message.id || !this.canWrite) return;
-
-        if (this.isMessageEmojiPickerOpen(message, source)) {
-            this.closeAllEmojiPickers();
-            return;
-        }
-
-        const placement = this.resolveMessageEmojiPickerPlacement(event.currentTarget as HTMLElement | null);
-
-        this.setMessageEmojiPickerPlacement(message.id, source, placement);
-
-        this.activeEmojiPicker = {
-            type: 'message',
-            messageId: message.id,
-            source,
-        };
-    }
-
-    isComposerEmojiPickerOpen(): boolean {
-        return this.activeEmojiPicker?.type === 'composer';
-    }
-
-    isMessageEmojiPickerOpen(
-        message: Message,
-        source?: 'toolbar' | 'reactions',
-    ): boolean {
-        if (!message.id || this.activeEmojiPicker?.type !== 'message') return false;
-        if (this.activeEmojiPicker.messageId !== message.id) return false;
-        if (!source) return true;
-        return this.activeEmojiPicker.source === source;
-    }
-
-    /**
-     * Liefert true, wenn der Picker für diese Message/Quelle unterhalb geöffnet werden soll.
-     */
-    shouldOpenMessageEmojiPickerBelow(
-        message: Message,
-        source: 'toolbar' | 'reactions',
-    ): boolean {
-        if (!message.id) return false;
-        return this.getMessageEmojiPickerPlacement(message.id, source) === 'below';
-    }
-
-    closeAllEmojiPickers(): void {
-        this.activeEmojiPicker = null;
-    }
-
-    closeComposerEmojiPicker(): void {
-        this.closeAllEmojiPickers();
-    }
-
-    onComposerEmojiSelect(event: any): void {
-        const emoji = event?.emoji?.native ?? event?.native ?? '';
-        const textarea = this.composerTextareaRef?.nativeElement;
-        if (!emoji || !textarea) return;
-
-        const next = this.insertComposerEmoji(textarea, emoji);
-
-        setTimeout(() => {
-            textarea.focus();
-            textarea.selectionStart = textarea.selectionEnd = next;
-            this.resizeComposerTextarea();
-        }, 0);
-
-        this.closeAllEmojiPickers();
-    }
-
-    protected insertComposerEmoji(
-        textarea: HTMLTextAreaElement,
-        emoji: string,
-    ): number {
-        const start = textarea.selectionStart;
-        const end = textarea.selectionEnd;
-        const value = this.messageControlValue ?? '';
-
-        this.setMessageControlValue(
-            value.substring(0, start) + emoji + value.substring(end),
-        );
-
-        return start + emoji.length;
-    }
-
-    onMessageEmojiSelect(event: any, message: Message): void {
-        const emoji = event?.emoji?.native ?? event?.native ?? '';
-        if (!emoji || !message.id) return;
-
-        this.toggleReaction(message, emoji);
-        this.closeAllEmojiPickers();
-    }
 
     hasMentionForCurrentUser(message: Message): boolean {
         return (
@@ -388,44 +189,6 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
         );
     }
 
-    isThreadParent(message: Message): boolean {
-        return !!message.id && message.id === this.activeThreadParent?.id;
-    }
-
-    protected override tryScrollToMessage(): void {
-        const msgId = this.pendingScrollToMessageId;
-        if (!msgId) return;
-
-        setTimeout(() => this.highlightScrolledMessage(msgId), 400);
-    }
-
-    protected highlightScrolledMessage(msgId: string): void {
-        const el = document.getElementById('msg-' + msgId);
-        if (!el) return;
-
-        el.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        el.classList.add('message__line--highlight');
-        this.pendingScrollToMessageId = null;
-
-        setTimeout(() => el.classList.remove('message__line--highlight'), 2500);
-    }
-
-    private ensureThreadReplyCountSynced(messageId: string): void {
-        if (!this.canStartThreadReplySync(messageId)) return;
-
-        this.loadingThreadReplyCounts.add(messageId);
-
-        this.threadReplyCountSubscriptions[messageId] = this.messageService
-            .getThreadMessages(messageId)
-            .subscribe(this.threadReplySyncObserver(messageId));
-    }
-
-    private clearThreadReplyCountSubscriptions(): void {
-        Object.values(this.threadReplyCountSubscriptions).forEach((sub: any) =>
-            sub.unsubscribe(),
-        );
-        this.threadReplyCountSubscriptions = {};
-    }
 
     private applyReactionStateToMessageCollections(
         message: Message,
@@ -488,86 +251,4 @@ export abstract class HomeReactionsBase extends HomeSendMessageBase {
         };
     }
 
-    private canStartThreadReplySync(messageId: string): boolean {
-        return (
-            !this.threadReplyCountSubscriptions[messageId] &&
-            !this.loadingThreadReplyCounts.has(messageId)
-        );
-    }
-
-    private threadReplySyncObserver(messageId: string) {
-        return {
-            next: (threadMessages: ThreadMessage[]) =>
-                this.onThreadReplySyncSuccess(messageId, threadMessages),
-            error: () => this.onThreadReplySyncError(messageId),
-        };
-    }
-
-    private onThreadReplySyncSuccess(
-        messageId: string,
-        threadMessages: ThreadMessage[],
-    ): void {
-        this.threadReplyCountByMessageId[messageId] = threadMessages.length;
-        this.loadingThreadReplyCounts.delete(messageId);
-    }
-
-    private onThreadReplySyncError(messageId: string): void {
-        this.loadingThreadReplyCounts.delete(messageId);
-        const sub = this.threadReplyCountSubscriptions[messageId];
-        sub?.unsubscribe();
-        delete this.threadReplyCountSubscriptions[messageId];
-    }
-
-    private getMessageEmojiPickerPlacementKey(
-        messageId: string,
-        source: 'toolbar' | 'reactions',
-    ): string {
-        return `${messageId}::${source}`;
-    }
-
-    private setMessageEmojiPickerPlacement(
-        messageId: string,
-        source: 'toolbar' | 'reactions',
-        placement: 'above' | 'below',
-    ): void {
-        const key = this.getMessageEmojiPickerPlacementKey(messageId, source);
-        this.messageEmojiPickerPlacement[key] = placement;
-    }
-
-    private getMessageEmojiPickerPlacement(
-        messageId: string,
-        source: 'toolbar' | 'reactions',
-    ): 'above' | 'below' {
-        const key = this.getMessageEmojiPickerPlacementKey(messageId, source);
-        return this.messageEmojiPickerPlacement[key] ?? 'below';
-    }
-
-    /**
-     * Entscheidet, ob der Picker oberhalb oder unterhalb geöffnet werden soll.
-     * Standard ist "unterhalb". Falls unten nicht genug Platz ist, wird oberhalb geöffnet.
-     */
-    private resolveMessageEmojiPickerPlacement(
-        triggerElement: HTMLElement | null,
-    ): 'above' | 'below' {
-        if (typeof window === 'undefined' || typeof document === 'undefined') {
-            return 'below';
-        }
-
-        if (!triggerElement) return 'below';
-
-        const triggerRect = triggerElement.getBoundingClientRect();
-        const headerElement = document.querySelector('.home-header') as HTMLElement | null;
-        const headerBottom = headerElement?.getBoundingClientRect().bottom ?? 0;
-        const viewportTopLimit = headerBottom + this.emojiPickerSafetyOffsetPx;
-        const viewportBottomLimit = window.innerHeight - this.emojiPickerSafetyOffsetPx;
-
-        const availableSpaceAbove = triggerRect.top - viewportTopLimit;
-        const availableSpaceBelow = viewportBottomLimit - triggerRect.bottom;
-        const minimumRequiredSpace =
-            this.estimatedEmojiPickerHeightPx + this.emojiPickerSafetyOffsetPx;
-
-        if (availableSpaceBelow >= minimumRequiredSpace) return 'below';
-        if (availableSpaceAbove >= minimumRequiredSpace) return 'above';
-        return availableSpaceBelow >= availableSpaceAbove ? 'below' : 'above';
-    }
 }
