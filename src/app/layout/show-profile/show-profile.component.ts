@@ -153,31 +153,38 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
     }
 
     async handleFileUpload(event: Event): Promise<void> {
-        if (this.isGuestUser || !this.isEditing || this.isSaving) return;
+        if (!this.canUploadFile()) return;
+        const file = this.extractFileFromEvent(event);
+        if (!file) return;
+        await this.processUploadedFile(file, event.target as HTMLInputElement);
+    }
 
+    private canUploadFile(): boolean {
+        return !this.isGuestUser && this.isEditing && !this.isSaving;
+    }
+
+    private extractFileFromEvent(event: Event): File | null {
         const target = event.target as HTMLInputElement;
-        const file = target.files?.[0];
+        return target.files?.[0] ?? null;
+    }
 
-        if (!file) {
-            target.value = '';
-            return;
-        }
-
+    private async processUploadedFile(file: File, inputEl: HTMLInputElement): Promise<void> {
         this.uploadError = '';
-
         try {
             const dataUrl = await resizeImageToDataUrl(file, 512, 0.82);
-            this.uploadedAvatarDataUrl = dataUrl;
-            this.selectedAvatarId = 'custom';
-            this.editAvatarUrl = dataUrl;
-            this.showAvatarPicker = true;
+            this.applyUploadedImageState(dataUrl);
         } catch (error) {
+            this.uploadError = 'Das Bild konnte nicht verarbeitet werden. Bitte versuche eine andere Datei.';
             console.error('Avatar upload failed:', error);
-            this.uploadError =
-                'Das Bild konnte nicht verarbeitet werden. Bitte versuche eine andere Datei.';
         }
+        inputEl.value = '';
+    }
 
-        target.value = '';
+    private applyUploadedImageState(dataUrl: string): void {
+        this.uploadedAvatarDataUrl = dataUrl;
+        this.selectedAvatarId = 'custom';
+        this.editAvatarUrl = dataUrl;
+        this.showAvatarPicker = true;
     }
 
     /** Returns avatar url for current mode. */
@@ -334,22 +341,25 @@ export class ShowProfileComponent implements OnInit, OnDestroy {
     }
 
     private selectAvatarFromProfile(profileAvatar: string | null): void {
+        this.clearAvatarSelection();
+        const normalized = normalizeAvatarUrl(profileAvatar);
+        if (!normalized) return;
+        this.selectMatchingOrCustomAvatar(normalized);
+    }
+
+    private clearAvatarSelection(): void {
         this.uploadedAvatarDataUrl = null;
         this.selectedAvatarId = null;
+    }
 
-        const normalizedAvatar = normalizeAvatarUrl(profileAvatar);
-        if (!normalizedAvatar) return;
-
-        const matchingAvatar = this.avatars.find(
-            (avatar) => `assets/pictures/${avatar.path}` === normalizedAvatar,
-        );
-        if (matchingAvatar) {
-            this.selectedAvatarId = matchingAvatar.id;
-            return;
+    private selectMatchingOrCustomAvatar(normalized: string): void {
+        const match = this.avatars.find((a) => `assets/pictures/${a.path}` === normalized);
+        if (match) {
+            this.selectedAvatarId = match.id;
+        } else {
+            this.selectedAvatarId = 'custom';
+            this.uploadedAvatarDataUrl = normalized;
         }
-
-        this.selectedAvatarId = 'custom';
-        this.uploadedAvatarDataUrl = normalizedAvatar;
     }
 
     private resolveAvatarForSave(): string | null {

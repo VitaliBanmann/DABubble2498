@@ -140,20 +140,26 @@ export abstract class HomeReactionsUiBase extends HomeReactionsThreadBase {
     }
 
     private resolveMessageEmojiPickerPlacement(triggerElement: HTMLElement | null): 'above' | 'below' {
-        if (typeof window === 'undefined' || typeof document === 'undefined') return 'below';
-        if (!triggerElement) return 'below';
+        if (!triggerElement || typeof window === 'undefined' || typeof document === 'undefined') return 'below';
+        const spaces = this.calculateSpacesForPlacement(triggerElement);
+        return this.decidePlacementBySpace(spaces);
+    }
 
-        const triggerRect = triggerElement.getBoundingClientRect();
-        const headerElement = document.querySelector('.home-header') as HTMLElement | null;
-        const headerBottom = headerElement?.getBoundingClientRect().bottom ?? 0;
+    private calculateSpacesForPlacement(trigger: HTMLElement): { above: number; below: number; required: number } {
+        const triggerRect = trigger.getBoundingClientRect();
+        const headerBottom = (document.querySelector('.home-header') as HTMLElement)?.getBoundingClientRect().bottom ?? 0;
         const topLimit = headerBottom + this.emojiPickerSafetyOffsetPx;
         const bottomLimit = window.innerHeight - this.emojiPickerSafetyOffsetPx;
-        const above = triggerRect.top - topLimit;
-        const below = bottomLimit - triggerRect.bottom;
-        const required = this.estimatedEmojiPickerHeightPx + this.emojiPickerSafetyOffsetPx;
+        return {
+            above: triggerRect.top - topLimit,
+            below: bottomLimit - triggerRect.bottom,
+            required: this.estimatedEmojiPickerHeightPx + this.emojiPickerSafetyOffsetPx,
+        };
+    }
 
-        if (below >= required) return 'below';
-        if (above >= required) return 'above';
-        return below >= above ? 'below' : 'above';
+    private decidePlacementBySpace(s: { above: number; below: number; required: number }): 'above' | 'below' {
+        if (s.below >= s.required) return 'below';
+        if (s.above >= s.required) return 'above';
+        return s.below >= s.above ? 'below' : 'above';
     }
 }
