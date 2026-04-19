@@ -68,10 +68,10 @@ export abstract class HomeChannelManagementBase extends HomeMessageActionsBase {
     openChannelMembersPopup(): void {
         if ((this as any).isComposeMode || this.isDirectMessage) return;
 
-        this.positionChannelMembersPopup();
         this.isChannelPopupOpen = false;
         this.isAddMemberPopupOpen = false;
         this.isChannelMembersPopupOpen = true;
+        this.updateChannelMembersPopupPosition();
     }
 
     closeChannelMembersPopup(): void {
@@ -84,13 +84,28 @@ export abstract class HomeChannelManagementBase extends HomeMessageActionsBase {
 
         const rect = el.getBoundingClientRect();
         const vw = window.innerWidth;
-        const pw = Math.min(415, vw - 48);
+        const vh = window.innerHeight;
+        const horizontalMargin = 24;
+        const verticalGap = 12;
+        const popupWidth = Math.min(415, Math.max(280, vw - horizontalMargin * 2));
+        const maxLeft = Math.max(horizontalMargin, vw - popupWidth - horizontalMargin);
 
         this.channelMembersPopupLeft = Math.min(
-            Math.max(Math.round(rect.right - pw), 24),
-            Math.max(24, vw - pw - 24),
+            Math.max(Math.round(rect.right - popupWidth), horizontalMargin),
+            maxLeft,
         );
-        this.channelMembersPopupTop = Math.round(rect.bottom + 12);
+        this.channelMembersPopupTop = Math.min(
+            Math.round(rect.bottom + verticalGap),
+            Math.max(horizontalMargin, vh - horizontalMargin),
+        );
+    }
+
+    protected updateChannelMembersPopupPosition(): void {
+        if (!this.isChannelMembersPopupOpen) {
+            return;
+        }
+
+        this.positionChannelMembersPopup();
     }
 
     protected isProtectedDefaultChannel(channelId: string): boolean {

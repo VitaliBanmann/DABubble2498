@@ -209,9 +209,16 @@ export class HomeComponent extends HomeDisplayBase implements OnInit, OnDestroy 
 
     @HostListener('window:resize')
     onWindowResize(): void {
+        this.updateChannelMembersPopupPosition();
+
         if (!this.isMobileToolbarMode()) {
             this.closeMobileMessageToolbar();
         }
+    }
+
+    @HostListener('window:scroll')
+    onWindowScroll(): void {
+        this.updateChannelMembersPopupPosition();
     }
 
     /** Handles on escape key. */
