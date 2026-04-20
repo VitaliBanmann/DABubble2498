@@ -86,10 +86,7 @@ export class AuthFlowService {
     async logoutToLogin(): Promise<void> {
         await this.presenceService.setStatus('offline');
         await this.authService.logout();
-        await this.router.navigateByUrl('/');
-        if (typeof window !== 'undefined') {
-            window.location.assign('/');
-        }
+        await this.router.navigateByUrl('/', { replaceUrl: true });
     }
 
     /** Handles redirect to login if protected. */
